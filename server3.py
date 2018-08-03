@@ -1,12 +1,20 @@
 #!/Users/hugo/.virtualenvs/dredis/bin/python
 
 import asyncore
+import hashlib
 import shutil
 import socket
 import os.path
+import tempfile
 import uuid
 
 import sys
+
+
+def cmd_command(send_fn):
+    send_fn("*{}\r\n".format(len(CMDS)))
+    for cmd in CMDS:
+        send_fn("${}{}\r\n".format(len(cmd), cmd.upper()))
 
 
 def cmd_ping(send_fn, *args):
@@ -27,9 +35,10 @@ def cmd_get(send_fn, key):
 
 
 def cmd_sadd(send_fn, key, *values):
+    count = 0
     for value in values:
-        keyspace.sadd(key, value)
-    send_fn(":{}\r\n".format(len(values)))
+        count += keyspace.sadd(key, value)
+    send_fn(":{}\r\n".format(count))
 
 
 def cmd_smembers(send_fn, key):
@@ -51,6 +60,11 @@ def cmd_del(send_fn, key):
 def cmd_scard(send_fn, key):
     count = keyspace.scard(key)
     send_fn(':{}\r\n'.format(count))
+
+
+def cmd_sismember(send_fn, key, value):
+    result = keyspace.sismember(key, value)
+    send_fn(':{}\r\n'.format(int(result)))
 
 
 # class Keyspace(object):
@@ -86,13 +100,21 @@ class DiskKeyspace(object):
 
     def __init__(self):
         self.keys = {}
-        self.directory = '/tmp/red'
+        self.directory = tempfile.mkdtemp("redis-test-")
 
     def _key_path(self, key):
         return os.path.join(self.directory, key)
 
-    # def flushall(self):
-    #     shutil.rmtree(self.directory)
+    def flushall(self):
+        pass
+        # try:
+        #     shutil.rmtree(self.directory)
+        # except:
+        #     pass
+        # try:
+        #     os.makedirs(self.directory)
+        # except:
+        #     pass
 
     def exists(self, key):
         return os.path.exists(self._key_path(key))
@@ -109,9 +131,14 @@ class DiskKeyspace(object):
         key_path = self._key_path(key)
         if not self.exists(key):
             os.makedirs(key_path)
-        fname = str(uuid.uuid4())
-        with open(os.path.join(key_path, fname), 'w') as f:
-            f.write(value)
+        fname = hashlib.md5(value).hexdigest()
+        value_path = os.path.join(key_path, fname)
+        if os.path.exists(value_path):
+            return 0
+        else:
+            with open(value_path, 'w') as f:
+                f.write(value)
+            return 1
 
     def smembers(self, key):
         result = set()
@@ -122,15 +149,22 @@ class DiskKeyspace(object):
                     result.add(f.read())
         return result
 
+    def sismember(self, key, value):
+        key_path = self._key_path(key)
+        fname = hashlib.md5(value).hexdigest()
+        value_path = os.path.join(key_path, fname)
+        return os.path.exists(value_path)
+
     def scard(self, key):
-        count = 0
-        if self.exists(key):
-            count = len(os.listdir(self._key_path(key)))
-        return count
+        return len(self.smembers(key))
 
     def delete(self, key):
         if self.exists(key):
-            os.remove(self._key_path(key))
+            key_path = self._key_path(key)
+            if os.path.isfile(key_path):
+                os.remove(self._key_path(key))
+            else:
+                shutil.rmtree(key_path)
             return 1
         else:
             return 0
@@ -138,8 +172,7 @@ class DiskKeyspace(object):
 
 keyspace = DiskKeyspace()
 
-CMDS = {name: fn for (name, fn) in globals().items() if name.startswith("cmd_")}
-
+CMDS = {name[len("cmd_"):]: fn for (name, fn) in globals().items() if name.startswith("cmd_")}
 
 def execute_cmd(send_fn, cmd, *args):
     print('cmd={}, args={}'.format(repr(cmd), repr(args)))
@@ -162,7 +195,11 @@ class CommandHandler(asyncore.dispatcher_with_send):
                 cmd.append(lines.pop(0))
         else:
             cmd = [l]
-        execute_cmd(self.send, *cmd)
+        execute_cmd(self.debug_send, *cmd)
+
+    def debug_send(self, *args):
+        print("out={}".format(repr(args)))
+        return self.send(*args)
 
 
 class RedisServer(asyncore.dispatcher):
@@ -180,6 +217,8 @@ class RedisServer(asyncore.dispatcher):
             sock, addr = pair
             print 'Incoming connection from %s' % repr(addr)
             CommandHandler(sock)
+            sys.stdout.flush()
+            sys.stderr.flush()
 
 
 if __name__ == '__main__':
@@ -187,6 +226,8 @@ if __name__ == '__main__':
         port = int(sys.argv[1])
     else:
         port = 6377
+
+    keyspace.flushall()
 
     RedisServer('127.0.0.1', port)
     print 'PID: {}'.format(os.getpid())
