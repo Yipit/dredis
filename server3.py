@@ -68,6 +68,20 @@ def cmd_sismember(send_fn, key, value):
     send_fn(':{}\r\n'.format(int(result)))
 
 
+def cmd_zadd(send_fn, key, score, *values):
+    count = 0
+    for value in values:
+        count += keyspace.zadd(key, score, value)
+    send_fn(":{}\r\n".format(count))
+
+
+def cmd_zrange(send_fn, key, start, stop, with_scores=False):
+    members = keyspace.zrange(key, int(start), int(stop), bool(with_scores))
+    send_fn("*{len}\r\n".format(len=len(members)))
+    for member in members:
+        send_fn("${len}\r\n{value}\r\n".format(len=len(member), value=member))
+
+
 def not_found(send_fn, cmd):
     send_fn("-ERR unknown command '{}'\r\n".format(cmd))
 
@@ -173,6 +187,70 @@ class DiskKeyspace(object):
             return 1
         else:
             return 0
+
+    def zadd(self, key, score, value):
+        """
+        # alternative
+        /path/x/10
+        /path/y/20 -> 10
+        /path/z/30
+        --------
+        # alternative
+        /path/10/x
+        /path/20/y ->
+        /path/30/z
+        /path/1/y <-
+        ------
+        # alternative
+        /path/10.txt -> x
+        /path/20.txt -> y
+        /path/30.txt -> z
+        ------
+        # current
+        /path/10 -> 1,x
+        /path/20 -> 1,y
+        /path/30 -> 1,z
+        """
+        key_path = self._key_path(key)
+        if not os.path.exists(key_path):
+            os.makedirs(key_path)
+
+        score_path = os.path.join(key_path, score)
+        if os.path.exists(score_path):
+            with open(score_path, 'r+') as f:
+                for line in f.readlines():
+                    line = line.strip()
+                    if line == value:
+                        return 0
+
+        for existing_score in os.listdir(key_path):
+            existing_score_path = os.path.join(key_path, existing_score)
+            with open(existing_score_path, 'r') as f:
+                values = [line.strip() for line in f.readlines()]
+            if value in values:
+                values.remove(value)
+                with open(existing_score_path, 'w') as f:
+                    if values:
+                        f.write('\n'.join(values) + '\n')
+
+        with open(score_path, 'a') as f:
+            f.write(value + '\n')
+        return 1
+
+    def zrange(self, key, start, stop, with_scores):
+        key_path = self._key_path(key)
+        lines = []
+        if os.path.exists(key_path):
+            scores = sorted(os.listdir(key_path), key=int)
+            for score in scores:
+                with open(os.path.join(key_path, score)) as f:
+                    sublist = sorted(line.strip() for line in f.readlines())
+                    lines.extend(sublist)
+        if stop < 0:
+            stop = -stop
+        end = len(lines) - stop + 1
+        return lines[start:end]
+
 
 
 keyspace = DiskKeyspace()
