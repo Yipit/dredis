@@ -6,6 +6,7 @@ import shutil
 import socket
 import os.path
 import tempfile
+import traceback
 import uuid
 
 import sys
@@ -65,6 +66,10 @@ def cmd_scard(send_fn, key):
 def cmd_sismember(send_fn, key, value):
     result = keyspace.sismember(key, value)
     send_fn(':{}\r\n'.format(int(result)))
+
+
+def not_found(send_fn, cmd):
+    send_fn("-ERR unknown command '{}'\r\n".format(cmd))
 
 
 # class Keyspace(object):
@@ -174,9 +179,19 @@ keyspace = DiskKeyspace()
 
 CMDS = {name[len("cmd_"):]: fn for (name, fn) in globals().items() if name.startswith("cmd_")}
 
+
+def err(send_fn, tb):
+    send_fn("-Server exception: {}\r\n".format(tb))
+
+
 def execute_cmd(send_fn, cmd, *args):
     print('cmd={}, args={}'.format(repr(cmd), repr(args)))
-    CMDS[cmd.lower()](send_fn, *args)
+    try:
+        CMDS[cmd.lower()](send_fn, *args)
+    except KeyError:
+        not_found(send_fn, cmd)
+    except Exception as e:
+        err(send_fn, traceback.format_exc())
 
 
 class CommandHandler(asyncore.dispatcher_with_send):
