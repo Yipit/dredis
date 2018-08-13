@@ -53,6 +53,11 @@ def cmd_select(send_fn, db):
     send_fn('+OK\r\n')
 
 
+def cmd_flushall(send_fn):
+    keyspace.flushall()
+    send_fn('+OK\r\n')
+
+
 def cmd_del(send_fn, key):
     count = keyspace.delete(key)
     send_fn(':{}\r\n'.format(count))
@@ -82,58 +87,33 @@ def cmd_zrange(send_fn, key, start, stop, with_scores=False):
         send_fn("${len}\r\n{value}\r\n".format(len=len(member), value=member))
 
 
+def cmd_zcard(send_fn, key):
+    send_fn(':{}\r\n'.format(keyspace.zcard(key)))
+
+
 def not_found(send_fn, cmd):
     send_fn("-ERR unknown command '{}'\r\n".format(cmd))
-
-
-# class Keyspace(object):
-#
-#     def __init__(self):
-#         self.keys = {}
-#
-#     def exists(self, key):
-#         return key in self.keys
-#
-#     def get(self, key):
-#         return self.keys[key]
-#
-#     def set(self, key, value):
-#         self.keys[key] = value
-#
-#     def sadd(self, key, value):
-#         members = self.smembers(key)
-#         members.add(value)
-#         self.set(key, members)
-#
-#     def smembers(self, key):
-#         if self.exists(key):
-#             return self.get(key)
-#         else:
-#             return set()
-#
-#
-# keyspace = Keyspace()
 
 
 class DiskKeyspace(object):
 
     def __init__(self):
         self.keys = {}
-        self.directory = tempfile.mkdtemp("redis-test-")
+        self.directory = tempfile.mkdtemp(prefix="redis-test-")
+        print("Directory = {}".format(self.directory))
 
     def _key_path(self, key):
         return os.path.join(self.directory, key)
 
     def flushall(self):
-        pass
-        # try:
-        #     shutil.rmtree(self.directory)
-        # except:
-        #     pass
-        # try:
-        #     os.makedirs(self.directory)
-        # except:
-        #     pass
+        try:
+            shutil.rmtree(self.directory)
+        except:
+            pass
+        try:
+            os.makedirs(self.directory)
+        except:
+            pass
 
     def exists(self, key):
         return os.path.exists(self._key_path(key))
@@ -251,6 +231,12 @@ class DiskKeyspace(object):
         end = len(lines) - stop + 1
         return lines[start:end]
 
+    def zcard(self, key):
+        key_path = self._key_path(key)
+        if os.path.exists(key_path):
+            return len(os.listdir(key_path))
+        else:
+            return 0
 
 
 keyspace = DiskKeyspace()
@@ -289,6 +275,7 @@ class CommandHandler(asyncore.dispatcher_with_send):
         else:
             cmd = [l]
         execute_cmd(self.debug_send, *cmd)
+        print('')
 
     def debug_send(self, *args):
         print("out={}".format(repr(args)))
