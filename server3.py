@@ -8,7 +8,6 @@ import socket
 import os.path
 import tempfile
 import traceback
-import uuid
 
 import sys
 
