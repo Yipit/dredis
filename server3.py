@@ -2,6 +2,7 @@
 
 import asyncore
 import hashlib
+import json
 import shutil
 import socket
 import os.path
@@ -245,7 +246,7 @@ CMDS = {name[len("cmd_"):]: fn for (name, fn) in globals().items() if name.start
 
 
 def err(send_fn, tb):
-    send_fn("-Server exception: {}\r\n".format(tb))
+    send_fn("-Server exception: {}\r\n".format(json.dumps(tb)))
 
 
 def execute_cmd(send_fn, cmd, *args):
