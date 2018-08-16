@@ -188,43 +188,50 @@ class DiskKeyspace(object):
         /path/30.txt -> z
         ------
         # current
-        /path/10 -> 1,x
-        /path/20 -> 1,y
-        /path/30 -> 1,z
+        /path/scores/10 -> "x1\nx2"
+        /path/scores/20 -> "y"
+        /path/scores/30 -> "z"
+        /path/values/hash(x) -> 1
         """
         key_path = self._key_path(key)
+        scores_path = os.path.join(key_path, 'scores')
+        values_path = os.path.join(key_path, 'values')
         if not os.path.exists(key_path):
-            os.makedirs(key_path)
+            os.makedirs(scores_path)
+            os.makedirs(values_path)
 
-        score_path = os.path.join(key_path, score)
-        if os.path.exists(score_path):
-            with open(score_path, 'r+') as f:
-                for line in f.readlines():
-                    line = line.strip()
-                    if line == value:
-                        return 0
-
-        for existing_score in os.listdir(key_path):
-            existing_score_path = os.path.join(key_path, existing_score)
-            with open(existing_score_path, 'r') as f:
-                values = [line.strip() for line in f.readlines()]
-            if value in values:
-                values.remove(value)
-                with open(existing_score_path, 'w') as f:
-                    if values:
-                        f.write('\n'.join(values) + '\n')
-
-        with open(score_path, 'a') as f:
-            f.write(value + '\n')
-        return 1
+        score_path = os.path.join(scores_path, score)
+        value_path = os.path.join(values_path, hashlib.md5(value).hexdigest())
+        if os.path.exists(value_path):
+            with open(value_path, 'r') as fvalue:
+                previous_score = fvalue.read()
+            if previous_score == score:
+                return 0
+            else:
+                tempfd, tempfname = tempfile.mkstemp()
+                with open(tempfname, 'w') as tfile:
+                    with open(score_path) as f:
+                        for line in f.readlines():
+                            if line.strip() != value:
+                                tfile.write(line)
+                os.close(tempfd)
+                os.rename(tempfname, score_path)
+                return 1
+        else:
+            with open(value_path, 'w') as f:
+                f.write(score)
+            with open(score_path, 'a') as f:
+                f.write(value + '\n')
+            return 1
 
     def zrange(self, key, start, stop, with_scores):
         key_path = self._key_path(key)
         lines = []
-        if os.path.exists(key_path):
-            scores = sorted(os.listdir(key_path), key=int)
+        scores_path = os.path.join(key_path, 'scores')
+        if os.path.exists(scores_path):
+            scores = sorted(os.listdir(scores_path), key=int)
             for score in scores:
-                with open(os.path.join(key_path, score)) as f:
+                with open(os.path.join(scores_path, score)) as f:
                     sublist = sorted(line.strip() for line in f.readlines())
                     lines.extend(sublist)
         if stop < 0:
@@ -234,8 +241,9 @@ class DiskKeyspace(object):
 
     def zcard(self, key):
         key_path = self._key_path(key)
-        if os.path.exists(key_path):
-            return len(os.listdir(key_path))
+        values_path = os.path.join(key_path, 'values')
+        if os.path.exists(values_path):
+            return len(os.listdir(values_path))
         else:
             return 0
 

@@ -1,4 +1,5 @@
 import redis
+import time
 
 HOST, PORT = 'localhost', 6377
 
@@ -44,3 +45,20 @@ def test_zset_with_rescoring():
     assert r.zcard('myzset') == 2
     assert r.zrange('myzset', 0, -1) == ['myvalue1', 'myvalue2']
 
+
+def test_very_large_zset():
+    r = redis.StrictRedis(host=HOST, port=PORT)
+    r.flushall()
+    large_number = int(1e3)
+    before_zadd = time.time()
+    for score in range(large_number):
+        r.zadd('myzset', 0, 'value{}'.format(score))
+        # r.zadd('myzset', score, 'value{}'.format(score))
+    after_zadd = time.time()
+    before_zcard = time.time()
+    # assert r.zcard('myzset') == large_number
+    r.zcard('myzset')
+    after_zcard = time.time()
+
+    print '\nZADD time = {}s'.format(after_zadd - before_zadd)
+    print 'ZCARD time = {}s'.format(after_zcard - before_zcard)
