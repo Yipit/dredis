@@ -299,29 +299,30 @@ class DiskKeyspace(object):
     def eval(self, script, numkeys, keys):
         lua = LuaRuntime(unpack_returned_tuples=True)
         lua.execute('KEYS = {%s}' % ', '.join(map(json.dumps, keys)))
-
-        that = self
-
-        class RedisLua(object):
-
-            def call(self, cmd, *args):
-                try:
-                    method = getattr(that, cmd)
-                    return method(*args)
-                except AttributeError:
-                    raise RedisScriptError('@user_script: Unknown Redis command called from Lua script')
-                except Exception as exc:
-                    raise RedisScriptError(str(exc))
-
-            def pcall(self, cmd, *args):
-                try:
-                    return self.call(cmd, *args)
-                except Exception as exc:
-                    return {'err': 'ERR Error running script: {}'.format(str(exc))}
-
-        redis_obj = RedisLua()
+        redis_obj = RedisLua(self)
         redis_lua = lua.eval('function(redis) {} end'.format(script))
         return redis_lua(redis_obj)
+
+
+class RedisLua(object):
+
+    def __init__(self, keyspace):
+        self._keyspace = keyspace
+
+    def call(self, cmd, *args):
+        try:
+            method = getattr(self._keyspace, cmd)
+            return method(*args)
+        except AttributeError:
+            raise RedisScriptError('@user_script: Unknown Redis command called from Lua script')
+        except Exception as exc:
+            raise RedisScriptError(str(exc))
+
+    def pcall(self, cmd, *args):
+        try:
+            return self.call(cmd, *args)
+        except Exception as exc:
+            return {'err': 'ERR Error running script: {}'.format(str(exc))}
 
 
 keyspace = DiskKeyspace()
