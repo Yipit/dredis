@@ -3,48 +3,20 @@
 import asyncore
 import hashlib
 import json
+import os.path
 import shutil
 import socket
-import os.path
+import sys
 import tempfile
 import traceback
 
-import sys
-
 from lupa import LuaRuntime
+
+from dredis.parser import parse_instructions
 
 
 class RedisScriptError(Exception):
     """Indicate error from calls to redis.call()"""
-
-
-def parse_instructions(instructions):
-    result = []
-    if not instructions:
-        return result
-
-    # the Redis protocol says that all commands are arrays, however,
-    # the code tests have commands like PING being sent as a Simple String
-    if instructions.startswith('+'):
-        result = [instructions[1:].strip()]
-    else:
-        # assume it's an array of instructions
-        i = 0
-        j = instructions[i:].index('\r\n')
-        i += 1  # skip '*' char
-        array_length = int(instructions[i:j])
-        i = j + 2  # skip '\r\n'
-        for _ in range(array_length):
-            j = i + instructions[i:].index('\r\n')
-            i += 1  # skip '$' char
-            str_len = int(instructions[i:j])
-            i = j + 2
-            j = i + str_len
-            s = instructions[i:j]
-            result.append(s)
-            i = j + 2  # skip '\r\n'
-        result.extend(parse_instructions(instructions[i:]))
-    return result
 
 
 def cmd_command(send_fn):
