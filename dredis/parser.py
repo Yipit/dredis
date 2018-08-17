@@ -14,8 +14,10 @@ def parse_instructions(instructions):
         for _ in range(array_length):
             str_len = int(consume(instructions)[1:])  # skip '$' char
             instructions = advance(instructions)
-            s = instructions[:str_len]
-            result.append(s)
+
+            instruction = read(instructions, str_len)
+            result.append(instruction)
+
             instructions = instructions[str_len:]
             instructions = advance(instructions)
         result.extend(parse_instructions(instructions))
@@ -28,3 +30,7 @@ def consume(instructions):
 
 def advance(instructions):
     return instructions[instructions.index('\r\n') + 2:]
+
+
+def read(instructions, n_chars):
+    return instructions[:n_chars]
