@@ -29,3 +29,7 @@ testvalue\r\n") == [
         'testkey',
         'testvalue'
     ]
+
+
+def test_multiple_arrays():
+    assert parse_instructions("*1\r\n$4\r\nPING\r\n*1\r\n$4\r\nPING\r\n") == ['PING', 'PING']
