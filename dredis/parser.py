@@ -9,27 +9,26 @@ def parse_instructions(instructions):
         result = [instructions[1:].strip()]
     else:
         # assume it's an array of instructions
-        array_length = int(consume(instructions)[1:])  # skip '*' char
+        array_length = int(consume(instructions, skip=1))  # skip '*' char
         instructions = advance(instructions)
         for _ in range(array_length):
-            str_len = int(consume(instructions)[1:])  # skip '$' char
+            str_len = int(consume(instructions, skip=1))  # skip '$' char
             instructions = advance(instructions)
 
             instruction = read(instructions, str_len)
             result.append(instruction)
 
-            instructions = instructions[str_len:]
-            instructions = advance(instructions)
+            instructions = advance(instructions, skip=str_len)
         result.extend(parse_instructions(instructions))
     return result
 
 
-def consume(instructions):
-    return instructions[:instructions.index('\r\n')]
+def consume(instructions, skip=0):
+    return instructions[skip:instructions.index('\r\n')]
 
 
-def advance(instructions):
-    return instructions[instructions.index('\r\n') + 2:]
+def advance(instructions, skip=0):
+    return instructions[instructions[skip:].index('\r\n') + skip + 2:]
 
 
 def read(instructions, n_chars):
