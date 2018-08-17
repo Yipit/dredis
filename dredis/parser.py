@@ -4,7 +4,7 @@ def parse_instructions(instructions):
         return result
 
     # the Redis protocol says that all commands are arrays, however,
-    # the code tests have commands like PING being sent as a Simple String
+    # Redis's own tests have commands like PING being sent as a Simple String
     if instructions.startswith('+'):
         result = [instructions[1:].strip()]
     else:
