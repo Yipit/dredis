@@ -14,6 +14,10 @@ import sys
 from lupa import LuaRuntime
 
 
+class RedisScriptError(Exception):
+    """Indicate error from calls to redis.call()"""
+
+
 def parse_instructions(instructions):
     result = []
     if not instructions:
@@ -112,12 +116,18 @@ def cmd_zadd(send_fn, key, score, *values):
 
 
 def cmd_eval(send_fn, script, numkeys, *keys):
-    result = keyspace.eval(script, numkeys, keys)
-    # TODO: the return could be any type
-    if isinstance(result, int):
-        send_fn(":{}\r\n".format(result))
+    try:
+        result = keyspace.eval(script, numkeys, keys)
+    except RedisScriptError as exc:
+        send_fn('-{}\r\n'.format(str(exc)))
     else:
-        send_fn("+{}\r\n".format(result))
+        # TODO: the return could be any type
+        if isinstance(result, int):
+            send_fn(":{}\r\n".format(result))
+        elif isinstance(result, dict):
+            send_fn('-{}\r\n'.format(result['err']))
+        else:
+            send_fn("+{}\r\n".format(result))
 
 
 def cmd_zrange(send_fn, key, start, stop, with_scores=False):
@@ -295,14 +305,19 @@ class DiskKeyspace(object):
         class RedisLua(object):
 
             def call(self, cmd, *args):
-                method = getattr(that, cmd)
-                return method(*args)
+                try:
+                    method = getattr(that, cmd)
+                    return method(*args)
+                except AttributeError:
+                    raise RedisScriptError('@user_script: Unknown Redis command called from Lua script')
+                except Exception as exc:
+                    raise RedisScriptError(str(exc))
 
             def pcall(self, cmd, *args):
                 try:
                     return self.call(cmd, *args)
                 except Exception as exc:
-                    return str(exc)
+                    return {'err': 'ERR Error running script: {}'.format(str(exc))}
 
         redis_obj = RedisLua()
         redis_lua = lua.eval('function(redis) {} end'.format(script))
