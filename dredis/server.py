@@ -11,21 +11,35 @@ from dredis.keyspace import RedisScriptError, DiskKeyspace
 from dredis.parser import parse_instructions
 
 
+CMDS = {}
+
+
+def command(cmd_name):
+    def decorator(fn):
+        CMDS[cmd_name] = fn
+        return fn
+    return decorator
+
+
+@command('COMMAND')
 def cmd_command(send_fn):
     send_fn("*{}\r\n".format(len(CMDS)))
     for cmd in CMDS:
         send_fn("${}{}\r\n".format(len(cmd), cmd.upper()))
 
 
+@command('PING')
 def cmd_ping(send_fn, *args):
     send_fn('+PONG\r\n')
 
 
+@command('SET')
 def cmd_set(send_fn, key, value, *args):
     keyspace.set(key, value)
     send_fn('+OK\r\n')
 
 
+@command('GET')
 def cmd_get(send_fn, key):
     if keyspace.exists(key):
         value = keyspace.get(key)
@@ -34,6 +48,7 @@ def cmd_get(send_fn, key):
         send_fn("$-1\r\n")
 
 
+@command('SADD')
 def cmd_sadd(send_fn, key, *values):
     count = 0
     for value in values:
@@ -41,6 +56,7 @@ def cmd_sadd(send_fn, key, *values):
     send_fn(":{}\r\n".format(count))
 
 
+@command('SMEMBERS')
 def cmd_smembers(send_fn, key):
     members = keyspace.smembers(key)
     send_fn("*{len}\r\n".format(len=len(members)))
@@ -48,30 +64,36 @@ def cmd_smembers(send_fn, key):
         send_fn("${len}\r\n{value}\r\n".format(len=len(member), value=member))
 
 
+@command('SELECT')
 def cmd_select(send_fn, db):
     send_fn('+OK\r\n')
 
 
+@command('FLUSHALL')
 def cmd_flushall(send_fn):
     keyspace.flushall()
     send_fn('+OK\r\n')
 
 
+@command('DEL')
 def cmd_del(send_fn, key):
     count = keyspace.delete(key)
     send_fn(':{}\r\n'.format(count))
 
 
+@command('SCARD')
 def cmd_scard(send_fn, key):
     count = keyspace.scard(key)
     send_fn(':{}\r\n'.format(count))
 
 
+@command('ISMEMBER')
 def cmd_sismember(send_fn, key, value):
     result = keyspace.sismember(key, value)
     send_fn(':{}\r\n'.format(int(result)))
 
 
+@command('ZADD')
 def cmd_zadd(send_fn, key, score, *values):
     count = 0
     for value in values:
@@ -79,6 +101,7 @@ def cmd_zadd(send_fn, key, score, *values):
     send_fn(":{}\r\n".format(count))
 
 
+@command('EVAL')
 def cmd_eval(send_fn, script, numkeys, *keys):
     try:
         result = keyspace.eval(script, numkeys, keys)
@@ -94,6 +117,7 @@ def cmd_eval(send_fn, script, numkeys, *keys):
             send_fn("+{}\r\n".format(result))
 
 
+@command('ZRANGE')
 def cmd_zrange(send_fn, key, start, stop, with_scores=False):
     members = keyspace.zrange(key, int(start), int(stop), bool(with_scores))
     send_fn("*{len}\r\n".format(len=len(members)))
@@ -101,17 +125,13 @@ def cmd_zrange(send_fn, key, start, stop, with_scores=False):
         send_fn("${len}\r\n{value}\r\n".format(len=len(member), value=member))
 
 
+@command('ZCARD')
 def cmd_zcard(send_fn, key):
     send_fn(':{}\r\n'.format(keyspace.zcard(key)))
 
 
 def not_found(send_fn, cmd):
     send_fn("-ERR unknown command '{}'\r\n".format(cmd))
-
-
-keyspace = DiskKeyspace()
-
-CMDS = {name[len("cmd_"):]: fn for (name, fn) in globals().items() if name.startswith("cmd_")}
 
 
 def err(send_fn, tb):
@@ -121,11 +141,14 @@ def err(send_fn, tb):
 def execute_cmd(send_fn, cmd, *args):
     print('cmd={}, args={}'.format(repr(cmd), repr(args)))
     try:
-        CMDS[cmd.lower()](send_fn, *args)
+        CMDS[cmd.upper()](send_fn, *args)
     except KeyError:
         not_found(send_fn, cmd)
     except Exception as e:
         err(send_fn, traceback.format_exc())
+
+
+keyspace = DiskKeyspace()
 
 
 class CommandHandler(asyncore.dispatcher_with_send):
