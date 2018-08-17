@@ -142,6 +142,12 @@ def cmd_zcard(send_fn, key):
     send_fn(':{}\r\n'.format(keyspace.zcard(key)))
 
 
+@command('ZREM')
+def cmd_zcard(send_fn, key, *members):
+    result = keyspace.zrem(key, *members)
+    send_fn(':{}\r\n'.format(result))
+
+
 def not_found(send_fn, cmd):
     send_fn("-ERR unknown command '{}'\r\n".format(cmd))
 

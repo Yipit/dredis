@@ -62,3 +62,16 @@ def test_very_large_zset():
 
     print '\nZADD time = {}s'.format(after_zadd - before_zadd)
     print 'ZCARD time = {}s'.format(after_zcard - before_zcard)
+
+
+def test_zrem():
+    r = redis.StrictRedis(host=HOST, port=PORT)
+    r.flushall()
+
+    r.zadd('myzset', 0, 'myvalue1')
+    r.zadd('myzset', 1, 'myvalue2')
+
+    assert r.zrem('myzset', 'myvalue1') == 1
+    assert r.zrem('myzset', 'notfound') == 0
+
+    assert r.zrange('myzset', 0, -1) == ['myvalue2']
