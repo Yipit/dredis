@@ -148,9 +148,6 @@ def execute_cmd(send_fn, cmd, *args):
         err(send_fn, traceback.format_exc())
 
 
-keyspace = DiskKeyspace()
-
-
 class CommandHandler(asyncore.dispatcher_with_send):
 
     def handle_read(self):
@@ -192,6 +189,7 @@ if __name__ == '__main__':
     else:
         port = 6377
 
+    keyspace = DiskKeyspace()
     keyspace.flushall()
 
     RedisServer('127.0.0.1', port)
