@@ -11,6 +11,29 @@ import traceback
 
 import sys
 
+from lupa import LuaRuntime
+
+
+def parse_instructions(instructions):
+    if instructions.startswith('+'):
+        result = [instructions[1:].strip()]
+    else:
+        i = 0
+        j = instructions[i:].index('\r\n')
+        result = []
+        i += 1  # skip '*' char
+        array_length = int(instructions[i:j])
+        for _ in range(array_length):
+            i = j + 2  # skip '\r\n'
+            j = i + instructions[i:].index('\r\n')
+            i += 1  # skip '$' char
+            str_len = int(instructions[i:j])
+            i = j + 2
+            j = i + str_len
+            s = instructions[i:j]
+            result.append(s)
+    return result
+
 
 def cmd_command(send_fn):
     send_fn("*{}\r\n".format(len(CMDS)))
@@ -273,15 +296,7 @@ class CommandHandler(asyncore.dispatcher_with_send):
         print('data = {}'.format(repr(data)))
         if not data:
             return
-        lines = data.splitlines()
-        l = lines.pop(0)
-        cmd = []
-        if l.startswith('*'):
-            for i in range(int(l[1:])):
-                lines.pop(0)
-                cmd.append(lines.pop(0))
-        else:
-            cmd = [l]
+        cmd = parse_instructions(data)
         execute_cmd(self.debug_send, *cmd)
         print('')
 
