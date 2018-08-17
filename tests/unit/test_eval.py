@@ -1,6 +1,6 @@
 import pytest
 
-from dredis.server import RedisScriptError, DiskKeyspace
+from dredis.keyspace import RedisScriptError, DiskKeyspace
 
 
 def test_eval_with_error_call():
