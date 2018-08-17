@@ -11,20 +11,20 @@ from dredis.keyspace import RedisScriptError, DiskKeyspace
 from dredis.parser import parse_instructions
 
 
-CMDS = {}
+REDIS_COMMANDS = {}
 
 
 def command(cmd_name):
     def decorator(fn):
-        CMDS[cmd_name] = fn
+        REDIS_COMMANDS[cmd_name] = fn
         return fn
     return decorator
 
 
 @command('COMMAND')
 def cmd_command(send_fn):
-    send_fn("*{}\r\n".format(len(CMDS)))
-    for cmd in CMDS:
+    send_fn("*{}\r\n".format(len(REDIS_COMMANDS)))
+    for cmd in REDIS_COMMANDS:
         send_fn("${}{}\r\n".format(len(cmd), cmd.upper()))
 
 
@@ -141,7 +141,7 @@ def err(send_fn, tb):
 def execute_cmd(send_fn, cmd, *args):
     print('cmd={}, args={}'.format(repr(cmd), repr(args)))
     try:
-        CMDS[cmd.upper()](send_fn, *args)
+        REDIS_COMMANDS[cmd.upper()](send_fn, *args)
     except KeyError:
         not_found(send_fn, cmd)
     except Exception as e:
