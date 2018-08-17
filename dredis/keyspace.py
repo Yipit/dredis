@@ -177,6 +177,15 @@ class DiskKeyspace(object):
         else:
             return 0
 
+    def zscore(self, key, member):
+        key_path = self._key_path(key)
+        value_path = os.path.join(key_path, 'values', hashlib.md5(member).hexdigest())
+        if os.path.exists(value_path):
+            with open(value_path, 'r') as f:
+                return f.read().strip()
+        else:
+            return None
+
     def eval(self, script, numkeys, keys):
         lua = LuaRuntime(unpack_returned_tuples=True)
         lua.execute('KEYS = {%s}' % ', '.join(map(json.dumps, keys)))

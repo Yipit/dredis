@@ -148,6 +148,15 @@ def cmd_zcard(send_fn, key, *members):
     send_fn(':{}\r\n'.format(result))
 
 
+@command('ZSCORE')
+def cmd_zcard(send_fn, key, member):
+    result = keyspace.zscore(key, member)
+    if result is None:
+        send_fn('$-1\r\n'.format(result))
+    else:
+        send_fn(':{}\r\n'.format(result))
+
+
 def not_found(send_fn, cmd):
     send_fn("-ERR unknown command '{}'\r\n".format(cmd))
 

@@ -75,3 +75,15 @@ def test_zrem():
     assert r.zrem('myzset', 'notfound') == 0
 
     assert r.zrange('myzset', 0, -1) == ['myvalue2']
+
+
+def test_zscore():
+    r = redis.StrictRedis(host=HOST, port=PORT)
+    r.flushall()
+
+    r.zadd('myzset', 0, 'myvalue1')
+    r.zadd('myzset', 1, 'myvalue2')
+
+    assert r.zscore('myzset', 'myvalue1') == 0
+    assert r.zscore('myzset', 'myvalue2') == 1
+    assert r.zscore('myzset', 'notfound') is None
