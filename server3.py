@@ -103,6 +103,15 @@ def cmd_zadd(send_fn, key, score, *values):
     send_fn(":{}\r\n".format(count))
 
 
+def cmd_eval(send_fn, script, numkeys, *keys):
+    result = keyspace.eval(script, numkeys, keys)
+    # TODO: the return could be any type
+    if isinstance(result, int):
+        send_fn(":{}\r\n".format(result))
+    else:
+        send_fn("+{}\r\n".format(result))
+
+
 def cmd_zrange(send_fn, key, start, stop, with_scores=False):
     members = keyspace.zrange(key, int(start), int(stop), bool(with_scores))
     send_fn("*{len}\r\n".format(len=len(members)))
@@ -268,6 +277,28 @@ class DiskKeyspace(object):
             return len(os.listdir(values_path))
         else:
             return 0
+
+    def eval(self, script, numkeys, keys):
+        lua = LuaRuntime(unpack_returned_tuples=True)
+        lua.execute('KEYS = {%s}' % ', '.join(map(json.dumps, keys)))
+
+        that = self
+
+        class RedisLua(object):
+
+            def call(self, cmd, *args):
+                method = getattr(that, cmd)
+                return method(*args)
+
+            def pcall(self, cmd, *args):
+                try:
+                    return self.call(cmd, *args)
+                except Exception as exc:
+                    return str(exc)
+
+        redis_obj = RedisLua()
+        redis_lua = lua.eval('function(redis) {} end'.format(script))
+        return redis_lua(redis_obj)
 
 
 keyspace = DiskKeyspace()
