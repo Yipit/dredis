@@ -1,4 +1,4 @@
-from dredis.server3 import parse_instructions
+from dredis.server import parse_instructions
 
 
 def test_parse_simple_string():
