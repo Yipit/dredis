@@ -157,6 +157,14 @@ def cmd_zcard(send_fn, key, member):
         send_fn(':{}\r\n'.format(result))
 
 
+@command('ZRANGEBYSCORE')
+def cmd_zrangebyscore(send_fn, key, min_score, max_score):
+    members = keyspace.zrangebyscore(key, int(min_score), int(max_score))
+    send_fn("*{len}\r\n".format(len=len(members)))
+    for member in members:
+        send_fn("${len}\r\n{value}\r\n".format(len=len(member), value=member))
+
+
 def not_found(send_fn, cmd):
     send_fn("-ERR unknown command '{}'\r\n".format(cmd))
 

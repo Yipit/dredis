@@ -216,7 +216,18 @@ class DiskKeyspace(object):
             self._remove_line_from_file(score_path, member)
         return result
 
-
+    def zrangebyscore(self, key, min_score, max_score):
+        result = []
+        key_path = self._key_path(key)
+        scores_path = os.path.join(key_path, 'scores')
+        if os.path.exists(scores_path):
+            scores = sorted(os.listdir(scores_path), key=int)
+            scores = [score for score in scores if min_score <= int(score) <= max_score]
+            for score in scores:
+                with open(os.path.join(scores_path, score)) as f:
+                    sublist = sorted(line.strip() for line in f.readlines())
+                    result.extend(sublist)
+        return result
 
 
 class RedisLua(object):
