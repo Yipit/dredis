@@ -48,6 +48,18 @@ def cmd_get(send_fn, key):
         send_fn("$-1\r\n")
 
 
+@command('INCR')
+def cmd_incr(send_fn, key):
+    result = str(keyspace.incrby(key, 1))
+    send_fn('${}\r\n{}\r\n'.format(len(result), result))
+
+
+@command('INCRBY')
+def cmd_incrby(send_fn, key, increment):
+    result = str(keyspace.incrby(key, int(increment)))
+    send_fn('${}\r\n{}\r\n'.format(len(result), result))
+
+
 @command('SADD')
 def cmd_sadd(send_fn, key, *values):
     count = 0
