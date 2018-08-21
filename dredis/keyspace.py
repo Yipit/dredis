@@ -376,7 +376,7 @@ class RedisLua(object):
 
     def call(self, cmd, *args):
         try:
-            method = getattr(self._keyspace, cmd)
+            method = getattr(self._keyspace, cmd.lower())
             return method(*args)
         except AttributeError:
             raise RedisScriptError('@user_script: Unknown Redis command called from Lua script')

@@ -37,3 +37,12 @@ def test_lua_with_redis_error_pcall():
         r.eval("""return redis.pcall('cmd_not_found')""", 0)
     assert exc.value.message == (
         'Error running script: @user_script: Unknown Redis command called from Lua script')
+
+
+def test_commands_should_be_case_insensitive_inside_lua():
+    r = redis.StrictRedis(host=HOST, port=PORT)
+    r.flushall()
+
+    assert r.eval("""\
+redis.call('SeT', KEYS[1], KEYS[2])
+return redis.call('Get', KEYS[1])""", 2, "testkey", "testvalue") == "testvalue"
