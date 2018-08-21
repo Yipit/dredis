@@ -229,6 +229,32 @@ class DiskKeyspace(object):
                     result.extend(sublist)
         return result
 
+    def zrank(self, key, member):
+        key_path = self._key_path(key)
+        value_path = os.path.join(key_path, 'values', hashlib.md5(member).hexdigest())
+        if os.path.exists(value_path):
+            scores_path = os.path.join(key_path, 'scores')
+            scores = sorted(map(int, os.listdir(scores_path)))
+            with open(value_path, 'r') as f:
+                member_score = int(f.read().strip())
+            rank = 0
+            for score in scores:
+                score_path = os.path.join(scores_path, str(score))
+                with open(score_path, 'r') as f:
+                    lines = f.readlines()
+                if score == member_score:
+                    for line in lines:
+                        if line.strip() == member:
+                            return rank
+                        else:
+                            rank += 1
+                else:
+                    rank += len(lines)
+
+            return rank
+        else:
+            return None
+
 
 class RedisLua(object):
 

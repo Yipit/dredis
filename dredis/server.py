@@ -207,6 +207,15 @@ def cmd_zcard(send_fn, key, member):
         send_fn(':{}\r\n'.format(result))
 
 
+@command('ZRANK')
+def cmd_zcard(send_fn, key, member):
+    result = keyspace.zrank(key, member)
+    if result is None:
+        send_fn('$-1\r\n'.format(result))
+    else:
+        send_fn(':{}\r\n'.format(result))
+
+
 @command('ZRANGEBYSCORE')
 def cmd_zrangebyscore(send_fn, key, min_score, max_score):
     members = keyspace.zrangebyscore(key, int(min_score), int(max_score))

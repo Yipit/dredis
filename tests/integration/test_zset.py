@@ -99,3 +99,19 @@ def test_zrangebyscore():
     r.zadd('myzset', 300, 'myvalue3')
 
     assert r.zrangebyscore('myzset', 100, 200) == ['myvalue1', 'myvalue2']
+
+
+def test_zrank():
+    r = redis.StrictRedis(host=HOST, port=PORT)
+    r.flushall()
+
+    r.zadd('myzset', 0, 'zero')
+    r.zadd('myzset', 100, 'one')
+    r.zadd('myzset', 200, 'two')
+    r.zadd('myzset', 300, 'three')
+
+    assert r.zrank('myzset', 'zero') == 0
+    assert r.zrank('myzset', 'one') == 1
+    assert r.zrank('myzset', 'two') == 2
+    assert r.zrank('myzset', 'three') == 3
+    assert r.zrank('myzset', 'notfound') is None
