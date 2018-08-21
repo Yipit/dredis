@@ -257,13 +257,13 @@ def cmd_zrangebyscore(send_fn, key, min_score, max_score):
 
 
 @command('HSET')
-def cmd_set(send_fn, key, field, value):
+def cmd_hset(send_fn, key, field, value):
     result = keyspace.hset(key, field, value)
     send_fn(':{}\r\n'.format(result))
 
 
 @command('HGET')
-def cmd_set(send_fn, key, value):
+def cmd_hget(send_fn, key, value):
     result = keyspace.hget(key, value)
     if result is None:
         send_fn('$-1\r\n')
@@ -272,7 +272,7 @@ def cmd_set(send_fn, key, value):
 
 
 @command('HKEYS')
-def cmd_set(send_fn, key):
+def cmd_hkeys(send_fn, key):
     result = keyspace.hkeys(key)
     send_fn("*{len}\r\n".format(len=len(result)))
     for field in result:
@@ -280,7 +280,7 @@ def cmd_set(send_fn, key):
 
 
 @command('HVALS')
-def cmd_set(send_fn, key):
+def cmd_hvals(send_fn, key):
     result = keyspace.hvals(key)
     send_fn("*{len}\r\n".format(len=len(result)))
     for value in result:
@@ -288,7 +288,7 @@ def cmd_set(send_fn, key):
 
 
 @command('HLEN')
-def cmd_set(send_fn, key):
+def cmd_hlen(send_fn, key):
     result = keyspace.hlen(key)
     send_fn(":{}\r\n".format(result))
 
