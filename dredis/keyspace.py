@@ -7,6 +7,8 @@ import tempfile
 
 from lupa import LuaRuntime
 
+from dredis.commands import run_command
+
 
 class RedisScriptError(Exception):
     """Indicate error from calls to redis.call()"""
@@ -388,9 +390,8 @@ class RedisLua(object):
 
     def call(self, cmd, *args):
         try:
-            method = getattr(self._keyspace, cmd.lower())
-            return method(*args)
-        except AttributeError:
+            return run_command(self._keyspace, cmd, args)
+        except KeyError:
             raise RedisScriptError('@user_script: Unknown Redis command called from Lua script')
         except Exception as exc:
             raise RedisScriptError(str(exc))
