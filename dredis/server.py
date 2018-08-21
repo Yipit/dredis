@@ -287,6 +287,12 @@ def cmd_set(send_fn, key):
         send_fn('${}\r\n{}\r\n'.format(len(value), value))
 
 
+@command('HLEN')
+def cmd_set(send_fn, key):
+    result = keyspace.hlen(key)
+    send_fn(":{}\r\n".format(result))
+
+
 def not_found(send_fn, cmd):
     send_fn("-ERR unknown command '{}'\r\n".format(cmd))
 

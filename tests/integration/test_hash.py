@@ -39,3 +39,13 @@ def test_hvals():
     result = r.hvals('myhash')
     assert len(result) == 2
     assert sorted(result) == sorted(['value1', 'value2'])
+
+
+def test_hlen():
+    r = redis.StrictRedis(host=HOST, port=PORT)
+    r.flushall()
+
+    r.hset('myhash', 'key1', 'value1')
+    r.hset('myhash', 'key2', 'value2')
+    assert r.hlen('myhash') == 2
+    assert r.hlen('notfound') == 0

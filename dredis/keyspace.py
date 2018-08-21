@@ -345,6 +345,13 @@ class DiskKeyspace(object):
                 result.append(value)
         return result
 
+    def hlen(self, key):
+        key_path = self._key_path(key)
+        fields_path = os.path.join(key_path, 'fields')
+        result = 0
+        if os.path.exists(fields_path):
+            result = len(os.listdir(fields_path))
+        return result
 
 class RedisLua(object):
 
