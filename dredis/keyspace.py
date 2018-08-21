@@ -1,3 +1,4 @@
+import fnmatch
 import hashlib
 import json
 import os.path
@@ -14,7 +15,6 @@ class RedisScriptError(Exception):
 class DiskKeyspace(object):
 
     def __init__(self):
-        self.keys = {}
         self.directory = tempfile.mkdtemp(prefix="redis-test-")
         print("Directory = {}".format(self.directory))
 
@@ -288,6 +288,10 @@ class DiskKeyspace(object):
                 return f.read()
         else:
             return None
+
+    def keys(self, pattern):
+        all_keys = os.listdir(self.directory)
+        return list(fnmatch.filter(all_keys, pattern))
 
 
 class RedisLua(object):

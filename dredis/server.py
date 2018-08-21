@@ -60,6 +60,14 @@ def cmd_type(send_fn, key):
     send_fn('+{}\r\n'.format(result))
 
 
+@command('KEYS')
+def cmd_keys(send_fn, pattern):
+    result = keyspace.keys(pattern)
+    send_fn("*{}\r\n".format(len(result)))
+    for key in result:
+        send_fn("${}\r\n{}\r\n".format(len(key), key))
+
+
 """
 ***********************
 * Connection commands *
