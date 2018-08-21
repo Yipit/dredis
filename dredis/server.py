@@ -29,24 +29,25 @@ def command(cmd_name):
 
 
 @command('COMMAND')
-def cmd_command(send_fn):
-    send_fn("*{}\r\n".format(len(REDIS_COMMANDS)))
+def cmd_command():
+    result = []
     for cmd in REDIS_COMMANDS:
-        send_fn("${}{}\r\n".format(len(cmd), cmd.upper()))
+        result.append(cmd.upper())
+    return result
 
 
 @command('FLUSHALL')
-def cmd_flushall(send_fn):
+def cmd_flushall():
     keyspace.flushall()
-    send_fn('+OK\r\n')
+    return 'OK'
 
 
 @command('FLUSHDB')
-def cmd_flushdb(send_fn):
+def cmd_flushdb():
     # FIXME: doesn't support multiple DBs currently
     #keyspace.flushdb()
     keyspace.flushall()
-    send_fn('+OK\r\n')
+    return 'OK'
 
 
 """
@@ -57,23 +58,18 @@ def cmd_flushdb(send_fn):
 
 
 @command('DEL')
-def cmd_del(send_fn, key):
-    count = keyspace.delete(key)
-    send_fn(':{}\r\n'.format(count))
+def cmd_del(key):
+    return keyspace.delete(key)
 
 
 @command('TYPE')
-def cmd_type(send_fn, key):
-    result = keyspace.type(key)
-    send_fn('+{}\r\n'.format(result))
+def cmd_type(key):
+    return keyspace.type(key)
 
 
 @command('KEYS')
-def cmd_keys(send_fn, pattern):
-    result = keyspace.keys(pattern)
-    send_fn("*{}\r\n".format(len(result)))
-    for key in result:
-        send_fn("${}\r\n{}\r\n".format(len(key), key))
+def cmd_keys(pattern):
+    return keyspace.keys(pattern)
 
 
 """
@@ -84,13 +80,13 @@ def cmd_keys(send_fn, pattern):
 
 
 @command('PING')
-def cmd_ping(send_fn, *args):
-    send_fn('+PONG\r\n')
+def cmd_ping():
+    return 'PONG'
 
 
 @command('SELECT')
-def cmd_select(send_fn, db):
-    send_fn('+OK\r\n')
+def cmd_select(db):
+    return 'OK'
 
 
 """
@@ -101,30 +97,24 @@ def cmd_select(send_fn, db):
 
 
 @command('SET')
-def cmd_set(send_fn, key, value, *args):
+def cmd_set(key, value, *args):
     keyspace.set(key, value)
-    send_fn('+OK\r\n')
+    return 'OK'
 
 
 @command('GET')
-def cmd_get(send_fn, key):
-    value = keyspace.get(key)
-    if value is None:
-        send_fn("$-1\r\n")
-    else:
-        send_fn('${len}\r\n{value}\r\n'.format(len=len(value), value=value))
+def cmd_get(key):
+    return keyspace.get(key)
 
 
 @command('INCR')
-def cmd_incr(send_fn, key):
-    result = str(keyspace.incrby(key, 1))
-    send_fn('${}\r\n{}\r\n'.format(len(result), result))
+def cmd_incr(key):
+    return str(keyspace.incrby(key, 1))
 
 
 @command('INCRBY')
-def cmd_incrby(send_fn, key, increment):
-    result = str(keyspace.incrby(key, int(increment)))
-    send_fn('${}\r\n{}\r\n'.format(len(result), result))
+def cmd_incrby(key, increment):
+    return str(keyspace.incrby(key, int(increment)))
 
 
 """
@@ -135,31 +125,26 @@ def cmd_incrby(send_fn, key, increment):
 
 
 @command('SADD')
-def cmd_sadd(send_fn, key, *values):
+def cmd_sadd(key, *values):
     count = 0
     for value in values:
         count += keyspace.sadd(key, value)
-    send_fn(":{}\r\n".format(count))
+    return count
 
 
 @command('SMEMBERS')
-def cmd_smembers(send_fn, key):
-    members = keyspace.smembers(key)
-    send_fn("*{len}\r\n".format(len=len(members)))
-    for member in members:
-        send_fn("${len}\r\n{value}\r\n".format(len=len(member), value=member))
+def cmd_smembers(key):
+    return keyspace.smembers(key)
 
 
 @command('SCARD')
-def cmd_scard(send_fn, key):
-    count = keyspace.scard(key)
-    send_fn(':{}\r\n'.format(count))
+def cmd_scard(key):
+    return keyspace.scard(key)
 
 
 @command('SISMEMBER')
-def cmd_sismember(send_fn, key, value):
-    result = keyspace.sismember(key, value)
-    send_fn(':{}\r\n'.format(int(result)))
+def cmd_sismember(key, value):
+    return int(keyspace.sismember(key, value))
 
 
 """
@@ -170,23 +155,11 @@ def cmd_sismember(send_fn, key, value):
 
 
 @command('EVAL')
-def cmd_eval(send_fn, script, numkeys, *keys):
-    try:
-        result = keyspace.eval(script, int(numkeys), keys)
-    except RedisScriptError as exc:
-        send_fn('-{}\r\n'.format(str(exc)))
-    else:
-        # TODO: the return could be any type
-        if isinstance(result, int):
-            send_fn(":{}\r\n".format(result))
-        elif isinstance(result, dict):
-            send_fn('-{}\r\n'.format(result['err']))
-        elif isinstance(result, list):
-            send_fn("*{len}\r\n".format(len=len(result)))
-            for member in result:
-                send_fn("${len}\r\n{value}\r\n".format(len=len(member), value=member))
-        else:
-            send_fn("+{}\r\n".format(result))
+def cmd_eval(script, numkeys, *keys):
+    result = keyspace.eval(script, int(numkeys), keys)
+    if isinstance(result, dict):
+        raise ValueError(result['err'])
+    return result
 
 
 """
@@ -197,52 +170,39 @@ def cmd_eval(send_fn, script, numkeys, *keys):
 
 
 @command('ZADD')
-def cmd_zadd(send_fn, key, score, *values):
+def cmd_zadd(key, score, *values):
     count = 0
     for value in values:
         count += keyspace.zadd(key, score, value)
-    send_fn(":{}\r\n".format(count))
+    return count
 
 
 @command('ZRANGE')
-def cmd_zrange(send_fn, key, start, stop, with_scores=False):
-    members = keyspace.zrange(key, int(start), int(stop), bool(with_scores))
-    send_fn("*{len}\r\n".format(len=len(members)))
-    for member in members:
-        send_fn("${len}\r\n{value}\r\n".format(len=len(member), value=member))
-
+def cmd_zrange(key, start, stop, with_scores=False):
+    return keyspace.zrange(key, int(start), int(stop), bool(with_scores))
 
 @command('ZCARD')
-def cmd_zcard(send_fn, key):
-    send_fn(':{}\r\n'.format(keyspace.zcard(key)))
+def cmd_zcard(key):
+    return keyspace.zcard(key)
 
 
 @command('ZREM')
-def cmd_zcard(send_fn, key, *members):
-    result = keyspace.zrem(key, *members)
-    send_fn(':{}\r\n'.format(result))
+def cmd_zcard(key, *members):
+    return keyspace.zrem(key, *members)
 
 
 @command('ZSCORE')
-def cmd_zcard(send_fn, key, member):
-    result = keyspace.zscore(key, member)
-    if result is None:
-        send_fn('$-1\r\n'.format(result))
-    else:
-        send_fn(':{}\r\n'.format(result))
+def cmd_zcard(key, member):
+    return keyspace.zscore(key, member)
 
 
 @command('ZRANK')
-def cmd_zcard(send_fn, key, member):
-    result = keyspace.zrank(key, member)
-    if result is None:
-        send_fn('$-1\r\n'.format(result))
-    else:
-        send_fn(':{}\r\n'.format(result))
+def cmd_zcard(key, member):
+    return keyspace.zrank(key, member)
 
 
 @command('ZRANGEBYSCORE')
-def cmd_zrangebyscore(send_fn, key, min_score, max_score, *args):
+def cmd_zrangebyscore(key, min_score, max_score, *args):
     withscores = any(arg.lower() == 'withscores' for arg in args)
     offset = 0
     count = float('+inf')
@@ -255,9 +215,7 @@ def cmd_zrangebyscore(send_fn, key, min_score, max_score, *args):
 
     members = keyspace.zrangebyscore(
         key, int(min_score), int(max_score), withscores=withscores, offset=offset, count=count)
-    send_fn("*{len}\r\n".format(len=len(members)))
-    for member in members:
-        send_fn("${len}\r\n{value}\r\n".format(len=len(member), value=member))
+    return members
 
 
 """
@@ -268,46 +226,33 @@ def cmd_zrangebyscore(send_fn, key, min_score, max_score, *args):
 
 
 @command('HSET')
-def cmd_hset(send_fn, key, field, value):
-    result = keyspace.hset(key, field, value)
-    send_fn(':{}\r\n'.format(result))
+def cmd_hset(key, field, value):
+    return keyspace.hset(key, field, value)
 
 
 @command('HSETNX')
-def cmd_hsetnx(send_fn, key, field, value):
-    result = keyspace.hsetnx(key, field, value)
-    send_fn(":{}\r\n".format(result))
+def cmd_hsetnx(key, field, value):
+    return keyspace.hsetnx(key, field, value)
 
 
 @command('HGET')
-def cmd_hget(send_fn, key, value):
-    result = keyspace.hget(key, value)
-    if result is None:
-        send_fn('$-1\r\n')
-    else:
-        send_fn('${}\r\n{}\r\n'.format(len(result), result))
+def cmd_hget(key, value):
+    return keyspace.hget(key, value)
 
 
 @command('HKEYS')
-def cmd_hkeys(send_fn, key):
-    result = keyspace.hkeys(key)
-    send_fn("*{len}\r\n".format(len=len(result)))
-    for field in result:
-        send_fn('${}\r\n{}\r\n'.format(len(field), field))
+def cmd_hkeys(key):
+    return keyspace.hkeys(key)
 
 
 @command('HVALS')
-def cmd_hvals(send_fn, key):
-    result = keyspace.hvals(key)
-    send_fn("*{len}\r\n".format(len=len(result)))
-    for value in result:
-        send_fn('${}\r\n{}\r\n'.format(len(value), value))
+def cmd_hvals(key):
+    return keyspace.hvals(key)
 
 
 @command('HLEN')
-def cmd_hlen(send_fn, key):
-    result = keyspace.hlen(key)
-    send_fn(":{}\r\n".format(result))
+def cmd_hlen(key):
+    return keyspace.hlen(key)
 
 
 def not_found(send_fn, cmd):
@@ -321,11 +266,29 @@ def err(send_fn, tb):
 def execute_cmd(send_fn, cmd, *args):
     print('cmd={}, args={}'.format(repr(cmd), repr(args)))
     try:
-        REDIS_COMMANDS[cmd.upper()](send_fn, *args)
+        result = REDIS_COMMANDS[cmd.upper()](*args)
+    except (ValueError, RedisScriptError) as exc:
+        send_fn('-{}\r\n'.format(str(exc)))
     except KeyError:
         not_found(send_fn, cmd)
-    except Exception as e:
+    except Exception:
         err(send_fn, traceback.format_exc())
+    else:
+        transmit(send_fn, result)
+
+
+def transmit(send_fn, result):
+    if result is None:
+        send_fn('$-1\r\n')
+    elif isinstance(result, int):
+        send_fn(':{}\r\n'.format(result))
+    elif isinstance(result, basestring):
+        send_fn('${}\r\n{}\r\n'.format(len(result), result))
+    elif isinstance(result, (set, list, tuple)):
+        send_fn('*{}\r\n'.format(len(result)))
+        for element in result:
+            transmit(send_fn, element)
+
 
 
 class CommandHandler(asyncore.dispatcher_with_send):
