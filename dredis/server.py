@@ -255,6 +255,10 @@ def cmd_hlen(key):
     return keyspace.hlen(key)
 
 
+def run_command(cmd, args):
+    return REDIS_COMMANDS[cmd.upper()](*args)
+
+
 def not_found(send_fn, cmd):
     send_fn("-ERR unknown command '{}'\r\n".format(cmd))
 
@@ -266,7 +270,7 @@ def err(send_fn, tb):
 def execute_cmd(send_fn, cmd, *args):
     print('cmd={}, args={}'.format(repr(cmd), repr(args)))
     try:
-        result = REDIS_COMMANDS[cmd.upper()](*args)
+        result = run_command(cmd, args)
     except (ValueError, RedisScriptError) as exc:
         send_fn('-{}\r\n'.format(str(exc)))
     except KeyError:
