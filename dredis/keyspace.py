@@ -313,6 +313,21 @@ class DiskKeyspace(object):
             f.write(value)
         return result
 
+    def hsetnx(self, key, field, value):
+        key_path = self._key_path(key)
+        fields_path = os.path.join(key_path, 'fields')
+        if not self.exists(key):
+            os.makedirs(fields_path)
+            # self.write_type()
+        field_path = os.path.join(fields_path, field)
+        result = 0
+        # only set if not set before
+        if not os.path.exists(field_path):
+            result = 1
+            with open(field_path, 'w') as f:
+                f.write(value)
+        return result
+
     def hget(self, key, field):
         key_path = self._key_path(key)
         fields_path = os.path.join(key_path, 'fields')
@@ -352,6 +367,7 @@ class DiskKeyspace(object):
         if os.path.exists(fields_path):
             result = len(os.listdir(fields_path))
         return result
+
 
 class RedisLua(object):
 

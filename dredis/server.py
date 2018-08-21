@@ -262,6 +262,12 @@ def cmd_hset(send_fn, key, field, value):
     send_fn(':{}\r\n'.format(result))
 
 
+@command('HSETNX')
+def cmd_hsetnx(send_fn, key, field, value):
+    result = keyspace.hsetnx(key, field, value)
+    send_fn(":{}\r\n".format(result))
+
+
 @command('HGET')
 def cmd_hget(send_fn, key, value):
     result = keyspace.hget(key, value)

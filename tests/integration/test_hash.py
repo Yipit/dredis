@@ -49,3 +49,12 @@ def test_hlen():
     r.hset('myhash', 'key2', 'value2')
     assert r.hlen('myhash') == 2
     assert r.hlen('notfound') == 0
+
+
+def test_hsetnx():
+    r = redis.StrictRedis(host=HOST, port=PORT)
+    r.flushall()
+
+    assert r.hsetnx('myhash', 'key1', 'value1') == 1
+    assert r.hsetnx('myhash', 'key1', 'value2') == 0
+    assert r.hget('myhash', 'key1') == 'value1'
