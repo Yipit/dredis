@@ -21,6 +21,13 @@ def command(cmd_name):
     return decorator
 
 
+"""
+*******************
+* Server commands *
+*******************
+"""
+
+
 @command('COMMAND')
 def cmd_command(send_fn):
     send_fn("*{}\r\n".format(len(REDIS_COMMANDS)))
@@ -28,9 +35,48 @@ def cmd_command(send_fn):
         send_fn("${}{}\r\n".format(len(cmd), cmd.upper()))
 
 
+@command('FLUSHALL')
+def cmd_flushall(send_fn):
+    keyspace.flushall()
+    send_fn('+OK\r\n')
+
+
+"""
+****************
+* Key commands *
+****************
+"""
+
+
+@command('DEL')
+def cmd_del(send_fn, key):
+    count = keyspace.delete(key)
+    send_fn(':{}\r\n'.format(count))
+
+
+"""
+***********************
+* Connection commands *
+***********************
+"""
+
+
 @command('PING')
 def cmd_ping(send_fn, *args):
     send_fn('+PONG\r\n')
+
+
+@command('SELECT')
+def cmd_select(send_fn, db):
+    send_fn('+OK\r\n')
+
+
+
+"""
+*******************
+* String commands *
+*******************
+"""
 
 
 @command('SET')
@@ -60,6 +106,13 @@ def cmd_incrby(send_fn, key, increment):
     send_fn('${}\r\n{}\r\n'.format(len(result), result))
 
 
+"""
+****************
+* Set commands *
+****************
+"""
+
+
 @command('SADD')
 def cmd_sadd(send_fn, key, *values):
     count = 0
@@ -76,23 +129,6 @@ def cmd_smembers(send_fn, key):
         send_fn("${len}\r\n{value}\r\n".format(len=len(member), value=member))
 
 
-@command('SELECT')
-def cmd_select(send_fn, db):
-    send_fn('+OK\r\n')
-
-
-@command('FLUSHALL')
-def cmd_flushall(send_fn):
-    keyspace.flushall()
-    send_fn('+OK\r\n')
-
-
-@command('DEL')
-def cmd_del(send_fn, key):
-    count = keyspace.delete(key)
-    send_fn(':{}\r\n'.format(count))
-
-
 @command('SCARD')
 def cmd_scard(send_fn, key):
     count = keyspace.scard(key)
@@ -105,12 +141,11 @@ def cmd_sismember(send_fn, key, value):
     send_fn(':{}\r\n'.format(int(result)))
 
 
-@command('ZADD')
-def cmd_zadd(send_fn, key, score, *values):
-    count = 0
-    for value in values:
-        count += keyspace.zadd(key, score, value)
-    send_fn(":{}\r\n".format(count))
+"""
+**********************
+* Scripting commands *
+**********************
+"""
 
 
 @command('EVAL')
@@ -127,6 +162,21 @@ def cmd_eval(send_fn, script, numkeys, *keys):
             send_fn('-{}\r\n'.format(result['err']))
         else:
             send_fn("+{}\r\n".format(result))
+
+
+"""
+***********************
+* Sorted set commands *
+***********************
+"""
+
+
+@command('ZADD')
+def cmd_zadd(send_fn, key, score, *values):
+    count = 0
+    for value in values:
+        count += keyspace.zadd(key, score, value)
+    send_fn(":{}\r\n".format(count))
 
 
 @command('ZRANGE')
