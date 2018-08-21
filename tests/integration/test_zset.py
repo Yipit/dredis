@@ -1,12 +1,10 @@
 import time
 
-import redis
-from tests.helpers import HOST, PORT
+from tests.helpers import fresh_redis
 
 
 def test_zset_zadd_and_zcard():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
     assert r.zcard('myzset') == 0
 
     assert r.zadd('myzset', 0, 'myvalue1') == 1
@@ -19,16 +17,14 @@ def test_zset_zadd_and_zcard():
 
 
 def test_zset_zrange_with_positive_integers():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
     r.zadd('myzset', 0, 'myvalue1')
     r.zadd('myzset', 1, 'myvalue2')
     assert r.zrange('myzset', 0, 1) == ['myvalue1', 'myvalue2']
 
 
 def test_zset_zrange_with_negative_numbers():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
     r.zadd('myzset', 0, 'myvalue1')
     r.zadd('myzset', 1, 'myvalue2')
     assert r.zrange('myzset', 0, -1) == ['myvalue1', 'myvalue2']
@@ -37,8 +33,7 @@ def test_zset_zrange_with_negative_numbers():
 
 
 def test_zset_with_rescoring():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
     r.zadd('myzset', 0, 'myvalue1')
     r.zadd('myzset', 1, 'myvalue2')
     r.zadd('myzset', 0, 'myvalue2')  # now the score 0 has "myvalue1" & "myvalue2"
@@ -47,8 +42,7 @@ def test_zset_with_rescoring():
 
 
 def test_very_large_zset():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
     large_number = int(1e3)
     before_zadd = time.time()
     for score in range(large_number):
@@ -65,8 +59,7 @@ def test_very_large_zset():
 
 
 def test_zrem():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     r.zadd('myzset', 0, 'myvalue1')
     r.zadd('myzset', 1, 'myvalue2')
@@ -78,8 +71,7 @@ def test_zrem():
 
 
 def test_zscore():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     r.zadd('myzset', 0, 'myvalue1')
     r.zadd('myzset', 1, 'myvalue2')
@@ -90,8 +82,7 @@ def test_zscore():
 
 
 def test_zrangebyscore():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     r.zadd('myzset', 0, 'myvalue0')
     r.zadd('myzset', 100, 'myvalue1')
@@ -102,8 +93,7 @@ def test_zrangebyscore():
 
 
 def test_zrangebyscore_with_scores():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     r.zadd('myzset', 0, 'myvalue0')
     r.zadd('myzset', 100, 'myvalue1')
@@ -114,8 +104,7 @@ def test_zrangebyscore_with_scores():
 
 
 def test_zrangebyscore_with_limit():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     r.zadd('myzset', 0, 'myvalue0')
     r.zadd('myzset', 100, 'myvalue1')
@@ -126,8 +115,7 @@ def test_zrangebyscore_with_limit():
 
 
 def test_zrank():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     r.zadd('myzset', 0, 'zero')
     r.zadd('myzset', 100, 'one')

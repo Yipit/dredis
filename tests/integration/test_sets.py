@@ -1,18 +1,15 @@
-import redis
-from tests.helpers import HOST, PORT
+from tests.helpers import fresh_redis
 
 
 def test_sadd():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
     assert r.sadd('myset', 'myvalue1') == 1
     assert r.sadd('myset', 'myvalue1') == 0
     assert r.sadd('myset', 'myvalue2') == 1
 
 
 def test_sismember():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
     r.sadd('myset', 'myvalue1')
     r.sadd('myset', 'myvalue2')
 
@@ -22,8 +19,7 @@ def test_sismember():
 
 
 def test_smembers():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
     r.sadd('myset', 'myvalue1')
     r.sadd('myset', 'myvalue2')
 
@@ -31,8 +27,7 @@ def test_smembers():
 
 
 def test_scard():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
     r.sadd('myset', 'myvalue1')
     r.sadd('myset', 'myvalue2')
 

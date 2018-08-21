@@ -1,10 +1,8 @@
-import redis
-from tests.helpers import HOST, PORT
+from tests.helpers import fresh_redis
 
 
 def test_types():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     r.set('mystr', 'test')
     r.incr('myint')
@@ -18,8 +16,7 @@ def test_types():
 
 
 def test_keys():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     r.set('mystr', 'test')
     r.incr('myint')

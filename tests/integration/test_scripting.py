@@ -1,12 +1,10 @@
 import pytest
 import redis
-
-from tests.helpers import HOST, PORT
+from tests.helpers import fresh_redis
 
 
 def test_basic_lua_evaluation():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     assert r.eval("return 123", 0) == 123
     assert r.eval("return KEYS", 2, "key1", "key2", "arg1") == ['key1', 'key2']
@@ -14,8 +12,7 @@ def test_basic_lua_evaluation():
 
 
 def test_lua_with_redis_call():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     assert r.eval("""\
 redis.call('set', KEYS[1], KEYS[2])
@@ -23,16 +20,14 @@ return redis.call('get', KEYS[1])""", 2, "testkey", "testvalue") == "testvalue"
 
 
 def test_lua_with_redis_error_call():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
     with pytest.raises(redis.ResponseError) as exc:
         r.eval("""return redis.call('cmd_not_found')""", 0)
     assert exc.value.message == '@user_script: Unknown Redis command called from Lua script'
 
 
 def test_lua_with_redis_error_pcall():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
     with pytest.raises(redis.ResponseError) as exc:
         r.eval("""return redis.pcall('cmd_not_found')""", 0)
     assert exc.value.message == (
@@ -40,8 +35,7 @@ def test_lua_with_redis_error_pcall():
 
 
 def test_commands_should_be_case_insensitive_inside_lua():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     assert r.eval("""\
 redis.call('SeT', KEYS[1], KEYS[2])

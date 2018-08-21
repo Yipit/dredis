@@ -1,10 +1,8 @@
-import redis
-from tests.helpers import HOST, PORT
+from tests.helpers import fresh_redis
 
 
 def test_hset_and_hget():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     assert r.hset('myhash', 'key1', 'value1') == 1
     assert r.hset('myhash', 'key1', 'value1') == 0
@@ -16,8 +14,7 @@ def test_hset_and_hget():
 
 
 def test_hkeys():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     r.hset('myhash', 'key1', 'value1')
     r.hset('myhash', 'key2', 'value2')
@@ -29,8 +26,7 @@ def test_hkeys():
 
 
 def test_hvals():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     r.hset('myhash', 'key1', 'value1')
     r.hset('myhash', 'key2', 'value2')
@@ -42,8 +38,7 @@ def test_hvals():
 
 
 def test_hlen():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     r.hset('myhash', 'key1', 'value1')
     r.hset('myhash', 'key2', 'value2')
@@ -52,8 +47,7 @@ def test_hlen():
 
 
 def test_hsetnx():
-    r = redis.StrictRedis(host=HOST, port=PORT)
-    r.flushall()
+    r = fresh_redis()
 
     assert r.hsetnx('myhash', 'key1', 'value1') == 1
     assert r.hsetnx('myhash', 'key1', 'value2') == 0
