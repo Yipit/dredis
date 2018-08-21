@@ -135,7 +135,7 @@ def cmd_scard(send_fn, key):
     send_fn(':{}\r\n'.format(count))
 
 
-@command('ISMEMBER')
+@command('SISMEMBER')
 def cmd_sismember(send_fn, key, value):
     result = keyspace.sismember(key, value)
     send_fn(':{}\r\n'.format(int(result)))
