@@ -93,7 +93,6 @@ def cmd_select(send_fn, db):
     send_fn('+OK\r\n')
 
 
-
 """
 *******************
 * String commands *
@@ -248,6 +247,28 @@ def cmd_zrangebyscore(send_fn, key, min_score, max_score):
     send_fn("*{len}\r\n".format(len=len(members)))
     for member in members:
         send_fn("${len}\r\n{value}\r\n".format(len=len(member), value=member))
+
+
+"""
+*******************
+* Hash commands *
+*******************
+"""
+
+
+@command('HSET')
+def cmd_set(send_fn, key, field, value):
+    result = keyspace.hset(key, field, value)
+    send_fn(':{}\r\n'.format(result))
+
+
+@command('HGET')
+def cmd_set(send_fn, key, value):
+    result = keyspace.hget(key, value)
+    if result is None:
+        send_fn('$-1\r\n')
+    else:
+        send_fn('${}\r\n{}\r\n'.format(len(result), result))
 
 
 def not_found(send_fn, cmd):

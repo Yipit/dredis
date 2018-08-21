@@ -298,6 +298,32 @@ class DiskKeyspace(object):
         all_keys = os.listdir(self.directory)
         return list(fnmatch.filter(all_keys, pattern))
 
+    def hset(self, key, field, value):
+        key_path = self._key_path(key)
+        fields_path = os.path.join(key_path, 'fields')
+        if not self.exists(key):
+            os.makedirs(fields_path)
+            # self.write_type()
+        field_path = os.path.join(fields_path, field)
+        if os.path.exists(field_path):
+            result = 0
+        else:
+            result = 1
+        with open(field_path, 'w') as f:
+            f.write(value)
+        return result
+
+    def hget(self, key, field):
+        key_path = self._key_path(key)
+        fields_path = os.path.join(key_path, 'fields')
+        field_path = os.path.join(fields_path, field)
+        if os.path.exists(field_path):
+            with open(field_path, 'r') as f:
+                result = f.read()
+        else:
+            result = None
+        return result
+
 
 class RedisLua(object):
 
