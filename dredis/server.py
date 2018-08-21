@@ -91,7 +91,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         port = int(sys.argv[1])
     else:
-        port = 6377
+        port = int(os.environ.get('DREDIS_PORT', '6377'))
 
     keyspace.flushall()
 

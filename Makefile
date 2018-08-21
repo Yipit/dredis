@@ -11,3 +11,6 @@ server:
 
 setup:
 	@pip install -r development.txt --quiet
+
+redis_server:
+	PYTHONPATH=. DREDIS_PORT=6379 python dredis/server.py
