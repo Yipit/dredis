@@ -220,10 +220,17 @@ class DiskKeyspace(object):
         redis_obj = RedisLua(self)
         redis_lua = lua.eval('function(redis) {} end'.format(script))
         result = redis_lua(redis_obj)
-        if isinstance(result, type(lua.table())):
-            return list(result.values())
-        else:
-            return result
+        return self._convert_lua_tables_to_lists(result, type(lua.table()))
+
+    def _convert_lua_tables_to_lists(self, result, table_type):
+        def convert(value):
+            if isinstance(value, table_type):
+                return map(convert, value.values())
+            elif isinstance(value, (tuple, list, set)):
+                return map(convert, value)
+            else:
+                return value
+        return convert(result)
 
     def zrem(self, key, *members):
         """

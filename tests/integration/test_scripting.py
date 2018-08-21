@@ -40,3 +40,8 @@ def test_commands_should_be_case_insensitive_inside_lua():
     assert r.eval("""\
 redis.call('SeT', KEYS[1], KEYS[2])
 return redis.call('Get', KEYS[1])""", 2, "testkey", "testvalue") == "testvalue"
+
+
+def test_array_of_arrays_in_lua():
+    r = fresh_redis()
+    assert r.eval('return {{"a","one"}, {"b","two"}, {"c","three"}}', 0) == [['a', 'one'], ['b', 'two'], ['c', 'three']]
