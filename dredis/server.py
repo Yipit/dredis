@@ -271,6 +271,22 @@ def cmd_set(send_fn, key, value):
         send_fn('${}\r\n{}\r\n'.format(len(result), result))
 
 
+@command('HKEYS')
+def cmd_set(send_fn, key):
+    result = keyspace.hkeys(key)
+    send_fn("*{len}\r\n".format(len=len(result)))
+    for field in result:
+        send_fn('${}\r\n{}\r\n'.format(len(field), field))
+
+
+@command('HVALS')
+def cmd_set(send_fn, key):
+    result = keyspace.hvals(key)
+    send_fn("*{len}\r\n".format(len=len(result)))
+    for value in result:
+        send_fn('${}\r\n{}\r\n'.format(len(value), value))
+
+
 def not_found(send_fn, cmd):
     send_fn("-ERR unknown command '{}'\r\n".format(cmd))
 

@@ -324,6 +324,27 @@ class DiskKeyspace(object):
             result = None
         return result
 
+    def hkeys(self, key):
+        key_path = self._key_path(key)
+        fields_path = os.path.join(key_path, 'fields')
+        if os.path.exists(fields_path):
+            result = os.listdir(fields_path)
+        else:
+            result = []
+        return result
+
+    def hvals(self, key):
+        result = []
+        key_path = self._key_path(key)
+        fields_path = os.path.join(key_path, 'fields')
+        if os.path.exists(fields_path):
+            for field in os.listdir(fields_path):
+                field_path = os.path.join(fields_path, field)
+                with open(field_path, 'r') as f:
+                    value = f.read()
+                result.append(value)
+        return result
+
 
 class RedisLua(object):
 
