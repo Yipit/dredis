@@ -9,7 +9,8 @@ def test_basic_lua_evaluation():
     r.flushall()
 
     assert r.eval("return 123", 0) == 123
-    assert r.eval("return KEYS[1]", 0, "test") == "test"
+    assert r.eval("return KEYS", 2, "key1", "key2", "arg1") == ['key1', 'key2']
+    assert r.eval("return ARGV", 2, "key1", "key2", "arg1") == ['arg1']
 
 
 def test_lua_with_redis_call():

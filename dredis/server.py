@@ -165,7 +165,7 @@ def cmd_sismember(send_fn, key, value):
 @command('EVAL')
 def cmd_eval(send_fn, script, numkeys, *keys):
     try:
-        result = keyspace.eval(script, numkeys, keys)
+        result = keyspace.eval(script, int(numkeys), keys)
     except RedisScriptError as exc:
         send_fn('-{}\r\n'.format(str(exc)))
     else:
@@ -174,6 +174,10 @@ def cmd_eval(send_fn, script, numkeys, *keys):
             send_fn(":{}\r\n".format(result))
         elif isinstance(result, dict):
             send_fn('-{}\r\n'.format(result['err']))
+        elif isinstance(result, list):
+            send_fn("*{len}\r\n".format(len=len(result)))
+            for member in result:
+                send_fn("${len}\r\n{value}\r\n".format(len=len(member), value=member))
         else:
             send_fn("+{}\r\n".format(result))
 

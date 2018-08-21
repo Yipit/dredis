@@ -211,12 +211,17 @@ class DiskKeyspace(object):
         else:
             return None
 
-    def eval(self, script, numkeys, keys):
+    def eval(self, script, numkeys, args):
         lua = LuaRuntime(unpack_returned_tuples=True)
-        lua.execute('KEYS = {%s}' % ', '.join(map(json.dumps, keys)))
+        lua.execute('KEYS = {%s}' % ', '.join(map(json.dumps, args[:numkeys])))
+        lua.execute('ARGV = {%s}' % ', '.join(map(json.dumps, args[numkeys:])))
         redis_obj = RedisLua(self)
         redis_lua = lua.eval('function(redis) {} end'.format(script))
-        return redis_lua(redis_obj)
+        result = redis_lua(redis_obj)
+        if isinstance(result, type(lua.table())):
+            return list(result.values())
+        else:
+            return result
 
     def zrem(self, key, *members):
         """
