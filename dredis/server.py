@@ -54,6 +54,12 @@ def cmd_del(send_fn, key):
     send_fn(':{}\r\n'.format(count))
 
 
+@command('TYPE')
+def cmd_type(send_fn, key):
+    result = keyspace.type(key)
+    send_fn('+{}\r\n'.format(result))
+
+
 """
 ***********************
 * Connection commands *
@@ -87,11 +93,11 @@ def cmd_set(send_fn, key, value, *args):
 
 @command('GET')
 def cmd_get(send_fn, key):
-    if keyspace.exists(key):
-        value = keyspace.get(key)
-        send_fn('${len}\r\n{value}\r\n'.format(len=len(value), value=value))
-    else:
+    value = keyspace.get(key)
+    if value is None:
         send_fn("$-1\r\n")
+    else:
+        send_fn('${len}\r\n{value}\r\n'.format(len=len(value), value=value))
 
 
 @command('INCR')

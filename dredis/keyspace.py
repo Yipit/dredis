@@ -33,13 +33,17 @@ class DiskKeyspace(object):
 
     def incrby(self, key, increment=1):
         key_path = self._key_path(key)
+        value_path = os.path.join(key_path, 'value')
         number = 0
-        if os.path.exists(key_path):
-            with open(key_path, 'r') as f:
+        if self.exists(key):
+            with open(value_path, 'r') as f:
                 content = f.read()
             number = int(content)
+        else:
+            os.makedirs(key_path)
+            self.write_type(key, 'string')
         result = str(number + increment)
-        with open(key_path, 'w') as f:
+        with open(value_path, 'w') as f:
             f.write(result)
         return result
 
@@ -47,19 +51,31 @@ class DiskKeyspace(object):
         return os.path.exists(self._key_path(key))
 
     def get(self, key):
-        with open(self._key_path(key), 'r') as f:
-            return f.read()
+        key_path = self._key_path(key)
+        value_path = os.path.join(key_path, 'value')
+        if self.exists(key):
+            with open(value_path, 'r') as f:
+                return f.read()
+        else:
+            return None
 
     def set(self, key, value):
-        with open(self._key_path(key), 'w') as f:
+        key_path = self._key_path(key)
+        if not self.exists(key):
+            os.makedirs(key_path)
+            self.write_type(key, 'string')
+        value_path = os.path.join(key_path, 'value')
+        with open(value_path, 'w') as f:
             f.write(value)
 
     def sadd(self, key, value):
         key_path = self._key_path(key)
+        values_path = os.path.join(key_path, 'values')
         if not self.exists(key):
-            os.makedirs(key_path)
+            os.makedirs(values_path)
+            self.write_type(key, 'set')
         fname = hashlib.md5(value).hexdigest()
-        value_path = os.path.join(key_path, fname)
+        value_path = os.path.join(values_path, fname)
         if os.path.exists(value_path):
             return 0
         else:
@@ -69,17 +85,19 @@ class DiskKeyspace(object):
 
     def smembers(self, key):
         result = set()
-        key_path = self._key_path(key)
         if self.exists(key):
-            for fname in os.listdir(key_path):
-                with open(os.path.join(key_path, fname)) as f:
+            key_path = self._key_path(key)
+            values_path = os.path.join(key_path, 'values')
+            for fname in os.listdir(values_path):
+                with open(os.path.join(values_path, fname)) as f:
                     result.add(f.read())
         return result
 
     def sismember(self, key, value):
         key_path = self._key_path(key)
+        values_path = os.path.join(key_path, 'values')
         fname = hashlib.md5(value).hexdigest()
-        value_path = os.path.join(key_path, fname)
+        value_path = os.path.join(values_path, fname)
         return os.path.exists(value_path)
 
     def scard(self, key):
@@ -126,6 +144,7 @@ class DiskKeyspace(object):
         if not os.path.exists(key_path):
             os.makedirs(scores_path)
             os.makedirs(values_path)
+            self.write_type(key, 'zset')
 
         score_path = os.path.join(scores_path, score)
         value_path = os.path.join(values_path, hashlib.md5(value).hexdigest())
@@ -143,6 +162,12 @@ class DiskKeyspace(object):
             with open(score_path, 'a') as f:
                 f.write(value + '\n')
             return 1
+
+    def write_type(self, key, name):
+        key_path = self._key_path(key)
+        type_path = os.path.join(key_path, 'type')
+        with open(type_path, 'w') as f:
+            f.write(name)
 
     def _remove_line_from_file(self, score_path, skip_line):
         tempfd, tempfname = tempfile.mkstemp()
@@ -252,6 +277,15 @@ class DiskKeyspace(object):
                     rank += len(lines)
 
             return rank
+        else:
+            return None
+
+    def type(self, key):
+        key_path = self._key_path(key)
+        if os.path.exists(key_path):
+            type_path = os.path.join(key_path, 'type')
+            with open(type_path, 'r') as f:
+                return f.read()
         else:
             return None
 
