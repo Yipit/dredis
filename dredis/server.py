@@ -41,6 +41,14 @@ def cmd_flushall(send_fn):
     send_fn('+OK\r\n')
 
 
+@command('FLUSHDB')
+def cmd_flushdb(send_fn):
+    # FIXME: doesn't support multiple DBs currently
+    #keyspace.flushdb()
+    keyspace.flushall()
+    send_fn('+OK\r\n')
+
+
 """
 ****************
 * Key commands *
