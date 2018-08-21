@@ -246,8 +246,13 @@ class DiskKeyspace(object):
             self._remove_line_from_file(score_path, member)
         return result
 
-    def zrangebyscore(self, key, min_score, max_score, withscores=False):
+    def zrangebyscore(self, key, min_score, max_score, withscores=False, offset=0, count=float('+inf')):
         result = []
+        num_elems_read = 0
+        if withscores:
+            num_elems_per_entry = 2
+        else:
+            num_elems_per_entry = 1
         key_path = self._key_path(key)
         scores_path = os.path.join(key_path, 'scores')
         if os.path.exists(scores_path):
@@ -255,7 +260,12 @@ class DiskKeyspace(object):
             scores = [score for score in scores if min_score <= int(score) <= max_score]
             for score in scores:
                 with open(os.path.join(scores_path, score)) as f:
-                    for line in sorted(line.strip() for line in f.readlines()):
+                    lines = sorted(line.strip() for line in f.readlines())
+                for line in lines:
+                    num_elems_read += 1
+                    if len(result) / num_elems_per_entry >= count:
+                        return result
+                    if offset <= num_elems_read:
                         result.append(line)
                         if withscores:
                             result.append(str(score))

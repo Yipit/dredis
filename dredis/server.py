@@ -244,8 +244,17 @@ def cmd_zcard(send_fn, key, member):
 @command('ZRANGEBYSCORE')
 def cmd_zrangebyscore(send_fn, key, min_score, max_score, *args):
     withscores = any(arg.lower() == 'withscores' for arg in args)
+    offset = 0
+    count = float('+inf')
+    while args:
+        arg, args = args[0], args[1:]
+        if arg.lower() == 'limit':
+            offset, args = int(args[0]), args[1:]
+            count, args = int(args[0]), args[1:]
+            break
+
     members = keyspace.zrangebyscore(
-        key, int(min_score), int(max_score), withscores=withscores)
+        key, int(min_score), int(max_score), withscores=withscores, offset=offset, count=count)
     send_fn("*{len}\r\n".format(len=len(members)))
     for member in members:
         send_fn("${len}\r\n{value}\r\n".format(len=len(member), value=member))

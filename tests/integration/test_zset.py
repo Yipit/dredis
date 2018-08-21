@@ -113,6 +113,18 @@ def test_zrangebyscore_with_scores():
     assert r.zrangebyscore('myzset', 100, 200, withscores=True) == [('myvalue1', 100), ('myvalue2', 200)]
 
 
+def test_zrangebyscore_with_limit():
+    r = redis.StrictRedis(host=HOST, port=PORT)
+    r.flushall()
+
+    r.zadd('myzset', 0, 'myvalue0')
+    r.zadd('myzset', 100, 'myvalue1')
+    r.zadd('myzset', 200, 'myvalue2')
+    r.zadd('myzset', 300, 'myvalue3')
+
+    assert r.zrangebyscore('myzset', 0, 400, start=2, num=2, withscores=True) == [('myvalue1', 100), ('myvalue2', 200)]
+
+
 def test_zrank():
     r = redis.StrictRedis(host=HOST, port=PORT)
     r.flushall()
