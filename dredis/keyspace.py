@@ -217,7 +217,7 @@ class DiskKeyspace(object):
         lua = LuaRuntime(unpack_returned_tuples=True)
         lua.execute('KEYS = {%s}' % ', '.join(map(json.dumps, args[:numkeys])))
         lua.execute('ARGV = {%s}' % ', '.join(map(json.dumps, args[numkeys:])))
-        redis_obj = RedisLua(self)
+        redis_obj = RedisLua(self, lua)
         redis_lua = lua.eval('function(redis) {} end'.format(script))
         result = redis_lua(redis_obj)
         return self._convert_lua_tables_to_lists(result, type(lua.table()))
@@ -392,19 +392,31 @@ class DiskKeyspace(object):
 
 class RedisLua(object):
 
-    def __init__(self, keyspace):
+    def __init__(self, keyspace, lua_runtime):
         self._keyspace = keyspace
+        self._lua_runtime = lua_runtime
 
     def call(self, cmd, *args):
         try:
-            return run_command(self._keyspace, cmd, args)
+            result = run_command(self._keyspace, cmd, args)
         except KeyError:
             raise RedisScriptError('@user_script: Unknown Redis command called from Lua script')
         except Exception as exc:
             raise RedisScriptError(str(exc))
+        else:
+            return self._convert_to_lua_types(result)
 
     def pcall(self, cmd, *args):
         try:
             return self.call(cmd, *args)
         except Exception as exc:
             return {'err': 'ERR Error running script: {}'.format(str(exc))}
+
+    def _convert_to_lua_types(self, result):
+        if isinstance(result, (tuple, list, set)):
+            table = self._lua_runtime.table()
+            for i, elem in enumerate(result):
+                table[i] = elem
+            return table
+        else:
+            return result

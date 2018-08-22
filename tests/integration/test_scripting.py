@@ -45,3 +45,18 @@ return redis.call('Get', KEYS[1])""", 2, "testkey", "testvalue") == "testvalue"
 def test_array_of_arrays_in_lua():
     r = fresh_redis()
     assert r.eval('return {{"a","one"}, {"b","two"}, {"c","three"}}', 0) == [['a', 'one'], ['b', 'two'], ['c', 'three']]
+
+
+def test_python_objects_inside_lua():
+    # this is a regression test due to a problem using python objects inside of lua
+    r = fresh_redis()
+    assert r.eval('''local list = redis.call('zrange', 'notfound', 0, 1); return #list''', 0) == 0
+    assert r.eval('''return redis.call('set', 'foo', 'bar')''', 0) == 'OK'
+    assert r.eval('''return redis.call('zcard', 'myzset')''', 0) == 0
+    assert r.eval('''return redis.call('get', 'notfound')''', 0) is None
+    assert r.eval('''
+        local list = redis.call('zrange', 'notfound', 0, 1)
+        return {#KEYS, #ARGV, #list}''', 1, "foo", [1], "a", 1, 2.0) == [1, 4, 0]
+    # NOTE: The Redis protocol doesn't have booleans, so True is converted to `1` and `false` to `None`
+    assert r.eval('''return 1 == 1''', 0) == 1
+    assert r.eval('''return 1 == 2''', 0) is None
