@@ -193,6 +193,8 @@ class DiskKeyspace(object):
                     lines.extend(sublist)
         if stop < 0:
             stop = -stop
+        elif stop > len(lines):
+            stop = -1
         end = len(lines) - stop + 1
         return lines[start:end]
 

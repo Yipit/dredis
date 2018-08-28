@@ -21,6 +21,7 @@ def test_zset_zrange_with_positive_integers():
     r.zadd('myzset', 0, 'myvalue1')
     r.zadd('myzset', 1, 'myvalue2')
     assert r.zrange('myzset', 0, 1) == ['myvalue1', 'myvalue2']
+    assert r.zrange('myzset', 0, 100) == ['myvalue1', 'myvalue2']
 
 
 def test_zset_zrange_with_negative_numbers():
