@@ -285,9 +285,9 @@ class DiskKeyspace(object):
         value_path = os.path.join(key_path, 'values', hashlib.md5(member).hexdigest())
         if os.path.exists(value_path):
             scores_path = os.path.join(key_path, 'scores')
-            scores = sorted(map(int, os.listdir(scores_path)))
+            scores = sorted(os.listdir(scores_path), key=float)
             with open(value_path, 'r') as f:
-                member_score = int(f.read().strip())
+                member_score = f.read().strip()
             rank = 0
             for score in scores:
                 score_path = os.path.join(scores_path, str(score))
