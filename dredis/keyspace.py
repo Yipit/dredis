@@ -460,7 +460,7 @@ class RedisLua(object):
         if isinstance(result, (tuple, list, set)):
             table = self._lua_runtime.table()
             for i, elem in enumerate(result):
-                table[i] = elem  # FIXME: recursive call
+                table[i] = self._convert_redis_types_to_lua_types(elem)
             return table
         elif result is None:
             return False
