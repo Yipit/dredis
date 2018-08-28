@@ -14,5 +14,5 @@ def test_eval_with_error_call():
 def test_eval_with_error_pcall():
     k = DiskKeyspace()
 
-    assert k.eval("""return redis.pcall('cmd_not_found')""", 0, ()) == {
-        'err': 'ERR Error running script: @user_script: Unknown Redis command called from Lua script'}
+    with pytest.raises(ValueError, message='ERR Error running script: @user_script: Unknown Redis command called from Lua script'):
+        k.eval("""return redis.pcall('cmd_not_found')""", 0, ())

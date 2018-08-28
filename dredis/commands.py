@@ -147,18 +147,7 @@ def cmd_sismember(keyspace, key, value):
 
 @command('EVAL')
 def cmd_eval(keyspace, script, numkeys, *keys):
-    result = keyspace.eval(script, int(numkeys), keys)
-    if isinstance(result, dict):
-        raise ValueError(result['err'])
-
-    # the Redis protocol doesn't support booleans, so `True` becomes 1 and `False` becomes nil
-    if result is True:
-        return 1
-    elif result is False:
-        return None
-    else:
-        # assumes `result` is either a list or string
-        return result
+    return keyspace.eval(script, int(numkeys), keys)
 
 
 """

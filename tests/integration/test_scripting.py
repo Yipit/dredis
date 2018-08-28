@@ -60,3 +60,35 @@ def test_python_objects_inside_lua():
     # NOTE: The Redis protocol doesn't have booleans, so True is converted to `1` and `false` to `None`
     assert r.eval('''return 1 == 1''', 0) == 1
     assert r.eval('''return 1 == 2''', 0) is None
+
+
+def test_should_convert_redis_reply_to_lua_types_inside_script():
+    # Reference:
+    # https://github.com/antirez/redis/blob/5b4bec9d336655889641b134791dfdd2adc864cf/src/scripting.c#L106-L201
+    r = fresh_redis()
+
+    assert r.eval('return redis.call("zrank", "mykey", "myvalue") == false', 0) == 1
+    assert r.eval('return redis.call("set", "s", "bar")["ok"]', 0) == 'OK'
+    assert r.eval('return redis.call("get", "s") == "bar"', 0) == 1
+    assert r.eval('return redis.call("incr", "i") == 1', 0) == 1
+    assert r.eval('''
+        local result = redis.pcall("cmdnotfound")
+        return result["err"] == "@user_script: Unknown Redis command called from Lua script"
+    ''', 0) == 1
+    assert r.eval('return #redis.call("zrange", "myzset", 0, 0) == 0', 0) == 1
+
+
+def test_should_convert_lua_types_to_redis_reply():
+    # Reference:
+    # https://github.com/antirez/redis/blob/5b4bec9d336655889641b134791dfdd2adc864cf/src/scripting.c#L106-L201
+    r = fresh_redis()
+
+    assert r.eval('return redis.call("zrank", "mykey", "myvalue")', 0) is None
+    assert r.eval('return redis.call("set", "s", "bar")', 0) == 'OK'
+    assert r.eval('return redis.call("get", "s")', 0) == "bar"
+    assert r.eval('return redis.call("incr", "i")', 0) == 1
+    with pytest.raises(
+            redis.exceptions.ResponseError,
+            message="@user_script: Unknown Redis command called from Lua script"):
+        r.eval('return redis.pcall("cmdnotfound")', 0)
+    assert r.eval('return redis.call("zrange", "myzset", 0, 0)', 0) == []
