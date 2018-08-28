@@ -91,4 +91,6 @@ def test_should_convert_lua_types_to_redis_reply():
             redis.exceptions.ResponseError,
             message="@user_script: Unknown Redis command called from Lua script"):
         r.eval('return redis.pcall("cmdnotfound")', 0)
-    assert r.eval('return redis.call("zrange", "myzset", 0, 0)', 0) == []
+    r.zadd('myzset', 0, 'value1')
+    r.zadd('myzset', 1, 'value2')
+    assert r.eval('return redis.call("zrange", "myzset", 0, -1)', 0) == ['value1', 'value2']
