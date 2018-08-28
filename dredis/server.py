@@ -46,6 +46,8 @@ def transmit(send_fn, result):
         send_fn('*{}\r\n'.format(len(result)))
         for element in result:
             transmit(send_fn, element)
+    else:
+        assert False, 'couldnt catch a response for {} (type {})'.format(repr(result), type(result))
 
 
 
