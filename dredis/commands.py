@@ -191,6 +191,7 @@ def cmd_zrank(keyspace, key, member):
 
 @command('ZRANGEBYSCORE')
 def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
+    args = map(str, args)  # make sure all args are strings to perform `.lower()` calls
     withscores = any(arg.lower() == 'withscores' for arg in args)
     offset = 0
     count = float('+inf')
