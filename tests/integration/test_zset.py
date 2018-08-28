@@ -146,3 +146,4 @@ def test_zsets_should_support_floats_as_score_and_ranges():
         ('three', 2.5),
     ]
     assert r.zrank('myzset', 'zero') == 0
+    assert r.zrange('myzset', 0, 10) == ['zero', 'one', 'two', 'three']
