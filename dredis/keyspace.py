@@ -190,7 +190,10 @@ class DiskKeyspace(object):
             for score in scores:
                 with open(os.path.join(scores_path, score)) as f:
                     sublist = sorted(line.strip() for line in f.readlines())
-                    lines.extend(sublist)
+                for line in sublist:
+                    lines.append(line)
+                    if with_scores:
+                        lines.append(score)
         if stop < 0:
             stop = -stop
         elif stop > len(lines):
