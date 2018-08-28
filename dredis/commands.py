@@ -100,12 +100,12 @@ def cmd_get(keyspace, key):
 
 @command('INCR')
 def cmd_incr(keyspace, key):
-    return str(keyspace.incrby(key, 1))
+    return keyspace.incrby(key, 1)
 
 
 @command('INCRBY')
 def cmd_incrby(keyspace, key, increment):
-    return str(keyspace.incrby(key, int(increment)))
+    return keyspace.incrby(key, int(increment))
 
 
 """

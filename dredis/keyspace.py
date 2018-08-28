@@ -44,9 +44,9 @@ class DiskKeyspace(object):
         else:
             os.makedirs(key_path)
             self.write_type(key, 'string')
-        result = str(number + increment)
+        result = number + increment
         with open(value_path, 'w') as f:
-            f.write(result)
+            f.write(str(result))
         return result
 
     def exists(self, key):
