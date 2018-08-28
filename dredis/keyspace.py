@@ -265,8 +265,8 @@ class DiskKeyspace(object):
         key_path = self._key_path(key)
         scores_path = os.path.join(key_path, 'scores')
         if os.path.exists(scores_path):
-            scores = sorted(os.listdir(scores_path), key=int)
-            scores = [score for score in scores if min_score <= int(score) <= max_score]
+            scores = sorted(os.listdir(scores_path), key=float)
+            scores = [score for score in scores if min_score <= float(score) <= max_score]
             for score in scores:
                 with open(os.path.join(scores_path, score)) as f:
                     lines = sorted(line.strip() for line in f.readlines())

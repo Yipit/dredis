@@ -209,7 +209,7 @@ def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
             break
 
     members = keyspace.zrangebyscore(
-        key, int(min_score), int(max_score), withscores=withscores, offset=offset, count=count)
+        key, float(min_score), float(max_score), withscores=withscores, offset=offset, count=count)
     return members
 
 

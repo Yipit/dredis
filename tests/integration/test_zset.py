@@ -127,3 +127,20 @@ def test_zrank():
     assert r.zrank('myzset', 'two') == 2
     assert r.zrank('myzset', 'three') == 3
     assert r.zrank('myzset', 'notfound') is None
+
+
+def test_zsets_should_support_floats_as_score_and_ranges():
+    r = fresh_redis()
+
+    r.zadd('myzset', 0.2, 'zero')
+    r.zadd('myzset', 0.7, 'one')
+    r.zadd('myzset', 1.3, 'two')
+    r.zadd('myzset', 2.5, 'three')
+
+    assert r.zrangebyscore('myzset', 0, 0.7, withscores=True) == [('zero', 0.2), ('one', 0.7)]
+    assert r.zrangebyscore('myzset', '-inf', '+inf', withscores=True) == [
+        ('zero', 0.2),
+        ('one', 0.7),
+        ('two', 1.3),
+        ('three', 2.5),
+    ]
