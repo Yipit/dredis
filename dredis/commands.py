@@ -8,6 +8,10 @@ def command(cmd_name):
     return decorator
 
 
+class SimpleString(str):
+    pass
+
+
 """
 *******************
 * Server commands *
@@ -26,7 +30,7 @@ def cmd_command(keyspace):
 @command('FLUSHALL')
 def cmd_flushall(keyspace):
     keyspace.flushall()
-    return 'OK'
+    return SimpleString('OK')
 
 
 @command('FLUSHDB')
@@ -34,7 +38,7 @@ def cmd_flushdb(keyspace):
     # FIXME: doesn't support multiple DBs currently
     #keyspace.flushdb()
     keyspace.flushall()
-    return 'OK'
+    return SimpleString('OK')
 
 
 """
@@ -68,12 +72,12 @@ def cmd_keys(keyspace, pattern):
 
 @command('PING')
 def cmd_ping(keyspace):
-    return 'PONG'
+    return SimpleString('PONG')
 
 
 @command('SELECT')
 def cmd_select(keyspace, db):
-    return 'OK'
+    return SimpleString('OK')
 
 
 """
@@ -86,7 +90,7 @@ def cmd_select(keyspace, db):
 @command('SET')
 def cmd_set(keyspace, key, value, *args):
     keyspace.set(key, value)
-    return 'OK'
+    return SimpleString('OK')
 
 
 @command('GET')
