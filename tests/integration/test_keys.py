@@ -31,3 +31,14 @@ def test_keys():
     assert sorted(all_keys) == sorted(['mystr', 'myint', 'myset', 'myzset'])
     assert sorted(r.keys('my*set')) == sorted(['myset', 'myzset'])
     assert r.keys('my?et') == ['myset']
+
+
+def test_exists():
+    r = fresh_redis()
+
+    r.set('mystr', 'test')
+    assert r.exists('mystr') == 1
+    assert r.exists('notfound') == 0
+
+    # redis-py doesn't support multiple args to `r.exists()`
+    assert r.execute_command('EXISTS', 'mystr', 'notfound') == 1

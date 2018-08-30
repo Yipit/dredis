@@ -363,6 +363,14 @@ class DiskKeyspace(object):
         all_keys = os.listdir(self.directory)
         return list(fnmatch.filter(all_keys, pattern))
 
+    def exists(self, *keys):
+        result = 0
+        for key in keys:
+            key_path = self._key_path(key)
+            if os.path.exists(key_path):
+                result += 1
+        return result
+
     def hset(self, key, field, value):
         key_path = self._key_path(key)
         fields_path = os.path.join(key_path, 'fields')

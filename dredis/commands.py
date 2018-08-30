@@ -63,6 +63,11 @@ def cmd_keys(keyspace, pattern):
     return keyspace.keys(pattern)
 
 
+@command('EXISTS')
+def cmd_exists(keyspace, *keys):
+    return keyspace.exists(*keys)
+
+
 """
 ***********************
 * Connection commands *
