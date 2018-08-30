@@ -54,9 +54,6 @@ class DiskKeyspace(object):
             f.write(str(result))
         return result
 
-    def exists(self, key):
-        return os.path.exists(self._key_path(key))
-
     def get(self, key):
         key_path = self._key_path(key)
         value_path = os.path.join(key_path, 'value')
