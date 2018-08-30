@@ -438,6 +438,9 @@ class DiskKeyspace(object):
             if os.path.exists(field_path):
                 os.remove(field_path)
                 result += 1
+        # remove empty hashes from keyspace
+        if not os.listdir(fields_path):
+            shutil.rmtree(key_path)
         return result
 
     def hget(self, key, field):

@@ -84,3 +84,12 @@ def test_hgetall():
     r.hset('myhash', 'key3', 'value3')
 
     assert r.hgetall('myhash') == {'key1': 'value1', 'key2': 'value2', 'key3': 'value3'}
+
+
+def test_empty_hash_shouldnt_be_in_keyspace():
+    r = fresh_redis()
+
+    r.hset('myhash', 'key1', 'value1')
+    r.hdel('myhash', 'key1')
+
+    assert r.keys() == []
