@@ -72,6 +72,16 @@ class DiskKeyspace(object):
         with open(value_path, 'w') as f:
             f.write(value)
 
+    def getrange(self, key, start, end):
+        value = self.get(key)
+        if value is None:
+            return ''
+        else:
+            if end < 0:
+                end = len(value) + end
+            end += 1  # inclusive
+            return value[start:end]
+
     def sadd(self, key, value):
         key_path = self._key_path(key)
         values_path = os.path.join(key_path, 'values')

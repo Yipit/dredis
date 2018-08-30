@@ -50,3 +50,15 @@ def test_delete():
     assert r.delete('test1', 'test2', 'notfound') == 2
     assert r.get('test1') is None
     assert r.get('test2') is None
+
+
+def test_getrange():
+    r = fresh_redis()
+
+    r.set('test', 'value')
+
+    assert r.getrange('test', 0, -1) == 'value'
+    assert r.getrange('test', 0, 10) == 'value'
+    assert r.getrange('test', 0, 2) == 'val'
+    assert r.getrange('test', 0, 2) == 'val'
+    assert r.getrange('notfound', 0, -1) == ''

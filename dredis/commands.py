@@ -113,6 +113,11 @@ def cmd_incrby(keyspace, key, increment):
     return keyspace.incrby(key, int(increment))
 
 
+@command('GETRANGE')
+def cmd_getrange(keyspace, key, start, end):
+    return keyspace.getrange(key, int(start), int(end))
+
+
 """
 ****************
 * Set commands *
