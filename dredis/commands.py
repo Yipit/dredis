@@ -283,5 +283,10 @@ def cmd_hincrby(keyspace, key, field, increment):
     return keyspace.hincrby(key, field, increment)
 
 
+@command('HGETALL')
+def cmd_hincrby(keyspace, key):
+    return keyspace.hgetall(key)
+
+
 def run_command(keyspace, cmd, args):
     return REDIS_COMMANDS[cmd.upper()](keyspace, *args)

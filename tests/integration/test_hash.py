@@ -74,3 +74,13 @@ def test_hincrby():
     r.hset('myhash', 'key2', 10)
     assert r.hincrby('myhash', 'key2', 5) == 15
     assert r.hget('myhash', 'key2') == '15'
+
+
+def test_hgetall():
+    r = fresh_redis()
+
+    r.hset('myhash', 'key1', 'value1')
+    r.hset('myhash', 'key2', 'value2')
+    r.hset('myhash', 'key3', 'value3')
+
+    assert r.hgetall('myhash') == {'key1': 'value1', 'key2': 'value2', 'key3': 'value3'}

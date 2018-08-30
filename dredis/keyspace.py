@@ -472,6 +472,15 @@ class DiskKeyspace(object):
         self.hset(key, field, str(new_value))
         return new_value
 
+    def hgetall(self, key):
+        keys = self.hkeys(key)
+        values = self.hvals(key)
+        result = []
+        for (k, v) in zip(keys, values):
+            result.append(k)
+            result.append(v)
+        return result
+
 
 class RedisLua(object):
 
