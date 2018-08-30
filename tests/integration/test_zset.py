@@ -162,3 +162,12 @@ def test_zset_rescore_when_zero_is_decimal_point():
 
     assert r.zadd('myzset', 1.0, 'a') == 1
     assert r.zadd('myzset', 1, 'a') == 0  # nothing changed
+
+
+def test_zcount():
+    r = fresh_redis()
+
+    r.zadd('myzset', 1, 'a')
+    r.zadd('myzset', 2, 'b')
+
+    assert r.zcount('myzset', 0, 10) == 2

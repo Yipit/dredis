@@ -321,6 +321,9 @@ class DiskKeyspace(object):
                             result.append(str(score))
         return result
 
+    def zcount(self, key, min_score, max_score):
+        return len(self.zrangebyscore(key, min_score, max_score))
+
     def zrank(self, key, member):
         key_path = self._key_path(key)
         value_path = os.path.join(key_path, 'values', hashlib.md5(member).hexdigest())
