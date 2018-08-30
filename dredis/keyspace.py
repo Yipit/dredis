@@ -302,6 +302,9 @@ class DiskKeyspace(object):
             score_path = os.path.join(scores_path, score)
             os.remove(value_path)
             self._remove_line_from_file(score_path, member)
+        # empty zset should be removed from keyspace
+        if not os.listdir(values_path):
+            shutil.rmtree(key_path)
         return result
 
     def zrangebyscore(self, key, min_score, max_score, withscores=False, offset=0, count=float('+inf')):

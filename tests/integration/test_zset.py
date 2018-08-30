@@ -212,3 +212,12 @@ def test_zuinionstore():
         ('myvalue3', 4),
         ('common', 9),
     ]
+
+
+def test_empty_zset_after_zrem_should_be_removed_from_keyspace():
+    r = fresh_redis()
+
+    r.zadd('myzset1', 0, 'myvalue1')
+    r.zrem('myzset1', 'myvalue1')
+
+    assert r.keys() == []
