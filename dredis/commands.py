@@ -158,10 +158,11 @@ def cmd_eval(keyspace, script, numkeys, *keys):
 
 
 @command('ZADD')
-def cmd_zadd(keyspace, key, score, *values):
+def cmd_zadd(keyspace, key, *flat_pairs):
     count = 0
-    for value in values:
-        count += keyspace.zadd(key, score, value)
+    pairs = zip(flat_pairs[0::2], flat_pairs[1::2])  # [1, 2, 3, 4] -> [(1,2), (3,4)]
+    for score, value in pairs:
+        count += keyspace.zadd(key, str(score), str(value))
     return count
 
 

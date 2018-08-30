@@ -16,6 +16,12 @@ def test_zset_zadd_and_zcard():
     assert r.zadd('myzset', 0, 'myvalue1') == 0  # not changed
 
 
+def test_zadd_with_multiple_parameters():
+    r = fresh_redis()
+    assert r.zadd('myzset', 0, 'myvalue1', 1, 'myvalue2', 2, 'myvalue3') == 3
+    assert r.zcard('myzset') == 3
+
+
 def test_zset_zrange_with_positive_integers():
     r = fresh_redis()
     r.zadd('myzset', 0, 'myvalue1')
