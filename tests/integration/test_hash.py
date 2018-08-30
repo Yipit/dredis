@@ -52,3 +52,14 @@ def test_hsetnx():
     assert r.hsetnx('myhash', 'key1', 'value1') == 1
     assert r.hsetnx('myhash', 'key1', 'value2') == 0
     assert r.hget('myhash', 'key1') == 'value1'
+
+
+def test_hdel():
+    r = fresh_redis()
+
+    r.hset('myhash', 'key1', 'value1')
+    r.hset('myhash', 'key2', 'value2')
+
+    assert r.hdel('myhash', 'key1', 'key2') == 2
+    assert r.hget('myhash', 'key1') is None
+    assert r.hget('myhash', 'key2') is None

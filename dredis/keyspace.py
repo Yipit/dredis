@@ -389,6 +389,17 @@ class DiskKeyspace(object):
                 f.write(value)
         return result
 
+    def hdel(self, key, *fields):
+        result = 0
+        key_path = self._key_path(key)
+        fields_path = os.path.join(key_path, 'fields')
+        for field in fields:
+            field_path = os.path.join(fields_path, field)
+            if os.path.exists(field_path):
+                os.remove(field_path)
+                result += 1
+        return result
+
     def hget(self, key, field):
         key_path = self._key_path(key)
         fields_path = os.path.join(key_path, 'fields')

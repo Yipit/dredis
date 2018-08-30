@@ -219,6 +219,11 @@ def cmd_hset(keyspace, key, field, value):
     return keyspace.hset(key, field, value)
 
 
+@command('HDEL')
+def cmd_hdel(keyspace, key, *fields):
+    return keyspace.hdel(key, *fields)
+
+
 @command('HSETNX')
 def cmd_hsetnx(keyspace, key, field, value):
     return keyspace.hsetnx(key, field, value)
