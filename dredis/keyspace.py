@@ -398,6 +398,7 @@ class DiskKeyspace(object):
             result = 1
         with open(field_path, 'w') as f:
             f.write(value)
+        self.write_type(key, 'hash')
         return result
 
     def hsetnx(self, key, field, value):

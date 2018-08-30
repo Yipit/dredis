@@ -8,11 +8,14 @@ def test_types():
     r.incr('myint')
     r.sadd('myset', 'test')
     r.zadd('myzset', 0, 'test')
+    r.hset('myhash', 'field', 'value')
 
     assert r.type('mystr') == 'string'
     assert r.type('myint') == 'string'
     assert r.type('myset') == 'set'
     assert r.type('myzset') == 'zset'
+    assert r.type('myhash') == 'hash'
+    assert r.type('notfound') is None
 
 
 def test_keys():
