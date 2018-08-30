@@ -156,14 +156,14 @@ class DiskKeyspace(object):
             if previous_score == score:
                 return 0
             else:
-                self._remove_line_from_file(score_path, skip_line=value)
-                return 1
-        else:
-            with open(value_path, 'w') as f:
-                f.write(score)
-            with open(score_path, 'a') as f:
-                f.write(value + '\n')
-            return 1
+                previous_score_path = os.path.join(scores_path, previous_score)
+                self._remove_line_from_file(previous_score_path, skip_line=value)
+
+        with open(value_path, 'w') as f:
+            f.write(score)
+        with open(score_path, 'a') as f:
+            f.write(value + '\n')
+        return 1
 
     def write_type(self, key, name):
         key_path = self._key_path(key)
