@@ -170,6 +170,7 @@ def cmd_zadd(keyspace, key, *flat_pairs):
 def cmd_zrange(keyspace, key, start, stop, with_scores=False):
     return keyspace.zrange(key, int(start), int(stop), bool(with_scores))
 
+
 @command('ZCARD')
 def cmd_zcard(keyspace, key):
     return keyspace.zcard(key)
