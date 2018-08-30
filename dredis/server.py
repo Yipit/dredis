@@ -54,7 +54,9 @@ def transmit(send_fn, result):
 class CommandHandler(asyncore.dispatcher_with_send):
 
     def handle_read(self):
-        data = self.recv(8192)
+        # FIXME: this may not be enough. the right way is to keep reading
+        buffer_size = 1024 * 1024  # 1 MB
+        data = self.recv(buffer_size)
         print('data = {}'.format(repr(data)))
         if not data:
             return
