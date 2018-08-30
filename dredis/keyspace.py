@@ -1,3 +1,4 @@
+import collections
 import fnmatch
 import hashlib
 import json
@@ -349,6 +350,22 @@ class DiskKeyspace(object):
             return rank
         else:
             return None
+
+    def zunionstore(self, destination, keys, weights):
+        union = collections.defaultdict(list)
+        for (key, weight) in zip(keys, weights):
+            elem_with_scores = self.zrange(key, 0, -1, with_scores=True)
+            while elem_with_scores:
+                member = elem_with_scores.pop(0)
+                score = elem_with_scores.pop(0)
+                union[member].append(float(score) * weight)
+        aggregate_fn = sum  # FIXME: redis also supports MIN and MAX
+
+        result = 0
+        for member, scores in union.items():
+            score = aggregate_fn(scores)
+            result += self.zadd(destination, str(score), member)
+        return result
 
     def type(self, key):
         key_path = self._key_path(key)

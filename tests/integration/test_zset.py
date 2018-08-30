@@ -177,3 +177,38 @@ def test_zcount():
     r.zadd('myzset', 2, 'b')
 
     assert r.zcount('myzset', 0, 10) == 2
+
+
+def test_zuinionstore():
+    # doesn't support AGGREGATE at the moment
+    '''ZUNIONSTORE destination numkeys key [key ...] [WEIGHTS weight [weight ...]] [AGGREGATE SUM|MIN|MAX]'''
+    r = fresh_redis()
+
+    r.zadd('myzset1', 0, 'myvalue1')
+    r.zadd('myzset1', 1, 'common')
+
+    r.zadd('myzset2', 2, 'myvalue2')
+    r.zadd('myzset2', 3, 'common')
+
+    r.zadd('myzset3', 4, 'myvalue3')
+    r.zadd('myzset3', 5, 'common')
+
+    factor1 = 1
+    factor2 = 2
+    factor3 = 3
+
+    assert r.zunionstore('result1', {'myzset1': factor1, 'myzset2': factor2, 'myzset3': factor3}) == 4
+    assert r.zrange('result1', 0, -1, withscores=True) == [
+        ('myvalue1', 0 * factor1),
+        ('myvalue2', 2 * factor2),
+        ('myvalue3', 4 * factor3),
+        ('common', 1 * factor1 + 3 * factor2 + 5 * factor3),
+    ]
+
+    assert r.zunionstore('result2', ['myzset1', 'myzset2', 'myzset3']) == 4
+    assert r.zrange('result2', 0, -1, withscores=True) == [
+        ('myvalue1', 0),
+        ('myvalue2', 2),
+        ('myvalue3', 4),
+        ('common', 9),
+    ]

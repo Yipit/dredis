@@ -219,6 +219,23 @@ def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
     return members
 
 
+@command('ZUNIONSTORE')
+def cmd_zunionstore(keyspace, destination, numkeys, *args):
+    keys = []
+    weights = []
+    args = list(args)
+    while args:
+        arg = args.pop(0)
+        if arg == 'WEIGHTS':
+            weights = map(float, args)
+            break
+        else:
+            keys.append(arg)
+    assert len(weights) <= len(keys)  # FIXME: probably want nicer errors
+    ones = [1] * (len(keys) - len(weights))  # fill in with default weight of 1
+    weights = weights + ones
+    return keyspace.zunionstore(destination, keys, weights)
+
 """
 *******************
 * Hash commands *
