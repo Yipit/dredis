@@ -15,7 +15,7 @@ def test_types():
     assert r.type('myset') == 'set'
     assert r.type('myzset') == 'zset'
     assert r.type('myhash') == 'hash'
-    assert r.type('notfound') is None
+    assert r.type('notfound') == 'none'
 
 
 def test_keys():

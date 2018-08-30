@@ -384,7 +384,7 @@ class DiskKeyspace(object):
             with open(type_path, 'r') as f:
                 return f.read()
         else:
-            return None
+            return 'none'
 
     def keys(self, pattern):
         all_keys = os.listdir(self.directory)
