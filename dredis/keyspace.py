@@ -2,12 +2,16 @@ import fnmatch
 import hashlib
 import json
 import os.path
+import re
 import shutil
 import tempfile
 
 from lupa import LuaRuntime
 
 from dredis.commands import run_command, SimpleString
+
+
+DECIMAL_REGEX = re.compile('(\d+)\.0+$')
 
 
 class RedisScriptError(Exception):
@@ -140,6 +144,12 @@ class DiskKeyspace(object):
         /path/scores/30 -> "z"
         /path/values/hash(x) -> 1
         """
+
+        # if `score` has 0 as the decimal point, trim it: 10.00 -> 10
+        match = DECIMAL_REGEX.match(score)
+        if match:
+            score = match.group(1)
+
         key_path = self._key_path(key)
         scores_path = os.path.join(key_path, 'scores')
         values_path = os.path.join(key_path, 'values')

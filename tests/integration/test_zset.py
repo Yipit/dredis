@@ -155,3 +155,10 @@ def test_zsets_should_support_floats_as_score_and_ranges():
     ]
     assert r.zrank('myzset', 'zero') == 0
     assert r.zrange('myzset', 0, 10) == ['zero', 'one', 'two', 'three']
+
+
+def test_zset_rescore_when_zero_is_decimal_point():
+    r = fresh_redis()
+
+    assert r.zadd('myzset', 1.0, 'a') == 1
+    assert r.zadd('myzset', 1, 'a') == 0  # nothing changed
