@@ -444,6 +444,12 @@ class DiskKeyspace(object):
             result = len(os.listdir(fields_path))
         return result
 
+    def hincrby(self, key, field, increment):
+        before = self.hget(key, field) or '0'
+        new_value = int(before) + int(increment)
+        self.hset(key, field, str(new_value))
+        return new_value
+
 
 class RedisLua(object):
 

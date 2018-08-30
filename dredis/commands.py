@@ -254,5 +254,10 @@ def cmd_hlen(keyspace, key):
     return keyspace.hlen(key)
 
 
+@command('HINCRBY')
+def cmd_hincrby(keyspace, key, field, increment):
+    return keyspace.hincrby(key, field, increment)
+
+
 def run_command(keyspace, cmd, args):
     return REDIS_COMMANDS[cmd.upper()](keyspace, *args)

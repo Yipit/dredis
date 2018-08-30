@@ -63,3 +63,14 @@ def test_hdel():
     assert r.hdel('myhash', 'key1', 'key2') == 2
     assert r.hget('myhash', 'key1') is None
     assert r.hget('myhash', 'key2') is None
+
+
+def test_hincrby():
+    r = fresh_redis()
+
+    assert r.hincrby('myhash', 'key1', 0) == 0
+    assert r.hincrby('myhash', 'key1', 1) == 1
+
+    r.hset('myhash', 'key2', 10)
+    assert r.hincrby('myhash', 'key2', 5) == 15
+    assert r.hget('myhash', 'key2') == '15'
