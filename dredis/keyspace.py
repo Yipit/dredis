@@ -109,16 +109,17 @@ class DiskKeyspace(object):
     def scard(self, key):
         return len(self.smembers(key))
 
-    def delete(self, key):
-        if self.exists(key):
-            key_path = self._key_path(key)
-            if os.path.isfile(key_path):
-                os.remove(self._key_path(key))
-            else:
-                shutil.rmtree(key_path)
-            return 1
-        else:
-            return 0
+    def delete(self, *keys):
+        result = 0
+        for key in keys:
+            if self.exists(key):
+                key_path = self._key_path(key)
+                if os.path.isfile(key_path):
+                    os.remove(self._key_path(key))
+                else:
+                    shutil.rmtree(key_path)
+                result += 1
+        return result
 
     def zadd(self, key, score, value):
         """

@@ -39,3 +39,14 @@ def test_incr_integers():
     r.set('b', 10)
     assert r.incr('b') == 11
     assert r.incr('b') == 12
+
+
+def test_delete():
+    r = fresh_redis()
+
+    r.set('test1', 'value1')
+    r.set('test2', 'value2')
+
+    assert r.delete('test1', 'test2', 'notfound') == 2
+    assert r.get('test1') is None
+    assert r.get('test2') is None

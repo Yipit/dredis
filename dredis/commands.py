@@ -49,8 +49,8 @@ def cmd_flushdb(keyspace):
 
 
 @command('DEL')
-def cmd_del(keyspace, key):
-    return keyspace.delete(key)
+def cmd_del(keyspace, *keys):
+    return keyspace.delete(*keys)
 
 
 @command('TYPE')
