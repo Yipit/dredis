@@ -63,6 +63,7 @@ def test_hdel():
     assert r.hdel('myhash', 'key1', 'key2') == 2
     assert r.hget('myhash', 'key1') is None
     assert r.hget('myhash', 'key2') is None
+    assert r.hdel('myhash', 'notfound') == 0
 
 
 def test_hincrby():

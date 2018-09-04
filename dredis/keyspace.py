@@ -303,8 +303,8 @@ class DiskKeyspace(object):
             os.remove(value_path)
             self._remove_line_from_file(score_path, member)
         # empty zset should be removed from keyspace
-        if not os.listdir(values_path):
-            shutil.rmtree(key_path)
+        if self._empty_directory(values_path):
+            self.delete(key)
         return result
 
     def zrangebyscore(self, key, min_score, max_score, withscores=False, offset=0, count=float('+inf')):
@@ -439,8 +439,8 @@ class DiskKeyspace(object):
                 os.remove(field_path)
                 result += 1
         # remove empty hashes from keyspace
-        if not os.listdir(fields_path):
-            shutil.rmtree(key_path)
+        if self._empty_directory(fields_path):
+            self.delete(key)
         return result
 
     def hget(self, key, field):
@@ -497,6 +497,9 @@ class DiskKeyspace(object):
             result.append(k)
             result.append(v)
         return result
+
+    def _empty_directory(self, path):
+        return os.path.exists(path) and not os.listdir(path)
 
 
 class RedisLua(object):
