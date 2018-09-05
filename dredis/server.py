@@ -5,6 +5,7 @@ import json
 import os.path
 import socket
 import sys
+import tempfile
 import traceback
 
 from dredis.commands import run_command
@@ -86,7 +87,7 @@ class RedisServer(asyncore.dispatcher):
             sys.stderr.flush()
 
 
-keyspace = DiskKeyspace()
+root_dir = tempfile.mkdtemp(prefix="redis-test-")
 
 
 if __name__ == '__main__':
@@ -95,6 +96,7 @@ if __name__ == '__main__':
     else:
         port = int(os.environ.get('DREDIS_PORT', '6377'))
 
+    keyspace = DiskKeyspace(root_dir)
     keyspace.flushall()
 
     RedisServer('127.0.0.1', port)

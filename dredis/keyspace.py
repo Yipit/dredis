@@ -21,8 +21,8 @@ class RedisScriptError(Exception):
 
 class DiskKeyspace(object):
 
-    def __init__(self):
-        self.directory = tempfile.mkdtemp(prefix="redis-test-")
+    def __init__(self, root_dir):
+        self.directory = root_dir
         print("Directory = {}".format(self.directory))
 
     def _key_path(self, key):
