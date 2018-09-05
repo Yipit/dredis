@@ -172,7 +172,7 @@ def cmd_zadd(keyspace, key, *flat_pairs):
     count = 0
     pairs = zip(flat_pairs[0::2], flat_pairs[1::2])  # [1, 2, 3, 4] -> [(1,2), (3,4)]
     for score, value in pairs:
-        count += keyspace.zadd(key, str(score), str(value))
+        count += keyspace.zadd(key, score, value)
     return count
 
 
@@ -208,7 +208,6 @@ def cmd_zcount(keyspace, key, min_score, max_score):
 
 @command('ZRANGEBYSCORE')
 def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
-    args = map(str, args)  # make sure all args are strings to perform `.lower()` calls
     withscores = any(arg.lower() == 'withscores' for arg in args)
     offset = 0
     count = float('+inf')
@@ -294,4 +293,5 @@ def cmd_hincrby(keyspace, key):
 
 
 def run_command(keyspace, cmd, args):
-    return REDIS_COMMANDS[cmd.upper()](keyspace, *args)
+    str_args = map(str, args)
+    return REDIS_COMMANDS[cmd.upper()](keyspace, *str_args)
