@@ -1,6 +1,7 @@
 #!/Users/hugo/.virtualenvs/dredis/bin/python
 
 import asyncore
+import collections
 import json
 import os.path
 import socket
@@ -22,7 +23,7 @@ def err(send_fn, tb):
     send_fn("-Server exception: {}\r\n".format(json.dumps(tb)))
 
 
-def execute_cmd(send_fn, cmd, *args):
+def execute_cmd(keyspace, send_fn, cmd, *args):
     print('cmd={}, args={}'.format(repr(cmd), repr(args)))
     try:
         result = run_command(keyspace, cmd, args)
@@ -51,17 +52,20 @@ def transmit(send_fn, result):
         assert False, 'couldnt catch a response for {} (type {})'.format(repr(result), type(result))
 
 
-
 class CommandHandler(asyncore.dispatcher_with_send):
 
     def handle_read(self):
         parser = Parser(self.recv)
         cmd = parser.get_instructions()
-        print('data = {}'.format(repr(cmd)))
+        print('{} data = {}'.format(self.addr, repr(cmd)))
         if not cmd:
             return
-        execute_cmd(self.debug_send, *cmd)
+        execute_cmd(self.keyspace, self.debug_send, *cmd)
         print('')
+
+    @property
+    def keyspace(self):
+        return keyspaces[self.addr]
 
     def debug_send(self, *args):
         print("out={}".format(repr(args)))
@@ -86,7 +90,12 @@ class RedisServer(asyncore.dispatcher):
             sys.stdout.flush()
             sys.stderr.flush()
 
+    def handle_close(self):
+        self.close()
+        del keyspaces[self.addr]
 
+
+keyspaces = collections.defaultdict(lambda: DiskKeyspace(root_dir))
 root_dir = tempfile.mkdtemp(prefix="redis-test-")
 
 
