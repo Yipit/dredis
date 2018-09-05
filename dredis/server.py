@@ -1,7 +1,6 @@
 #!/Users/hugo/.virtualenvs/dredis/bin/python
 
 import asyncore
-import collections
 import json
 import os.path
 import socket
@@ -63,10 +62,6 @@ class CommandHandler(asyncore.dispatcher_with_send):
         execute_cmd(self.keyspace, self.debug_send, *cmd)
         print('')
 
-    @property
-    def keyspace(self):
-        return KEYSPACES[self.addr]
-
     def debug_send(self, *args):
         print("out={}".format(repr(args)))
         return self.send(*args)
@@ -74,6 +69,12 @@ class CommandHandler(asyncore.dispatcher_with_send):
     def handle_close(self):
         self.close()
         del KEYSPACES[self.addr]
+
+    @property
+    def keyspace(self):
+        if self.addr not in KEYSPACES:
+            KEYSPACES[self.addr] = DiskKeyspace(ROOT_DIR)
+        return KEYSPACES[self.addr]
 
 
 class RedisServer(asyncore.dispatcher):
@@ -95,9 +96,8 @@ class RedisServer(asyncore.dispatcher):
             sys.stderr.flush()
 
 
-
 ROOT_DIR = tempfile.mkdtemp(prefix="redis-test-")
-KEYSPACES = collections.defaultdict(lambda: DiskKeyspace(ROOT_DIR))
+KEYSPACES = {}
 
 
 if __name__ == '__main__':
