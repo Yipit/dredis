@@ -25,7 +25,6 @@ class DiskKeyspace(object):
         self._root_directory = root_dir
         default_db = '0'
         self._set_db_directory(default_db)
-        print("Directory = {}".format(self.directory))
 
     def _set_db_directory(self, db):
         self.directory = os.path.join(self._root_directory, db)
