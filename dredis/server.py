@@ -65,7 +65,7 @@ class CommandHandler(asyncore.dispatcher_with_send):
 
     @property
     def keyspace(self):
-        return keyspaces[self.addr]
+        return KEYSPACES[self.addr]
 
     def debug_send(self, *args):
         print("out={}".format(repr(args)))
@@ -92,11 +92,11 @@ class RedisServer(asyncore.dispatcher):
 
     def handle_close(self):
         self.close()
-        del keyspaces[self.addr]
+        del KEYSPACES[self.addr]
 
 
-keyspaces = collections.defaultdict(lambda: DiskKeyspace(root_dir))
-root_dir = tempfile.mkdtemp(prefix="redis-test-")
+ROOT_DIR = tempfile.mkdtemp(prefix="redis-test-")
+KEYSPACES = collections.defaultdict(lambda: DiskKeyspace(ROOT_DIR))
 
 
 if __name__ == '__main__':
@@ -105,7 +105,7 @@ if __name__ == '__main__':
     else:
         port = int(os.environ.get('DREDIS_PORT', '6377'))
 
-    keyspace = DiskKeyspace(root_dir)
+    keyspace = DiskKeyspace(ROOT_DIR)
     keyspace.flushall()
 
     RedisServer('127.0.0.1', port)
