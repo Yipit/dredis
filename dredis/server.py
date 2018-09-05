@@ -71,6 +71,10 @@ class CommandHandler(asyncore.dispatcher_with_send):
         print("out={}".format(repr(args)))
         return self.send(*args)
 
+    def handle_close(self):
+        self.close()
+        del KEYSPACES[self.addr]
+
 
 class RedisServer(asyncore.dispatcher):
 
@@ -90,9 +94,6 @@ class RedisServer(asyncore.dispatcher):
             sys.stdout.flush()
             sys.stderr.flush()
 
-    def handle_close(self):
-        self.close()
-        del KEYSPACES[self.addr]
 
 
 ROOT_DIR = tempfile.mkdtemp(prefix="redis-test-")
