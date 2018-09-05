@@ -22,21 +22,28 @@ class RedisScriptError(Exception):
 class DiskKeyspace(object):
 
     def __init__(self, root_dir):
-        self.directory = root_dir
+        self._root_directory = root_dir
+        default_db = '0'
+        self._set_db_directory(default_db)
         print("Directory = {}".format(self.directory))
+
+    def _set_db_directory(self, db):
+        self.directory = os.path.join(self._root_directory, db)
 
     def _key_path(self, key):
         return os.path.join(self.directory, key)
 
     def flushall(self):
         try:
-            shutil.rmtree(self.directory)
+            shutil.rmtree(self._root_directory)
         except:
             pass
-        try:
-            os.makedirs(self.directory)
-        except:
-            pass
+
+        for db_id in range(15):
+            try:
+                os.makedirs(os.path.join(self._root_directory, str(db_id)))
+            except:
+                pass
 
     def incrby(self, key, increment=1):
         key_path = self._key_path(key)
