@@ -45,6 +45,9 @@ class DiskKeyspace(object):
             except:
                 pass
 
+    def select(self, db):
+        self._set_db_directory(db)
+
     def incrby(self, key, increment=1):
         key_path = self._key_path(key)
         value_path = os.path.join(key_path, 'value')

@@ -82,6 +82,7 @@ def cmd_ping(keyspace):
 
 @command('SELECT')
 def cmd_select(keyspace, db):
+    keyspace.select(db)
     return SimpleString('OK')
 
 
