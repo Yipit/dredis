@@ -96,7 +96,6 @@ class RedisServer(asyncore.dispatcher):
             sys.stderr.flush()
 
 
-ROOT_DIR = tempfile.mkdtemp(prefix="redis-test-")
 KEYSPACES = {}
 
 
@@ -105,6 +104,12 @@ if __name__ == '__main__':
         port = int(sys.argv[1])
     else:
         port = int(os.environ.get('DREDIS_PORT', '6377'))
+
+    root_dir_env = os.environ.get('ROOT_DIR')
+    if root_dir_env:
+        ROOT_DIR = root_dir_env
+    else:
+        ROOT_DIR = tempfile.mkdtemp(prefix="redis-test-")
 
     keyspace = DiskKeyspace(ROOT_DIR)
     keyspace.flushall()
