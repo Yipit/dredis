@@ -1,5 +1,6 @@
 import os.path
 import shutil
+import tempfile
 
 
 class Path(str):
@@ -52,3 +53,12 @@ class Path(str):
 
     def listdir(self):
         return os.listdir(self._path)
+
+    def remove_line(self, line_to_remove):
+        tempfd, tempfname = tempfile.mkstemp()
+        with open(tempfname, 'w') as tfile:
+            for line in self.readlines():
+                if line != line_to_remove:
+                    tfile.write(line)
+        os.close(tempfd)
+        os.rename(tempfname, self._path)

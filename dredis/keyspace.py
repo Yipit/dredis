@@ -1,9 +1,7 @@
 import collections
 import fnmatch
 import hashlib
-import os
 import re
-import tempfile
 
 from dredis.lua import LuaRunner
 from dredis.path import Path
@@ -162,7 +160,7 @@ class DiskKeyspace(object):
                 return 0
             else:
                 previous_score_path = scores_path.join(previous_score)
-                self._remove_line_from_file(previous_score_path, skip_line=value)
+                previous_score_path.remove_line(value)
 
         value_path.write(score)
         score_path.append(value)
@@ -172,16 +170,6 @@ class DiskKeyspace(object):
         key_path = self._key_path(key)
         type_path = key_path.join('type')
         type_path.write(name)
-
-    def _remove_line_from_file(self, score_path, skip_line):
-        tempfd, tempfname = tempfile.mkstemp()
-        with open(tempfname, 'w') as tfile:
-            with open(score_path) as f:
-                for line in f.readlines():
-                    if line.strip() != skip_line:
-                        tfile.write(line)
-        os.close(tempfd)
-        os.rename(tempfname, score_path)
 
     def zrange(self, key, start, stop, with_scores):
         key_path = self._key_path(key)
@@ -240,7 +228,7 @@ class DiskKeyspace(object):
             result += 1
             score = value_path.read().strip()
             score_path = scores_path.join(score)
-            self._remove_line_from_file(score_path, member)
+            score_path.remove_line(member)
             value_path.delete()
         # empty zset should be removed from keyspace
         if self._empty_directory(values_path):
