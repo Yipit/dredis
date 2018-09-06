@@ -1,16 +1,12 @@
 import collections
 import fnmatch
 import hashlib
-import json
 import os.path
 import re
 import shutil
 import tempfile
 
-from .lua import RedisLua
-
-from lupa import LuaRuntime
-
+from dredis.lua import LuaRunner
 
 DECIMAL_REGEX = re.compile('(\d+)\.0+$')
 
@@ -253,48 +249,8 @@ class DiskKeyspace(object):
             return None
 
     def eval(self, script, keys, argv):
-        lua = LuaRuntime(unpack_returned_tuples=True)
-        lua.execute('KEYS = {%s}' % ', '.join(map(json.dumps, keys)))
-        lua.execute('ARGV = {%s}' % ', '.join(map(json.dumps, argv)))
-        redis_obj = RedisLua(self, lua)
-        redis_lua = lua.eval('function(redis) {} end'.format(script))
-        result = redis_lua(redis_obj)
-        return self._convert_lua_types_to_redis_types(result, type(lua.table()))
-
-    def _convert_lua_types_to_redis_types(self, result, table_type):
-        def convert(value):
-            """
-            str -> str
-            true -> 1
-            false -> None
-            number -> int
-            table -> {
-                if 'err' key is present, raise an error
-                else if 'ok' key is present, return its value
-                else convert to a list using the previous rules
-            }
-
-            Reference:
-            https://github.com/antirez/redis/blob/5b4bec9d336655889641b134791dfdd2adc864cf/src/scripting.c#L273-L340
-
-            """
-            if isinstance(value, table_type):
-                if 'err' in value:
-                    raise ValueError('ERR Error running script: {}'.format(value['err']))
-                elif 'ok' in value:
-                    return value['ok']
-                else:
-                    return map(convert, value.values())
-            elif isinstance(value, (tuple, list, set)):
-                return map(convert, value)
-            elif value is True:
-                return 1
-            elif value is False:
-                return None
-            else:
-                # assuming string at this point
-                return value
-        return convert(result)
+        runtime = LuaRunner(self)
+        return runtime.run(script, keys, argv)
 
     def zrem(self, key, *members):
         """
