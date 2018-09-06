@@ -10,7 +10,8 @@ import tempfile
 import traceback
 
 from dredis.commands import run_command, SimpleString
-from dredis.keyspace import RedisScriptError, DiskKeyspace
+from dredis.keyspace import DiskKeyspace
+from dredis.lua import RedisScriptError
 from dredis.parser import Parser
 
 

@@ -2,7 +2,8 @@ import tempfile
 
 import pytest
 
-from dredis.keyspace import RedisScriptError, DiskKeyspace
+from dredis.keyspace import DiskKeyspace
+from dredis.lua import RedisScriptError
 
 test_dir = tempfile.mkdtemp(prefix="redis-test-")
 
