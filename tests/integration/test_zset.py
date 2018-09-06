@@ -241,3 +241,27 @@ def test_zrange_should_only_accept_withscores_as_extra_argument():
         r.execute_command('ZRANGE', 'mykey', 0, 1, 'bleh')
     assert exc.value.message == "syntax error"
     assert r.execute_command('ZRANGE', 'mykey', 0, 1, 'WITHSCORES') == []
+
+
+def test_zrangebyscore_should_validate_withscores_and_limit_extra_arguments():
+    r = fresh_redis()
+
+    with pytest.raises(redis.ResponseError) as exc1:
+        r.execute_command('ZRANGEBYSCORE', 'mykey', 0, 1, 'bleh', 'WITHSCORES', 'LIMIT', 0)  # missing count
+    assert exc1.value.message == "syntax error"
+
+    with pytest.raises(redis.ResponseError) as exc2:
+        r.execute_command('ZRANGEBYSCORE', 'mykey', 0, 1, 'bleh', 'extraword')  # unknown parameter
+    assert exc2.value.message == "syntax error"
+
+
+def test_zrangebyscore_should_validate_limit_values_as_integers():
+    r = fresh_redis()
+
+    with pytest.raises(redis.ResponseError) as exc1:
+        r.execute_command('ZRANGEBYSCORE', 'mykey', 0, 1, 'bleh',  'LIMIT', 0, 's')
+    assert exc1.value.message == "syntax error"
+
+    with pytest.raises(redis.ResponseError) as exc2:
+        r.execute_command('ZRANGEBYSCORE', 'mykey', 0, 1, 'bleh',  'LIMIT', 's', 1)
+    assert exc2.value.message == "syntax error"

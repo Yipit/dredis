@@ -244,15 +244,19 @@ def cmd_zcount(keyspace, key, min_score, max_score):
 
 @command('ZRANGEBYSCORE', arity=-4)
 def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
-    withscores = any(arg.lower() == 'withscores' for arg in args)
+    withscores = False
     offset = 0
     count = float('+inf')
+    args = list(args)
     while args:
-        arg, args = args[0], args[1:]
-        if arg.lower() == 'limit':
-            offset, args = int(args[0]), args[1:]
-            count, args = int(args[0]), args[1:]
-            break
+        arg = args.pop(0)
+        if len(args) >= 0 and arg.lower() == 'withscores':
+            withscores = True
+        elif len(args) >= 2 and arg.lower() == 'limit':
+            offset = int(args.pop(0))
+            count = int(args.pop(0))
+        else:
+            raise SYNTAXERR
 
     members = keyspace.zrangebyscore(
         key, float(min_score), float(max_score), withscores=withscores, offset=offset, count=count)
