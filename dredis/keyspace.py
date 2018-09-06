@@ -44,6 +44,16 @@ class DiskKeyspace(object):
             except:
                 pass
 
+    def flushdb(self):
+        try:
+            shutil.rmtree(self.directory)
+        except:
+            pass
+        try:
+            os.makedirs(self.directory)
+        except:
+            pass
+
     def select(self, db):
         self._set_db_directory(db)
 

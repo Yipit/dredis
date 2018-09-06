@@ -35,9 +35,7 @@ def cmd_flushall(keyspace):
 
 @command('FLUSHDB')
 def cmd_flushdb(keyspace):
-    # FIXME: doesn't support multiple DBs currently
-    #keyspace.flushdb()
-    keyspace.flushall()
+    keyspace.flushdb()
     return SimpleString('OK')
 
 
