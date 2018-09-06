@@ -246,7 +246,8 @@ class DiskKeyspace(object):
         scores_path = key_path.join('scores')
         if scores_path.exists():
             scores = sorted(scores_path.listdir(), key=float)
-            scores = [score for score in scores if self._range_check(min_score, max_score, float(score))]
+            score_range = ScoreRange(min_score, max_score)
+            scores = [score for score in scores if score_range.check(float(score))]
             for score in scores:
                 lines = sorted(scores_path.join(score).readlines())
                 for line in lines:
@@ -417,17 +418,24 @@ class DiskKeyspace(object):
             result.append(v)
         return result
 
-    def _range_check(self, min_score, max_score, score):
-        if min_score.startswith('('):
-            if float(min_score[1:]) >= score:
+
+class ScoreRange(object):
+
+    def __init__(self, min_value, max_value):
+        self._min_value = min_value
+        self._max_value = max_value
+
+    def check(self, value):
+        if self._min_value.startswith('('):
+            if float(self._min_value[1:]) >= value:
                 return False
-        elif float(min_score) > score:
+        elif float(self._min_value) > value:
             return False
 
-        if max_score.startswith('('):
-            if float(max_score[1:]) <= score:
+        if self._max_value.startswith('('):
+            if float(self._max_value[1:]) <= value:
                 return False
-        elif float(max_score) < score:
+        elif float(self._max_value) < value:
             return False
 
         return True
