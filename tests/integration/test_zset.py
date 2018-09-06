@@ -108,6 +108,8 @@ def test_zrangebyscore():
     r.zadd('myzset', 300, 'myvalue3')
 
     assert r.zrangebyscore('myzset', 100, 200) == ['myvalue1', 'myvalue2']
+    assert r.zrangebyscore('myzset', '(100', 200) == ['myvalue2']
+    assert r.zrangebyscore('myzset', '(100', '(300') == ['myvalue2']
 
 
 def test_zrangebyscore_with_scores():

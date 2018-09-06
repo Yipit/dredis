@@ -239,7 +239,7 @@ def cmd_zrank(keyspace, key, member):
 
 @command('ZCOUNT', arity=4)
 def cmd_zcount(keyspace, key, min_score, max_score):
-    return keyspace.zcount(key, float(min_score), float(max_score))
+    return keyspace.zcount(key, min_score, max_score)
 
 
 @command('ZRANGEBYSCORE', arity=-4)
@@ -259,7 +259,7 @@ def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
             raise SYNTAXERR
 
     members = keyspace.zrangebyscore(
-        key, float(min_score), float(max_score), withscores=withscores, offset=offset, count=count)
+        key, min_score, max_score, withscores=withscores, offset=offset, count=count)
     return members
 
 

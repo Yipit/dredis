@@ -337,7 +337,7 @@ class DiskKeyspace(object):
         scores_path = os.path.join(key_path, 'scores')
         if os.path.exists(scores_path):
             scores = sorted(os.listdir(scores_path), key=float)
-            scores = [score for score in scores if min_score <= float(score) <= max_score]
+            scores = [score for score in scores if self._range_check(min_score, max_score, float(score))]
             for score in scores:
                 with open(os.path.join(scores_path, score)) as f:
                     lines = sorted(line.strip() for line in f.readlines())
@@ -519,6 +519,21 @@ class DiskKeyspace(object):
 
     def _empty_directory(self, path):
         return os.path.exists(path) and not os.listdir(path)
+
+    def _range_check(self, min_score, max_score, score):
+        if min_score.startswith('('):
+            if float(min_score[1:]) >= score:
+                return False
+        elif float(min_score) > score:
+            return False
+
+        if max_score.startswith('('):
+            if float(max_score[1:]) <= score:
+                return False
+        elif float(max_score) < score:
+            return False
+
+        return True
 
 
 class RedisLua(object):
