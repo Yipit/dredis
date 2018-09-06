@@ -96,8 +96,8 @@ def cmd_exists(keyspace, *keys):
 
 
 @command('PING', arity=-1)
-def cmd_ping(keyspace, message='PONG'):
-    return SimpleString(message)
+def cmd_ping(keyspace, message=SimpleString('PONG')):
+    return message
 
 
 @command('SELECT', arity=2)

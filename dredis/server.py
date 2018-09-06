@@ -9,7 +9,7 @@ import sys
 import tempfile
 import traceback
 
-from dredis.commands import run_command
+from dredis.commands import run_command, SimpleString
 from dredis.keyspace import RedisScriptError, DiskKeyspace
 from dredis.parser import Parser
 
@@ -50,6 +50,8 @@ def transmit(send_fn, result):
         send_fn('$-1\r\n')
     elif isinstance(result, int):
         send_fn(':{}\r\n'.format(result))
+    elif isinstance(result, SimpleString):
+        send_fn('+{}\r\n'.format(result))
     elif isinstance(result, basestring):
         send_fn('${}\r\n{}\r\n'.format(len(result), result))
     elif isinstance(result, (set, list, tuple)):

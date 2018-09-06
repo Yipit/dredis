@@ -25,3 +25,10 @@ def test_flush_db():
 
     assert r0.keys('*') == []
     assert r1.keys('*') == ['test2']
+
+
+def test_ping():
+    r = fresh_redis()
+
+    assert r.execute_command('ping') == 'PONG'
+    assert r.execute_command('ping', 'msg') == 'msg'
