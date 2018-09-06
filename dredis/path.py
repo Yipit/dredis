@@ -2,13 +2,13 @@ import os.path
 import shutil
 
 
-class Path(object):
+class Path(str):
 
     def __init__(self, path):
         self._path = path
 
     def join(self, path):
-        return os.path.join(self._path, path)
+        return Path(os.path.join(self._path, path))
 
     def reset(self):
         try:
@@ -43,3 +43,4 @@ class Path(object):
         with open(self._path) as f:
             lines = f.readlines()
         return [line.strip() for line in lines]
+
