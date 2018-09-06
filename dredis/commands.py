@@ -179,8 +179,11 @@ def cmd_sismember(keyspace, key, value):
 
 
 @command('EVAL', arity=-3)
-def cmd_eval(keyspace, script, numkeys, *keys):
-    return keyspace.eval(script, int(numkeys), keys)
+def cmd_eval(keyspace, script, numkeys, *args):
+    numkeys = int(numkeys)
+    keys = args[:numkeys]
+    argv = args[numkeys:]
+    return keyspace.eval(script, keys, argv)
 
 
 """

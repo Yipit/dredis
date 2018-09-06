@@ -256,10 +256,10 @@ class DiskKeyspace(object):
         else:
             return None
 
-    def eval(self, script, numkeys, args):
+    def eval(self, script, keys, argv):
         lua = LuaRuntime(unpack_returned_tuples=True)
-        lua.execute('KEYS = {%s}' % ', '.join(map(json.dumps, args[:numkeys])))
-        lua.execute('ARGV = {%s}' % ', '.join(map(json.dumps, args[numkeys:])))
+        lua.execute('KEYS = {%s}' % ', '.join(map(json.dumps, keys)))
+        lua.execute('ARGV = {%s}' % ', '.join(map(json.dumps, argv)))
         redis_obj = RedisLua(self, lua)
         redis_lua = lua.eval('function(redis) {} end'.format(script))
         result = redis_lua(redis_obj)
