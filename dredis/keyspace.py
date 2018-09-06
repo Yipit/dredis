@@ -1,6 +1,7 @@
 import collections
 import fnmatch
 import hashlib
+import os
 import re
 import tempfile
 
@@ -41,7 +42,7 @@ class DiskKeyspace(object):
             content = value_path.read()
             number = int(content)
         else:
-            os.makedirs(key_path)
+            key_path.makedirs()
             self.write_type(key, 'string')
         result = number + increment
         value_path.write(str(result))
@@ -58,7 +59,7 @@ class DiskKeyspace(object):
     def set(self, key, value):
         key_path = self._key_path(key)
         if not self.exists(key):
-            os.makedirs(key_path)
+            key_path.makedirs()
             self.write_type(key, 'string')
         key_path.join('value').write(value)
 
@@ -76,7 +77,7 @@ class DiskKeyspace(object):
         key_path = self._key_path(key)
         values_path = key_path.join('values')
         if not self.exists(key):
-            os.makedirs(values_path)
+            values_path.makedirs()
             self.write_type(key, 'set')
         fname = hashlib.md5(value).hexdigest()
         value_path = values_path.join(fname)
@@ -149,8 +150,8 @@ class DiskKeyspace(object):
         scores_path = key_path.join('scores')
         values_path = key_path.join('values')
         if not key_path.exists():
-            os.makedirs(scores_path)
-            os.makedirs(values_path)
+            scores_path.makedirs()
+            values_path.makedirs()
             self.write_type(key, 'zset')
 
         score_path = scores_path.join(score)
@@ -337,7 +338,7 @@ class DiskKeyspace(object):
         key_path = self._key_path(key)
         fields_path = key_path.join('fields')
         if not self.exists(key):
-            os.makedirs(fields_path)
+            fields_path.makedirs()
         field_path = fields_path.join(field)
         if field_path.exists():
             result = 0
@@ -351,7 +352,7 @@ class DiskKeyspace(object):
         key_path = self._key_path(key)
         fields_path = key_path.join('fields')
         if not self.exists(key):
-            os.makedirs(fields_path)
+            fields_path.makedirs()
         field_path = fields_path.join(field)
         result = 0
         # only set if not set before

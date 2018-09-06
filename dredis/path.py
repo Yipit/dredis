@@ -46,3 +46,6 @@ class Path(str):
 
     def exists(self):
         return os.path.exists(self._path)
+
+    def makedirs(self):
+        os.makedirs(self._path)
