@@ -275,7 +275,8 @@ def cmd_zunionstore(keyspace, destination, numkeys, *args):
             break
         else:
             keys.append(arg)
-    assert len(weights) <= len(keys)  # FIXME: probably want nicer errors
+    if len(weights) > len(keys):
+        raise SYNTAXERR
     ones = [1] * (len(keys) - len(weights))  # fill in with default weight of 1
     weights = weights + ones
     return keyspace.zunionstore(destination, keys, weights)
