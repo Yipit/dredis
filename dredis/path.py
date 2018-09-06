@@ -44,3 +44,5 @@ class Path(str):
             lines = f.readlines()
         return [line.strip() for line in lines]
 
+    def exists(self):
+        return os.path.exists(self._path)
