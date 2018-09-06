@@ -231,7 +231,7 @@ class DiskKeyspace(object):
             score_path.remove_line(member)
             value_path.delete()
         # empty zset should be removed from keyspace
-        if self._empty_directory(values_path):
+        if values_path.empty_directory():
             self.delete(key)
         return result
 
@@ -360,7 +360,7 @@ class DiskKeyspace(object):
                 field_path.delete()
                 result += 1
         # remove empty hashes from keyspace
-        if self._empty_directory(fields_path):
+        if fields_path.empty_directory():
             self.delete(key)
         return result
 
@@ -416,9 +416,6 @@ class DiskKeyspace(object):
             result.append(k)
             result.append(v)
         return result
-
-    def _empty_directory(self, path):
-        return path.exists() and not path.listdir()
 
     def _range_check(self, min_score, max_score, score):
         if min_score.startswith('('):

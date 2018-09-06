@@ -62,3 +62,6 @@ class Path(str):
                     tfile.write(line)
         os.close(tempfd)
         os.rename(tempfname, self._path)
+
+    def empty_directory(self):
+        return self.exists() and not self.listdir()
