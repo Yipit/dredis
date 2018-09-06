@@ -1,5 +1,4 @@
 import collections
-import fnmatch
 import hashlib
 import re
 
@@ -312,8 +311,7 @@ class DiskKeyspace(object):
             return 'none'
 
     def keys(self, pattern):
-        all_keys = self.directory.listdir()
-        return list(fnmatch.filter(all_keys, pattern))
+        return self.directory.listdir(pattern)
 
     def exists(self, *keys):
         result = 0

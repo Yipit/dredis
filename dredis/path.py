@@ -1,3 +1,4 @@
+import fnmatch
 import os.path
 import shutil
 import tempfile
@@ -51,8 +52,12 @@ class Path(str):
     def makedirs(self):
         return os.makedirs(self._path)
 
-    def listdir(self):
-        return os.listdir(self._path)
+    def listdir(self, pattern=None):
+        all_files = os.listdir(self._path)
+        if pattern is None:
+            return all_files
+        else:
+            return list(fnmatch.filter(all_files, pattern))
 
     def remove_line(self, line_to_remove):
         tempfd, tempfname = tempfile.mkstemp()
