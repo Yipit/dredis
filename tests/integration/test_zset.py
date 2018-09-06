@@ -1,5 +1,8 @@
 import time
 
+import pytest
+import redis
+
 from tests.helpers import fresh_redis
 
 
@@ -221,3 +224,11 @@ def test_empty_zset_after_zrem_should_be_removed_from_keyspace():
     r.zrem('myzset1', 'myvalue1')
 
     assert r.keys() == []
+
+
+def test_zadd_should_only_accept_pairs():
+    r = fresh_redis()
+
+    with pytest.raises(redis.ResponseError) as exc:
+        r.execute_command('ZADD', 'mykey', 0, 'myvalue1', 1)
+    assert exc.value.message == "syntax error"

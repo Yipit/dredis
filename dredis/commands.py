@@ -195,6 +195,9 @@ def cmd_eval(keyspace, script, numkeys, *args):
 
 @command('ZADD', arity=-4)
 def cmd_zadd(keyspace, key, *flat_pairs):
+    if len(flat_pairs) % 2 != 0:
+        raise SyntaxError('syntax error')
+
     count = 0
     pairs = zip(flat_pairs[0::2], flat_pairs[1::2])  # [1, 2, 3, 4] -> [(1,2), (3,4)]
     for score, value in pairs:
