@@ -7,6 +7,7 @@ import shutil
 import tempfile
 
 from dredis.lua import LuaRunner
+from dredis.path import Path
 
 DECIMAL_REGEX = re.compile('(\d+)\.0+$')
 
@@ -19,32 +20,17 @@ class DiskKeyspace(object):
         self._set_db_directory(default_db)
 
     def _set_db_directory(self, db):
-        self.directory = os.path.join(self._root_directory, db)
+        self.directory = Path(self._root_directory).join(db)
 
     def _key_path(self, key):
-        return os.path.join(self.directory, key)
+        return Path(self.directory).join(key)
 
     def flushall(self):
-        try:
-            shutil.rmtree(self._root_directory)
-        except:
-            pass
-
         for db_id in range(15):
-            try:
-                os.makedirs(os.path.join(self._root_directory, str(db_id)))
-            except:
-                pass
+            Path(os.path.join(self._root_directory, str(db_id))).reset()
 
     def flushdb(self):
-        try:
-            shutil.rmtree(self.directory)
-        except:
-            pass
-        try:
-            os.makedirs(self.directory)
-        except:
-            pass
+        Path(self.directory).reset()
 
     def select(self, db):
         self._set_db_directory(db)
