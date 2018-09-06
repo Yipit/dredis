@@ -3,7 +3,6 @@ import fnmatch
 import hashlib
 import os.path
 import re
-import shutil
 import tempfile
 
 from dredis.lua import LuaRunner
@@ -40,23 +39,20 @@ class DiskKeyspace(object):
         value_path = os.path.join(key_path, 'value')
         number = 0
         if self.exists(key):
-            with open(value_path, 'r') as f:
-                content = f.read()
+            content = Path(value_path).read()
             number = int(content)
         else:
             os.makedirs(key_path)
             self.write_type(key, 'string')
         result = number + increment
-        with open(value_path, 'w') as f:
-            f.write(str(result))
+        Path(value_path).write(str(result))
         return result
 
     def get(self, key):
         key_path = self._key_path(key)
         value_path = os.path.join(key_path, 'value')
         if self.exists(key):
-            with open(value_path, 'r') as f:
-                return f.read()
+            return Path(value_path).read()
         else:
             return None
 
@@ -65,9 +61,7 @@ class DiskKeyspace(object):
         if not self.exists(key):
             os.makedirs(key_path)
             self.write_type(key, 'string')
-        value_path = os.path.join(key_path, 'value')
-        with open(value_path, 'w') as f:
-            f.write(value)
+        Path(os.path.join(key_path, 'value')).write(value)
 
     def getrange(self, key, start, end):
         value = self.get(key)
@@ -90,8 +84,7 @@ class DiskKeyspace(object):
         if os.path.exists(value_path):
             return 0
         else:
-            with open(value_path, 'w') as f:
-                f.write(value)
+            Path(value_path).write(value)
             return 1
 
     def smembers(self, key):
@@ -100,8 +93,8 @@ class DiskKeyspace(object):
             key_path = self._key_path(key)
             values_path = os.path.join(key_path, 'values')
             for fname in os.listdir(values_path):
-                with open(os.path.join(values_path, fname)) as f:
-                    result.add(f.read())
+                content = Path(os.path.join(values_path, fname)).read()
+                result.add(content)
         return result
 
     def sismember(self, key, value):
@@ -119,10 +112,7 @@ class DiskKeyspace(object):
         for key in keys:
             if self.exists(key):
                 key_path = self._key_path(key)
-                if os.path.isfile(key_path):
-                    os.remove(self._key_path(key))
-                else:
-                    shutil.rmtree(key_path)
+                Path(key_path).delete()
                 result += 1
         return result
 
@@ -167,25 +157,21 @@ class DiskKeyspace(object):
         score_path = os.path.join(scores_path, score)
         value_path = os.path.join(values_path, hashlib.md5(value).hexdigest())
         if os.path.exists(value_path):
-            with open(value_path, 'r') as fvalue:
-                previous_score = fvalue.read()
+            previous_score = Path(value_path).read()
             if previous_score == score:
                 return 0
             else:
                 previous_score_path = os.path.join(scores_path, previous_score)
                 self._remove_line_from_file(previous_score_path, skip_line=value)
 
-        with open(value_path, 'w') as f:
-            f.write(score)
-        with open(score_path, 'a') as f:
-            f.write(value + '\n')
+        Path(value_path).write(score)
+        Path(score_path).append(value)
         return 1
 
     def write_type(self, key, name):
         key_path = self._key_path(key)
         type_path = os.path.join(key_path, 'type')
-        with open(type_path, 'w') as f:
-            f.write(name)
+        Path(type_path).write(name)
 
     def _remove_line_from_file(self, score_path, skip_line):
         tempfd, tempfname = tempfile.mkstemp()
@@ -204,8 +190,7 @@ class DiskKeyspace(object):
         if os.path.exists(scores_path):
             scores = sorted(os.listdir(scores_path), key=float)
             for score in scores:
-                with open(os.path.join(scores_path, score)) as f:
-                    sublist = sorted(line.strip() for line in f.readlines())
+                sublist = sorted(Path(os.path.join(scores_path, score)).readlines())
                 for line in sublist:
                     lines.append(line)
                     if with_scores:
@@ -229,8 +214,7 @@ class DiskKeyspace(object):
         key_path = self._key_path(key)
         value_path = os.path.join(key_path, 'values', hashlib.md5(member).hexdigest())
         if os.path.exists(value_path):
-            with open(value_path, 'r') as f:
-                return f.read().strip()
+            return Path(value_path).read().strip()
         else:
             return None
 
@@ -254,11 +238,10 @@ class DiskKeyspace(object):
             if not os.path.exists(value_path):
                 continue
             result += 1
-            with open(value_path, 'r') as f:
-                score = f.read().strip()
+            score = Path(value_path).read().strip()
             score_path = os.path.join(scores_path, score)
-            os.remove(value_path)
             self._remove_line_from_file(score_path, member)
+            Path(value_path).delete()
         # empty zset should be removed from keyspace
         if self._empty_directory(values_path):
             self.delete(key)
@@ -277,8 +260,7 @@ class DiskKeyspace(object):
             scores = sorted(os.listdir(scores_path), key=float)
             scores = [score for score in scores if self._range_check(min_score, max_score, float(score))]
             for score in scores:
-                with open(os.path.join(scores_path, score)) as f:
-                    lines = sorted(line.strip() for line in f.readlines())
+                lines = sorted(Path(os.path.join(scores_path, score)).readlines())
                 for line in lines:
                     num_elems_read += 1
                     if len(result) / num_elems_per_entry >= count:
@@ -298,16 +280,14 @@ class DiskKeyspace(object):
         if os.path.exists(value_path):
             scores_path = os.path.join(key_path, 'scores')
             scores = sorted(os.listdir(scores_path), key=float)
-            with open(value_path, 'r') as f:
-                member_score = f.read().strip()
+            member_score = Path(value_path).read().strip()
             rank = 0
             for score in scores:
                 score_path = os.path.join(scores_path, str(score))
-                with open(score_path, 'r') as f:
-                    lines = f.readlines()
+                lines = Path(score_path).readlines()  # FIXME: move this to be inside the `if` block
                 if score == member_score:
                     for line in lines:
-                        if line.strip() == member:
+                        if line == member:
                             return rank
                         else:
                             rank += 1
@@ -338,8 +318,7 @@ class DiskKeyspace(object):
         key_path = self._key_path(key)
         if os.path.exists(key_path):
             type_path = os.path.join(key_path, 'type')
-            with open(type_path, 'r') as f:
-                return f.read()
+            return Path(type_path).read()
         else:
             return 'none'
 
@@ -365,8 +344,7 @@ class DiskKeyspace(object):
             result = 0
         else:
             result = 1
-        with open(field_path, 'w') as f:
-            f.write(value)
+        Path(field_path).write(value)
         self.write_type(key, 'hash')
         return result
 
@@ -380,8 +358,7 @@ class DiskKeyspace(object):
         # only set if not set before
         if not os.path.exists(field_path):
             result = 1
-            with open(field_path, 'w') as f:
-                f.write(value)
+            Path(field_path).write(value)
         self.write_type(key, 'hash')
         return result
 
@@ -392,7 +369,7 @@ class DiskKeyspace(object):
         for field in fields:
             field_path = os.path.join(fields_path, field)
             if os.path.exists(field_path):
-                os.remove(field_path)
+                Path(field_path).delete()
                 result += 1
         # remove empty hashes from keyspace
         if self._empty_directory(fields_path):
@@ -404,8 +381,7 @@ class DiskKeyspace(object):
         fields_path = os.path.join(key_path, 'fields')
         field_path = os.path.join(fields_path, field)
         if os.path.exists(field_path):
-            with open(field_path, 'r') as f:
-                result = f.read()
+            result = Path(field_path).read()
         else:
             result = None
         return result
@@ -426,8 +402,7 @@ class DiskKeyspace(object):
         if os.path.exists(fields_path):
             for field in os.listdir(fields_path):
                 field_path = os.path.join(fields_path, field)
-                with open(field_path, 'r') as f:
-                    value = f.read()
+                value = Path(field_path).read()
                 result.append(value)
         return result
 
