@@ -1,3 +1,6 @@
+import pytest
+import redis
+
 from tests.helpers import fresh_redis
 
 
@@ -94,3 +97,14 @@ def test_empty_hash_shouldnt_be_in_keyspace():
     r.hdel('myhash', 'key1')
 
     assert r.keys() == []
+
+
+def test_hset_should_accept_multiple_key_value_pairs():
+    r = fresh_redis()
+
+    assert r.execute_command('HSET', 'myhash', 'k1', 'v1', 'k2', 'v2') == 2
+    assert r.hgetall('myhash') == {'k1': 'v1', 'k2': 'v2'}
+
+    with pytest.raises(redis.ResponseError) as exc:
+        r.execute_command('HSET', 'myhash', 'k1', 'v1', 'k2')
+    assert exc.value.message == 'wrong number of arguments for HMSET'

@@ -11,10 +11,6 @@ commands = r.execute_command('COMMAND')
 pprint.pprint({c[0]: int(c[1]) for c in commands})
 """
 EXPECTED_ARITY = {
-    # the Redis project got the arity of `hset` wrong (-4 instead of 4),
-    # Hugo created a PR to fix it: https://github.com/antirez/redis/pull/5334
-    'hset': 4,
-
     'append': 3,
     'asking': 1,
     'auth': 2,
@@ -71,6 +67,7 @@ EXPECTED_ARITY = {
     'hmset': -4,
     'host:': -1,
     'hscan': -3,
+    'hset': -4,
     'hsetnx': 4,
     'hstrlen': 3,
     'hvals': 2,

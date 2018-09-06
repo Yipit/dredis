@@ -270,9 +270,16 @@ def cmd_zunionstore(keyspace, destination, numkeys, *args):
 """
 
 
-@command('HSET', arity=4)
-def cmd_hset(keyspace, key, field, value):
-    return keyspace.hset(key, field, value)
+@command('HSET', arity=-4)
+def cmd_hset(keyspace, key, *pairs):
+    if len(pairs) % 2 != 0:
+        # HSET is going to replace HMSET,
+        # see https://github.com/antirez/redis/pull/5334#issuecomment-419194180 for more details
+        raise SyntaxError('wrong number of arguments for HMSET')
+    count = 0
+    for field, value in zip(pairs[0::2], pairs[1::2]):
+        count += keyspace.hset(key, field, value)
+    return count
 
 
 @command('HDEL', arity=-3)
