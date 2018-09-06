@@ -360,7 +360,6 @@ class DiskKeyspace(object):
         fields_path = os.path.join(key_path, 'fields')
         if not self.exists(key):
             os.makedirs(fields_path)
-            # self.write_type()
         field_path = os.path.join(fields_path, field)
         if os.path.exists(field_path):
             result = 0
@@ -376,7 +375,6 @@ class DiskKeyspace(object):
         fields_path = os.path.join(key_path, 'fields')
         if not self.exists(key):
             os.makedirs(fields_path)
-            # self.write_type()
         field_path = os.path.join(fields_path, field)
         result = 0
         # only set if not set before
@@ -384,6 +382,7 @@ class DiskKeyspace(object):
             result = 1
             with open(field_path, 'w') as f:
                 f.write(value)
+        self.write_type(key, 'hash')
         return result
 
     def hdel(self, key, *fields):
