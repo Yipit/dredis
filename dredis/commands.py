@@ -1,10 +1,30 @@
+from functools import wraps
+
+
 REDIS_COMMANDS = {}
 
 
-def command(cmd_name):
+def _check_arity(expected_arity, passed_arity, cmd_name):
+    syntax_err = SyntaxError("Wrong number of arguments for '{}' command".format(cmd_name.lower()))
+    if expected_arity < 0:  # minimum arity
+        if passed_arity < -expected_arity:
+            raise syntax_err
+    else:  # exact match
+        if passed_arity != expected_arity:  # exact arity
+            raise syntax_err
+
+
+def command(cmd_name, arity):
     def decorator(fn):
-        REDIS_COMMANDS[cmd_name] = fn
-        return fn
+        @wraps(fn)
+        def newfn(keyspace, *args, **kwargs):
+            # redis includes the command name in the arity, thus adding 1
+            passed_arity = 1 + len(args) + len(kwargs)
+            _check_arity(arity, passed_arity, cmd_name)
+            return fn(keyspace, *args, **kwargs)
+        newfn.arity = arity
+        REDIS_COMMANDS[cmd_name] = newfn
+        return newfn
     return decorator
 
 
@@ -19,7 +39,7 @@ class SimpleString(str):
 """
 
 
-@command('COMMAND')
+@command('COMMAND', arity=0)
 def cmd_command(keyspace):
     result = []
     for cmd in REDIS_COMMANDS:
@@ -27,14 +47,16 @@ def cmd_command(keyspace):
     return result
 
 
-@command('FLUSHALL')
-def cmd_flushall(keyspace):
+@command('FLUSHALL', arity=-1)
+def cmd_flushall(keyspace, *args):
+    # TODO: we don't support ASYNC flushes
     keyspace.flushall()
     return SimpleString('OK')
 
 
-@command('FLUSHDB')
-def cmd_flushdb(keyspace):
+@command('FLUSHDB', arity=-1)
+def cmd_flushdb(keyspace, *args):
+    # TODO: we don't support ASYNC flushes
     keyspace.flushdb()
     return SimpleString('OK')
 
@@ -46,22 +68,22 @@ def cmd_flushdb(keyspace):
 """
 
 
-@command('DEL')
+@command('DEL', arity=-2)
 def cmd_del(keyspace, *keys):
     return keyspace.delete(*keys)
 
 
-@command('TYPE')
+@command('TYPE', arity=2)
 def cmd_type(keyspace, key):
     return keyspace.type(key)
 
 
-@command('KEYS')
+@command('KEYS', arity=2)
 def cmd_keys(keyspace, pattern):
     return keyspace.keys(pattern)
 
 
-@command('EXISTS')
+@command('EXISTS', arity=-2)
 def cmd_exists(keyspace, *keys):
     return keyspace.exists(*keys)
 
@@ -73,12 +95,12 @@ def cmd_exists(keyspace, *keys):
 """
 
 
-@command('PING')
-def cmd_ping(keyspace):
-    return SimpleString('PONG')
+@command('PING', arity=-1)
+def cmd_ping(keyspace, message='PONG'):
+    return SimpleString(message)
 
 
-@command('SELECT')
+@command('SELECT', arity=2)
 def cmd_select(keyspace, db):
     keyspace.select(db)
     return SimpleString('OK')
@@ -91,28 +113,30 @@ def cmd_select(keyspace, db):
 """
 
 
-@command('SET')
+@command('SET', arity=-3)
 def cmd_set(keyspace, key, value, *args):
+    if len(args):
+        raise SyntaxError('No support for EX|PX and NX|XX at the moment.')
     keyspace.set(key, value)
     return SimpleString('OK')
 
 
-@command('GET')
+@command('GET', arity=2)
 def cmd_get(keyspace, key):
     return keyspace.get(key)
 
 
-@command('INCR')
+@command('INCR', arity=2)
 def cmd_incr(keyspace, key):
     return keyspace.incrby(key, 1)
 
 
-@command('INCRBY')
+@command('INCRBY', arity=3)
 def cmd_incrby(keyspace, key, increment):
     return keyspace.incrby(key, int(increment))
 
 
-@command('GETRANGE')
+@command('GETRANGE', arity=4)
 def cmd_getrange(keyspace, key, start, end):
     return keyspace.getrange(key, int(start), int(end))
 
@@ -124,7 +148,7 @@ def cmd_getrange(keyspace, key, start, end):
 """
 
 
-@command('SADD')
+@command('SADD', arity=-3)
 def cmd_sadd(keyspace, key, *values):
     count = 0
     for value in values:
@@ -132,17 +156,17 @@ def cmd_sadd(keyspace, key, *values):
     return count
 
 
-@command('SMEMBERS')
+@command('SMEMBERS', arity=2)
 def cmd_smembers(keyspace, key):
     return keyspace.smembers(key)
 
 
-@command('SCARD')
+@command('SCARD', arity=2)
 def cmd_scard(keyspace, key):
     return keyspace.scard(key)
 
 
-@command('SISMEMBER')
+@command('SISMEMBER', arity=3)
 def cmd_sismember(keyspace, key, value):
     return int(keyspace.sismember(key, value))
 
@@ -154,7 +178,7 @@ def cmd_sismember(keyspace, key, value):
 """
 
 
-@command('EVAL')
+@command('EVAL', arity=-3)
 def cmd_eval(keyspace, script, numkeys, *keys):
     return keyspace.eval(script, int(numkeys), keys)
 
@@ -166,7 +190,7 @@ def cmd_eval(keyspace, script, numkeys, *keys):
 """
 
 
-@command('ZADD')
+@command('ZADD', arity=-4)
 def cmd_zadd(keyspace, key, *flat_pairs):
     count = 0
     pairs = zip(flat_pairs[0::2], flat_pairs[1::2])  # [1, 2, 3, 4] -> [(1,2), (3,4)]
@@ -175,37 +199,37 @@ def cmd_zadd(keyspace, key, *flat_pairs):
     return count
 
 
-@command('ZRANGE')
+@command('ZRANGE', arity=-4)
 def cmd_zrange(keyspace, key, start, stop, with_scores=False):
     return keyspace.zrange(key, int(start), int(stop), bool(with_scores))
 
 
-@command('ZCARD')
+@command('ZCARD', arity=2)
 def cmd_zcard(keyspace, key):
     return keyspace.zcard(key)
 
 
-@command('ZREM')
+@command('ZREM', arity=-3)
 def cmd_zrem(keyspace, key, *members):
     return keyspace.zrem(key, *members)
 
 
-@command('ZSCORE')
+@command('ZSCORE', arity=3)
 def cmd_zscore(keyspace, key, member):
     return keyspace.zscore(key, member)
 
 
-@command('ZRANK')
+@command('ZRANK', arity=3)
 def cmd_zrank(keyspace, key, member):
     return keyspace.zrank(key, member)
 
 
-@command('ZCOUNT')
+@command('ZCOUNT', arity=4)
 def cmd_zcount(keyspace, key, min_score, max_score):
     return keyspace.zcount(key, float(min_score), float(max_score))
 
 
-@command('ZRANGEBYSCORE')
+@command('ZRANGEBYSCORE', arity=-4)
 def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
     withscores = any(arg.lower() == 'withscores' for arg in args)
     offset = 0
@@ -222,7 +246,7 @@ def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
     return members
 
 
-@command('ZUNIONSTORE')
+@command('ZUNIONSTORE', arity=-4)
 def cmd_zunionstore(keyspace, destination, numkeys, *args):
     keys = []
     weights = []
@@ -246,47 +270,47 @@ def cmd_zunionstore(keyspace, destination, numkeys, *args):
 """
 
 
-@command('HSET')
+@command('HSET', arity=4)
 def cmd_hset(keyspace, key, field, value):
     return keyspace.hset(key, field, value)
 
 
-@command('HDEL')
+@command('HDEL', arity=-3)
 def cmd_hdel(keyspace, key, *fields):
     return keyspace.hdel(key, *fields)
 
 
-@command('HSETNX')
+@command('HSETNX', arity=4)
 def cmd_hsetnx(keyspace, key, field, value):
     return keyspace.hsetnx(key, field, value)
 
 
-@command('HGET')
+@command('HGET', arity=3)
 def cmd_hget(keyspace, key, value):
     return keyspace.hget(key, value)
 
 
-@command('HKEYS')
+@command('HKEYS', arity=2)
 def cmd_hkeys(keyspace, key):
     return keyspace.hkeys(key)
 
 
-@command('HVALS')
+@command('HVALS', arity=2)
 def cmd_hvals(keyspace, key):
     return keyspace.hvals(key)
 
 
-@command('HLEN')
+@command('HLEN', arity=2)
 def cmd_hlen(keyspace, key):
     return keyspace.hlen(key)
 
 
-@command('HINCRBY')
+@command('HINCRBY', arity=4)
 def cmd_hincrby(keyspace, key, field, increment):
     return keyspace.hincrby(key, field, increment)
 
 
-@command('HGETALL')
+@command('HGETALL', arity=2)
 def cmd_hincrby(keyspace, key):
     return keyspace.hgetall(key)
 

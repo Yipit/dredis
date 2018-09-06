@@ -18,11 +18,15 @@ logger = logging.getLogger('dredis')
 
 
 def not_found(send_fn, cmd):
-    send_fn("-ERR unknown command '{}'\r\n".format(cmd))
+    err(send_fn, "unknown command '{}'".format(cmd))
 
 
-def err(send_fn, tb):
-    send_fn("-Server exception: {}\r\n".format(json.dumps(tb)))
+def err(send_fn, msg):
+    send_fn("-ERR {}\r\n".format(msg))
+
+
+def error(send_fn, msg):
+    send_fn('-{}\r\n'.format(msg))
 
 
 def execute_cmd(keyspace, send_fn, cmd, *args):
@@ -30,11 +34,13 @@ def execute_cmd(keyspace, send_fn, cmd, *args):
     try:
         result = run_command(keyspace, cmd, args)
     except (ValueError, RedisScriptError) as exc:
-        send_fn('-{}\r\n'.format(str(exc)))
+        error(send_fn, str(exc))
     except KeyError:
         not_found(send_fn, cmd)
+    except SyntaxError as exc:
+        err(send_fn, str(exc))
     except Exception:
-        err(send_fn, traceback.format_exc())
+        err(send_fn, json.dumps(traceback.format_exc()))
     else:
         transmit(send_fn, result)
 

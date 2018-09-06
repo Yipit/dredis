@@ -1,3 +1,6 @@
+import pytest
+import redis
+
 from tests.helpers import fresh_redis
 
 
@@ -62,3 +65,11 @@ def test_getrange():
     assert r.getrange('test', 0, 2) == 'val'
     assert r.getrange('test', 0, 2) == 'val'
     assert r.getrange('notfound', 0, -1) == ''
+
+
+def test_get_arity():
+    r = fresh_redis()
+
+    with pytest.raises(redis.ResponseError) as exc:
+        r.execute_command('GET')
+    assert exc.value.message == "Wrong number of arguments for 'get' command"
