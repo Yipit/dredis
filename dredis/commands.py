@@ -2,6 +2,7 @@ from functools import wraps
 
 
 REDIS_COMMANDS = {}
+SYNTAXERR = SyntaxError('syntax error')
 
 
 def _check_arity(expected_arity, passed_arity, cmd_name):
@@ -196,7 +197,7 @@ def cmd_eval(keyspace, script, numkeys, *args):
 @command('ZADD', arity=-4)
 def cmd_zadd(keyspace, key, *flat_pairs):
     if len(flat_pairs) % 2 != 0:
-        raise SyntaxError('syntax error')
+        raise SYNTAXERR
 
     count = 0
     pairs = zip(flat_pairs[0::2], flat_pairs[1::2])  # [1, 2, 3, 4] -> [(1,2), (3,4)]
@@ -206,8 +207,14 @@ def cmd_zadd(keyspace, key, *flat_pairs):
 
 
 @command('ZRANGE', arity=-4)
-def cmd_zrange(keyspace, key, start, stop, with_scores=False):
-    return keyspace.zrange(key, int(start), int(stop), bool(with_scores))
+def cmd_zrange(keyspace, key, start, stop, *args):
+    with_scores = False
+    if args:
+        if args[0].lower() == 'withscores':
+            with_scores = True
+        else:
+            raise SYNTAXERR
+    return keyspace.zrange(key, int(start), int(stop), with_scores)
 
 
 @command('ZCARD', arity=2)

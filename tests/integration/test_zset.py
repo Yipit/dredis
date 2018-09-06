@@ -232,3 +232,12 @@ def test_zadd_should_only_accept_pairs():
     with pytest.raises(redis.ResponseError) as exc:
         r.execute_command('ZADD', 'mykey', 0, 'myvalue1', 1)
     assert exc.value.message == "syntax error"
+
+
+def test_zrange_should_only_accept_withscores_as_extra_argument():
+    r = fresh_redis()
+
+    with pytest.raises(redis.ResponseError) as exc:
+        r.execute_command('ZRANGE', 'mykey', 0, 1, 'bleh')
+    assert exc.value.message == "syntax error"
+    assert r.execute_command('ZRANGE', 'mykey', 0, 1, 'WITHSCORES') == []
