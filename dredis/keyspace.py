@@ -92,7 +92,7 @@ class DiskKeyspace(object):
         if self.exists(key):
             key_path = self._key_path(key)
             values_path = key_path.join('values')
-            for fname in os.listdir(values_path):
+            for fname in values_path.listdir():
                 content = values_path.join(fname).read()
                 result.add(content)
         return result
@@ -188,7 +188,7 @@ class DiskKeyspace(object):
         lines = []
         scores_path = key_path.join('scores')
         if scores_path.exists():
-            scores = sorted(os.listdir(scores_path), key=float)
+            scores = sorted(scores_path.listdir(), key=float)
             for score in scores:
                 sublist = sorted(scores_path.join(score).readlines())
                 for line in sublist:
@@ -206,7 +206,7 @@ class DiskKeyspace(object):
         key_path = self._key_path(key)
         values_path = key_path.join('values')
         if values_path.exists():
-            return len(os.listdir(values_path))
+            return len(values_path.listdir())
         else:
             return 0
 
@@ -257,7 +257,7 @@ class DiskKeyspace(object):
         key_path = self._key_path(key)
         scores_path = key_path.join('scores')
         if scores_path.exists():
-            scores = sorted(os.listdir(scores_path), key=float)
+            scores = sorted(scores_path.listdir(), key=float)
             scores = [score for score in scores if self._range_check(min_score, max_score, float(score))]
             for score in scores:
                 lines = sorted(scores_path.join(score).readlines())
@@ -279,7 +279,7 @@ class DiskKeyspace(object):
         value_path = key_path.join('values').join(hashlib.md5(member).hexdigest())
         if value_path.exists():
             scores_path = key_path.join('scores')
-            scores = sorted(os.listdir(scores_path), key=float)
+            scores = sorted(scores_path.listdir(), key=float)
             member_score = value_path.read().strip()
             rank = 0
             for score in scores:
@@ -323,7 +323,7 @@ class DiskKeyspace(object):
             return 'none'
 
     def keys(self, pattern):
-        all_keys = os.listdir(self.directory)
+        all_keys = self.directory.listdir()
         return list(fnmatch.filter(all_keys, pattern))
 
     def exists(self, *keys):
@@ -390,7 +390,7 @@ class DiskKeyspace(object):
         key_path = self._key_path(key)
         fields_path = key_path.join('fields')
         if fields_path.exists():
-            result = os.listdir(fields_path)
+            result = fields_path.listdir()
         else:
             result = []
         return result
@@ -400,7 +400,7 @@ class DiskKeyspace(object):
         key_path = self._key_path(key)
         fields_path = key_path.join('fields')
         if fields_path.exists():
-            for field in os.listdir(fields_path):
+            for field in fields_path.listdir():
                 field_path = fields_path.join(field)
                 value = field_path.read()
                 result.append(value)
@@ -411,7 +411,7 @@ class DiskKeyspace(object):
         fields_path = key_path.join('fields')
         result = 0
         if fields_path.exists():
-            result = len(os.listdir(fields_path))
+            result = len(fields_path.listdir())
         return result
 
     def hincrby(self, key, field, increment):
@@ -430,7 +430,7 @@ class DiskKeyspace(object):
         return result
 
     def _empty_directory(self, path):
-        return path.exists() and not os.listdir(path)
+        return path.exists() and not path.listdir()
 
     def _range_check(self, min_score, max_score, score):
         if min_score.startswith('('):

@@ -48,4 +48,7 @@ class Path(str):
         return os.path.exists(self._path)
 
     def makedirs(self):
-        os.makedirs(self._path)
+        return os.makedirs(self._path)
+
+    def listdir(self):
+        return os.listdir(self._path)
