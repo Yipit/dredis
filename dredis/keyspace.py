@@ -2,8 +2,14 @@ import collections
 import hashlib
 import re
 
+import sys
+
 from dredis.lua import LuaRunner
 from dredis.path import Path
+
+import sqlite3
+
+db_conn = sqlite3.connect('experiment.db')
 
 DECIMAL_REGEX = re.compile('(\d+)\.0+$')
 
@@ -24,6 +30,7 @@ class DiskKeyspace(object):
     def flushall(self):
         for db_id in range(15):
             self._root_directory.join(str(db_id)).reset()
+        Path('experiment.db').write('')
 
     def flushdb(self):
         self.directory.reset()
@@ -114,56 +121,20 @@ class DiskKeyspace(object):
         return result
 
     def zadd(self, key, score, value):
-        """
-        # alternative
-        /path/x/10
-        /path/y/20 -> 10
-        /path/z/30
-        --------
-        # alternative
-        /path/10/x
-        /path/20/y ->
-        /path/30/z
-        /path/1/y <-
-        ------
-        # alternative
-        /path/10.txt -> x
-        /path/20.txt -> y
-        /path/30.txt -> z
-        ------
-        # current
-        /path/scores/10 -> "x1\nx2"
-        /path/scores/20 -> "y"
-        /path/scores/30 -> "z"
-        /path/values/hash(x) -> 1
-        """
-
-        # if `score` has 0 as the decimal point, trim it: 10.00 -> 10
-        match = DECIMAL_REGEX.match(score)
-        if match:
-            score = match.group(1)
-
-        key_path = self._key_path(key)
-        scores_path = key_path.join('scores')
-        values_path = key_path.join('values')
-        if not key_path.exists():
-            scores_path.makedirs()
-            values_path.makedirs()
-            self.write_type(key, 'zset')
-
-        score_path = scores_path.join(score)
-        value_path = values_path.join(hashlib.md5(value).hexdigest())
-        if value_path.exists():
-            previous_score = value_path.read()
-            if previous_score == score:
-                return 0
-            else:
-                previous_score_path = scores_path.join(previous_score)
-                previous_score_path.remove_line(value)
-
-        value_path.write(score)
-        score_path.append(value)
-        return 1
+        c = db_conn.cursor()
+        c.execute('''
+        create table if not exists {table} (score real, value text primary key)
+        '''.format(table=key))
+        result = c.execute('''
+            insert into {table}(score, value) values({score}, '{value}')
+                on conflict(value) do UPDATE SET score={score} where score != {score}
+            '''.format(
+                table=key,
+                score=float(score),
+                value=value))
+        db_conn.commit()
+        c.close()
+        return result.rowcount
 
     def write_type(self, key, name):
         key_path = self._key_path(key)
@@ -171,118 +142,118 @@ class DiskKeyspace(object):
         type_path.write(name)
 
     def zrange(self, key, start, stop, with_scores):
-        key_path = self._key_path(key)
-        lines = []
-        scores_path = key_path.join('scores')
-        if scores_path.exists():
-            scores = sorted(scores_path.listdir(), key=float)
-            for score in scores:
-                sublist = sorted(scores_path.join(score).readlines())
-                for line in sublist:
-                    lines.append(line)
-                    if with_scores:
-                        lines.append(score)
+        c = db_conn.cursor()
+        try:
+            if with_scores:
+                c.execute('''select value, score from {table} ORDER BY (score)'''.format(table=key))
+            else:
+                c.execute('''select value from {table} ORDER BY (score)'''.format(table=key))
+        except sqlite3.OperationalError:
+            return []
+
+        rows = c.fetchall()
         if stop < 0:
             stop = -stop
-        elif stop > len(lines):
+        elif stop > len(rows):
             stop = -1
-        end = len(lines) - stop + 1
-        return lines[start:end]
+        end = len(rows) - stop + 1
+        result = []
+        for cols in rows[start:end]:
+            for col in cols:
+                result.append(str(col))
+        return result
 
     def zcard(self, key):
-        key_path = self._key_path(key)
-        values_path = key_path.join('values')
-        if values_path.exists():
-            return len(values_path.listdir())
-        else:
+        c = db_conn.cursor()
+        try:
+            c.execute('''select count(*) from {table}'''.format(table=key))
+        except sqlite3.OperationalError:
             return 0
+        else:
+            result = c.fetchone()
+            return result[0]
 
     def zscore(self, key, member):
-        key_path = self._key_path(key)
-        value_path = key_path.join('values').join(hashlib.md5(member).hexdigest())
-        if value_path.exists():
-            return value_path.read().strip()
-        else:
+        c = db_conn.cursor()
+        try:
+            c.execute('''select score from {table} where value = "{value}"'''.format(
+                table=key,
+                value=member,
+            ))
+        except sqlite3.OperationalError:
             return None
-
-    def eval(self, script, keys, argv):
-        runtime = LuaRunner(self)
-        return runtime.run(script, keys, argv)
+        else:
+            result = c.fetchone()
+            if result:
+                if int(result[0]) == result[0]:
+                    return str(int(result[0]))
+                else:
+                    return str(result[0])
+            else:
+                return None
 
     def zrem(self, key, *members):
-        """
-        /path/scores/10 -> "x1\nx2"
-        /path/scores/20 -> "y"
-        /path/scores/30 -> "z"
-        /path/values/hash(x) -> 1
-        """
-        key_path = self._key_path(key)
-        scores_path = key_path.join('scores')
-        values_path = key_path.join('values')
-        result = 0
-        for member in members:
-            value_path = values_path.join(hashlib.md5(member).hexdigest())
-            if not value_path.exists():
-                continue
-            result += 1
-            score = value_path.read().strip()
-            score_path = scores_path.join(score)
-            score_path.remove_line(member)
-            value_path.delete()
-        # empty zset should be removed from keyspace
-        if values_path.empty_directory():
-            self.delete(key)
-        return result
+        c = db_conn.cursor()
+        try:
+            result = c.execute('''delete from {table} where value in ({members})'''.format(
+                table=key,
+                members=','.join(map(repr, members))
+            ))
+        except sqlite3.OperationalError:
+            return 0
+        else:
+            db_conn.commit()
+            return result.rowcount
 
     def zrangebyscore(self, key, min_score, max_score, withscores=False, offset=0, count=float('+inf')):
+        range_clause = ScoreRange(min_score, max_score).sql('score')
+        c = db_conn.cursor()
+        try:
+            if withscores:
+                c.execute('''select value, score from {table} WHERE {range_clause} ORDER BY (score)'''.format(
+                    table=key,
+                    range_clause=range_clause,
+                ))
+            else:
+                c.execute('''select value from {table} WHERE {range_clause} ORDER BY (score)'''.format(
+                    table=key,
+                    range_clause=range_clause,
+                ))
+        except sqlite3.OperationalError:
+            return []
+
         result = []
-        num_elems_read = 0
+        for row in c.fetchall():
+            for col in row:
+                result.append(str(col))
+
         if withscores:
-            num_elems_per_entry = 2
-        else:
-            num_elems_per_entry = 1
-        key_path = self._key_path(key)
-        scores_path = key_path.join('scores')
-        if scores_path.exists():
-            scores = sorted(scores_path.listdir(), key=float)
-            score_range = ScoreRange(min_score, max_score)
-            scores = [score for score in scores if score_range.check(float(score))]
-            for score in scores:
-                lines = sorted(scores_path.join(score).readlines())
-                for line in lines:
-                    num_elems_read += 1
-                    if len(result) / num_elems_per_entry >= count:
-                        return result
-                    if offset <= num_elems_read:
-                        result.append(line)
-                        if withscores:
-                            result.append(str(score))
-        return result
+            offset = offset * 2
+            count = count * 2
+
+        if count == float('+inf'):
+            count = len(result)
+        return result[offset:][:count]
 
     def zcount(self, key, min_score, max_score):
         return len(self.zrangebyscore(key, min_score, max_score))
 
     def zrank(self, key, member):
-        key_path = self._key_path(key)
-        value_path = key_path.join('values').join(hashlib.md5(member).hexdigest())
-        if value_path.exists():
-            scores_path = key_path.join('scores')
-            scores = sorted(scores_path.listdir(), key=float)
-            member_score = value_path.read().strip()
-            rank = 0
-            for score in scores:
-                score_path = scores_path.join(str(score))
-                lines = score_path.readlines()  # FIXME: move this to be inside the `if` block
-                if score == member_score:
-                    for line in lines:
-                        if line == member:
-                            return rank
-                        else:
-                            rank += 1
-                else:
-                    rank += len(lines)
+        c = db_conn.cursor()
+        try:
+            c.execute('''select count(t.score) from {table} as t inner JOIN (
+                select score, value from {table} where value = '{value}') as r ON (t.score <= r.score) where t.score < r.score OR t.value <= r.value ORDER BY (t.score)
+            '''.format(
+                table=key,
+                value=member,
+            ))  # will need to subtract 1 from the count to have the real rank
+        except sqlite3.OperationalError:
+            return None
 
-            return rank
+        rank = c.fetchone()[0]
+        if rank:
+            # the SQL count returns 0 if not found, 1 or greater when the item is found, thus -1 in the next line
+            return rank - 1
         else:
             return None
 
@@ -301,6 +272,10 @@ class DiskKeyspace(object):
             score = aggregate_fn(scores)
             result += self.zadd(destination, str(score), member)
         return result
+
+    def eval(self, script, keys, argv):
+        runtime = LuaRunner(self)
+        return runtime.run(script, keys, argv)
 
     def type(self, key):
         key_path = self._key_path(key)
@@ -420,8 +395,30 @@ class DiskKeyspace(object):
 class ScoreRange(object):
 
     def __init__(self, min_value, max_value):
-        self._min_value = min_value
-        self._max_value = max_value
+        if '(' in min_value:
+            self._min_exclusive = True
+            self._min_value = min_value[1:]
+        else:
+            self._min_exclusive = False
+            self._min_value = min_value
+        if '(' in max_value:
+            self._max_exclusive = True
+            self._max_value = max_value[1:]
+        else:
+            self._max_exclusive = False
+            self._max_value = max_value
+        self._convert_infinity_to_number()
+
+    def _convert_infinity_to_number(self):
+        if self._min_value == '-inf':
+            self._min_value = -sys.maxint
+        elif self._min_value == '+inf':
+            self._min_value = sys.maxint
+
+        if self._max_value == '+inf':
+            self._max_value = sys.maxint
+        elif self._max_value == '-inf':
+            self._max_value = -sys.maxint
 
     def check(self, value):
         if self._min_value.startswith('('):
@@ -437,3 +434,15 @@ class ScoreRange(object):
             return False
 
         return True
+
+    def sql(self, variable):
+        min_clause = '<' if self._min_exclusive else '<='
+        max_clause = '<' if self._max_exclusive else '<='
+        result = '({min_value} {min_clause} {variable} AND {variable} {max_clause} {max_value})'.format(
+            min_value=self._min_value,
+            min_clause=min_clause,
+            max_value=self._max_value,
+            max_clause=max_clause,
+            variable=variable,
+        )
+        return result

@@ -342,4 +342,11 @@ def cmd_hincrby(keyspace, key):
 
 def run_command(keyspace, cmd, args):
     str_args = map(str, args)
-    return REDIS_COMMANDS[cmd.upper()](keyspace, *str_args)
+    if cmd.upper() not in REDIS_COMMANDS:
+        raise CommandNotFound()
+    else:
+        return REDIS_COMMANDS[cmd.upper()](keyspace, *str_args)
+
+
+class CommandNotFound(Exception):
+    """Exception to flag not found Redis command"""
