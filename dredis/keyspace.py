@@ -31,6 +31,8 @@ class DiskKeyspace(object):
         for db_id in range(15):
             self._root_directory.join(str(db_id)).reset()
         Path('experiment.db').write('')
+        global db_conn
+        db_conn = sqlite3.connect('experiment.db')
 
     def flushdb(self):
         self.directory.reset()
@@ -53,12 +55,17 @@ class DiskKeyspace(object):
         return result
 
     def get(self, key):
-        key_path = self._key_path(key)
-        value_path = key_path.join('value')
-        if self.exists(key):
-            return value_path.read()
-        else:
-            return None
+        c = db_conn.cursor()
+        try:
+            c.execute('''
+                select value from {table}
+            '''.format(table=key))
+        except sqlite3.OperationalError:
+            return
+
+        result = c.fetchone()
+        c.close()
+        return result[0]
 
     def set(self, key, value):
         key_path = self._key_path(key)
@@ -66,6 +73,12 @@ class DiskKeyspace(object):
             key_path.makedirs()
             self.write_type(key, 'string')
         key_path.join('value').write(value)
+        c = db_conn.cursor()
+        c.execute('create table if not exists {table} (value blob)'.format(table=key))
+        c.execute("insert into {table} values('{value}')".format(table=key, value=value))
+        db_conn.commit()
+        c.close()
+
 
     def getrange(self, key, start, end):
         value = self.get(key)
@@ -112,12 +125,16 @@ class DiskKeyspace(object):
         return len(self.smembers(key))
 
     def delete(self, *keys):
+        c = db_conn.cursor()
         result = 0
         for key in keys:
-            if self.exists(key):
-                key_path = self._key_path(key)
-                key_path.delete()
+            try:
+                c.execute('drop table {table}'.format(table=key))
+            except sqlite3.OperationalError:
+                pass
+            else:
                 result += 1
+            db_conn.commit()
         return result
 
     def zadd(self, key, score, value):
