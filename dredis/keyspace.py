@@ -96,35 +96,31 @@ class DiskKeyspace(object):
             return value[start:end]
 
     def sadd(self, key, value):
-        key_path = self._key_path(key)
-        values_path = key_path.join('values')
-        if not self.exists(key):
-            values_path.makedirs()
-            self.write_type(key, 'set')
-        fname = hashlib.md5(value).hexdigest()
-        value_path = values_path.join(fname)
-        if value_path.exists():
-            return 0
-        else:
-            value_path.write(value)
-            return 1
-
-    def smembers(self, key):
-        result = set()
-        if self.exists(key):
-            key_path = self._key_path(key)
-            values_path = key_path.join('values')
-            for fname in values_path.listdir():
-                content = values_path.join(fname).read()
-                result.add(content)
+        c = db_conn.cursor()
+        c.execute('create table if not exists {table} (value TEXT primary key)'.format(table=key))
+        c.execute("insert or ignore into {table} values('{value}')".format(table=key, value=value))
+        db_conn.commit()
+        result = c.rowcount
+        c.close()
         return result
 
+    def smembers(self, key):
+        c = db_conn.cursor()
+        try:
+            c.execute('''select value from {table}'''.format(table=key))
+        except sqlite3.OperationalError:
+            return set()
+        rows = c.fetchall()
+        return set(row[0] for row in rows)
+
     def sismember(self, key, value):
-        key_path = self._key_path(key)
-        values_path = key_path.join('values')
-        fname = hashlib.md5(value).hexdigest()
-        value_path = values_path.join(fname)
-        return value_path.exists()
+        c = db_conn.cursor()
+        try:
+            c.execute('''select count(*) from {table} where value = "{value}" LIMIT 1'''.format(table=key, value=value))
+        except sqlite3.OperationalError:
+            return False
+        result = c.fetchone()
+        return result[0] > 0
 
     def scard(self, key):
         return len(self.smembers(key))
