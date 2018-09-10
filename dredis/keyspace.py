@@ -315,84 +315,69 @@ class DiskKeyspace(object):
         return result
 
     def hset(self, key, field, value):
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        if not self.exists(key):
-            fields_path.makedirs()
-        field_path = fields_path.join(field)
-        if field_path.exists():
-            result = 0
+        c = db_conn.cursor()
+        self._create_hash_table(key, c)
+        c.execute('select value from {table} where field = "{field}"'.format(table=key, field=field))
+        existing_value = c.fetchone()
+        if existing_value == (value,):
+            return 0
         else:
-            result = 1
-        field_path.write(value)
-        self.write_type(key, 'hash')
-        return result
+            c.execute("insert OR replace into {table} values('{field}', '{value}')".format(table=key, field=field, value=value))
+            db_conn.commit()
+            result = c.rowcount
+            c.close()
+            return result
 
     def hsetnx(self, key, field, value):
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        if not self.exists(key):
-            fields_path.makedirs()
-        field_path = fields_path.join(field)
-        result = 0
-        # only set if not set before
-        if not field_path.exists():
-            result = 1
-            field_path.write(value)
-        self.write_type(key, 'hash')
+        c = db_conn.cursor()
+        self._create_hash_table(key, c)
+        c.execute("insert OR IGNORE into {table} values('{field}', '{value}')".format(table=key, field=field, value=value))
+        db_conn.commit()
+        result = c.rowcount
+        c.close()
         return result
 
     def hdel(self, key, *fields):
-        result = 0
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        for field in fields:
-            field_path = fields_path.join(field)
-            if field_path.exists():
-                field_path.delete()
-                result += 1
-        # remove empty hashes from keyspace
-        if fields_path.empty_directory():
-            self.delete(key)
+        c = db_conn.cursor()
+        self._create_hash_table(key, c)
+        c.execute("delete from {table} where field IN ({fields})".format(table=key, fields=','.join(map(repr, fields))))
+        db_conn.commit()
+        result = c.rowcount
+        c.close()
         return result
 
     def hget(self, key, field):
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        field_path = fields_path.join(field)
-        if field_path.exists():
-            result = field_path.read()
+        c = db_conn.cursor()
+        self._create_hash_table(key, c)
+        c.execute("select value from {table} where field = '{field}' LIMIT 1".format(
+            table=key, field=field))
+        result = c.fetchone()
+        if result:
+            return result[0]
         else:
-            result = None
-        return result
+            return None
 
     def hkeys(self, key):
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        if fields_path.exists():
-            result = fields_path.listdir()
-        else:
-            result = []
-        return result
+        c = db_conn.cursor()
+        self._create_hash_table(key, c)
+        c.execute("select field from {table}".format(table=key))
+        rows = c.fetchall()
+        return [row[0] for row in rows]
+
+    def _create_hash_table(self, key, cursor):
+        cursor.execute(
+            'create table if not exists {table} (field TEXT PRIMARY KEY, value TEXT, CONSTRAINT fieldvalue_uniq UNIQUE (field, value))'.format(
+                table=key))
 
     def hvals(self, key):
-        result = []
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        if fields_path.exists():
-            for field in fields_path.listdir():
-                field_path = fields_path.join(field)
-                value = field_path.read()
-                result.append(value)
-        return result
+        c = db_conn.cursor()
+        self._create_hash_table(key, c)
+        c.execute("select value from {table}".format(table=key))
+        rows = c.fetchall()
+        return [row[0] for row in rows]
 
     def hlen(self, key):
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        result = 0
-        if fields_path.exists():
-            result = len(fields_path.listdir())
-        return result
+        return len(self.hkeys(key))
 
     def hincrby(self, key, field, increment):
         before = self.hget(key, field) or '0'

@@ -9,9 +9,10 @@ def test_hset_and_hget():
 
     assert r.hset('myhash', 'key1', 'value1') == 1
     assert r.hset('myhash', 'key1', 'value1') == 0
+    assert r.hset('myhash', 'key1', 'value1.1') == 1
     assert r.hset('myhash', 'key2', 'value2') == 1
 
-    assert r.hget('myhash', 'key1') == 'value1'
+    assert r.hget('myhash', 'key1') == 'value1.1'
     assert r.hget('myhash', 'key2') == 'value2'
     assert r.hget('myhash', 'notfound') is None
 
