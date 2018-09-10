@@ -64,7 +64,7 @@ class Path(str):
         with open(tempfname, 'w') as tfile:
             for line in self.readlines():
                 if line != line_to_remove:
-                    tfile.write(line)
+                    tfile.write(line + "\n")
         os.close(tempfd)
         os.rename(tempfname, self._path)
 

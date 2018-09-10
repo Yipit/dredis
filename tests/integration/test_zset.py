@@ -79,13 +79,15 @@ def test_very_large_zset():
 def test_zrem():
     r = fresh_redis()
 
+    r.zadd('myzset', 0, 'myvalue0')
     r.zadd('myzset', 0, 'myvalue1')
     r.zadd('myzset', 1, 'myvalue2')
+    r.zadd('myzset', 0, 'myvalue3')
 
     assert r.zrem('myzset', 'myvalue1') == 1
     assert r.zrem('myzset', 'notfound') == 0
 
-    assert r.zrange('myzset', 0, -1) == ['myvalue2']
+    assert r.zrange('myzset', 0, -1) == ['myvalue0', 'myvalue3', 'myvalue2']
 
 
 def test_zscore():
