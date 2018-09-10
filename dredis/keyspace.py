@@ -311,7 +311,12 @@ class DiskKeyspace(object):
     def keys(self, pattern):
         c = self._db_conn.cursor()
         c.execute('select name from sqlite_master WHERE type = "table"')
-        names = [row[0].split('_', 1)[1] for row in c.fetchall()]
+        tables = [row[0] for row in c.fetchall()]
+        names = []
+        for table in tables:
+            c.execute('select count(*) from {table}'.format(table=table))
+            if c.fetchone() != (0,):
+                names.append(table.split('_', 1)[1])
         return fnmatch.filter(names, pattern)
 
     def exists(self, *keys):
