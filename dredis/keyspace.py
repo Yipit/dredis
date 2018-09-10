@@ -41,17 +41,28 @@ class DiskKeyspace(object):
         self._set_db_directory(db)
 
     def incrby(self, key, increment=1):
-        key_path = self._key_path(key)
-        value_path = key_path.join('value')
-        number = 0
-        if self.exists(key):
-            content = value_path.read()
-            number = int(content)
+        c = db_conn.cursor()
+        stored_value = self.get(key)
+        if stored_value:
+            c.execute("""
+                UPDATE {table} SET value = coalesce((select cast(value as decimal) + {increment} from {table}), {increment})
+            """.format(
+                table=key,
+                increment=increment,
+            ))
         else:
-            key_path.makedirs()
-            self.write_type(key, 'string')
-        result = number + increment
-        value_path.write(str(result))
+            c.execute('create table if not exists {table} (value text primary key)'.format(table=key))
+            c.execute("""
+                INSERT INTO {table} VALUES ({increment})
+            """.format(
+                table=key,
+                increment=increment,
+            ))
+        db_conn.commit()
+        c.execute('select value from {table}'.format(table=key))
+        result = c.fetchone()[0]
+        c.close()
+
         return result
 
     def get(self, key):
@@ -68,17 +79,11 @@ class DiskKeyspace(object):
         return result[0]
 
     def set(self, key, value):
-        key_path = self._key_path(key)
-        if not self.exists(key):
-            key_path.makedirs()
-            self.write_type(key, 'string')
-        key_path.join('value').write(value)
         c = db_conn.cursor()
-        c.execute('create table if not exists {table} (value blob)'.format(table=key))
-        c.execute("insert into {table} values('{value}')".format(table=key, value=value))
+        c.execute('create table if not exists {table} (value TEXT primary key)'.format(table=key))
+        c.execute("insert into {table} values('{value}') on conflict(value) do UPDATE SET value='{value}'".format(table=key, value=value))
         db_conn.commit()
         c.close()
-
 
     def getrange(self, key, start, end):
         value = self.get(key)
