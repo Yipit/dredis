@@ -15,7 +15,7 @@ lint: setup
 	@flake8 .
 
 server:
-	PYTHONPATH=. DEBUG=$(DEBUG) FLUSHALL_ON_STARTUP=$(FLUSHALL_ON_STARTUP) python dredis/server.py
+	PYTHONPATH=. DEBUG=$(DEBUG) FLUSHALL_ON_STARTUP=$(FLUSHALL_ON_STARTUP) python -m dredis.server
 
 setup:
 	@pip install -r development.txt --quiet
