@@ -41,6 +41,42 @@ def test_zset_zrange_with_negative_numbers():
     assert r.zrange('myzset', 0, -2) == ['myvalue1']
     assert r.zrange('myzset', 0, -3) == []
 
+    assert r.zrange('myzset', -2, 1) == ['myvalue1', 'myvalue2']
+
+
+def test_redis_official_zset_tests_for_zrange():
+    # adapted from TCL to Python. original source:
+    # https://github.com/antirez/redis/blob/cb51bb4320d2240001e8fc4a522d59fb28259703/tests/unit/type/zset.tcl#L191-L219
+
+    r = fresh_redis()
+    r.flushall()
+    r.zadd('ztmp', 1, 'a')
+    r.zadd('ztmp', 2, 'b')
+    r.zadd('ztmp', 3, 'c')
+    r.zadd('ztmp', 4, 'd')
+
+    assert r.zrange('ztmp', 0, -1) == ['a', 'b', 'c', 'd']
+    assert r.zrange('ztmp', 0, -2) == ['a', 'b', 'c']
+    assert r.zrange('ztmp', 1, -1) == ['b', 'c', 'd']
+    assert r.zrange('ztmp', 1, -2) == ['b', 'c']
+    assert r.zrange('ztmp', -2, -1) == ['c', 'd']
+    assert r.zrange('ztmp', -2, -2) == ['c']
+
+    # out of range start index
+    assert r.zrange('ztmp', -5, 2) == ['a', 'b', 'c']
+    assert r.zrange('ztmp', -5, 1) == ['a', 'b']
+    assert r.zrange('ztmp', 5, -1) == []
+    assert r.zrange('ztmp', 5, -2) == []
+
+    # out of range end index
+    assert r.zrange('ztmp', 0, 5) == ['a', 'b', 'c', 'd']
+    assert r.zrange('ztmp', 1, 5) == ['b', 'c', 'd']
+    assert r.zrange('ztmp', 0, -5) == []
+    assert r.zrange('ztmp', 1, -5) == []
+
+    # withscores
+    assert r.zrange('ztmp', 0, -1, withscores=True) == [('a', 1), ('b', 2), ('c', 3), ('d', 4)]
+
 
 def test_zset_zrange_with_scores():
     r = fresh_redis()

@@ -186,6 +186,10 @@ class DiskKeyspace(object):
     def zrange(self, key, start, stop, with_scores):
         key_path = self._key_path(key)
         lines = []
+        if with_scores:
+            n_elems = 2
+        else:
+            n_elems = 1
         scores_path = key_path.join('scores')
         if scores_path.exists():
             scores = sorted(scores_path.listdir(), key=float)
@@ -196,11 +200,16 @@ class DiskKeyspace(object):
                     if with_scores:
                         lines.append(score)
         if stop < 0:
-            stop = -stop
-        elif stop > len(lines):
-            stop = -1
-        end = len(lines) - stop + 1
-        return lines[start:end]
+            end = len(lines) + stop * n_elems + n_elems
+        else:
+            end = (stop + 1) * n_elems
+
+        if start < 0:
+            begin = max(0, len(lines) + start * n_elems)
+        else:
+            begin = start * n_elems
+
+        return lines[begin:end]
 
     def zcard(self, key):
         key_path = self._key_path(key)
