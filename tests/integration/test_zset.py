@@ -132,7 +132,7 @@ def test_zrangebyscore_with_limit():
     r.zadd('myzset', 200, 'myvalue2')
     r.zadd('myzset', 300, 'myvalue3')
 
-    assert r.zrangebyscore('myzset', 0, 400, start=2, num=2, withscores=True) == [('myvalue1', 100), ('myvalue2', 200)]
+    assert r.zrangebyscore('myzset', 0, 400, start=2, num=2, withscores=True) == [('myvalue2', 200), ('myvalue3', 300)]
 
 
 def test_zrank():
@@ -268,3 +268,16 @@ def test_zrangebyscore_should_validate_limit_values_as_integers():
     with pytest.raises(redis.ResponseError) as exc2:
         r.execute_command('ZRANGEBYSCORE', 'mykey', 0, 1, 'bleh',  'LIMIT', 's', 1)
     assert exc2.value.message == "syntax error"
+
+
+def test_zrangebyscore_with_limit_from_official_redis_tests():
+    # adapted from:
+    # https://github.com/antirez/redis/blob/cb51bb4320d2240001e8fc4a522d59fb28259703/tests/unit/type/zset.tcl#L361-L371
+    r = fresh_redis()
+
+    r.zadd('zset', float('-inf'), 'a', 1, 'b', 2, 'c', 3, 'd', 4, 'e', 5, 'f', float('+inf'), 'g')
+
+    assert r.zrangebyscore('zset', 0, 10, start=0, num=2) == ['b', 'c']
+    assert r.zrangebyscore('zset', 0, 10, start=2, num=3) == ['d', 'e', 'f']
+    assert r.zrangebyscore('zset', 0, 10, start=2, num=10) == ['d', 'e', 'f']
+    assert r.zrangebyscore('zset', 0, 10, start=20, num=10) == []

@@ -266,7 +266,7 @@ class DiskKeyspace(object):
                     num_elems_read += 1
                     if len(result) / num_elems_per_entry >= count:
                         return result
-                    if offset <= num_elems_read:
+                    if num_elems_read > offset:
                         result.append(line)
                         if withscores:
                             result.append(str(score))
