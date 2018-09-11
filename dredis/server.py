@@ -77,7 +77,8 @@ class CommandHandler(asyncore.dispatcher_with_send):
 
     def handle_close(self):
         self.close()
-        del KEYSPACES[self.addr]
+        if self.addr in KEYSPACES:
+            del KEYSPACES[self.addr]
 
     @property
     def keyspace(self):
