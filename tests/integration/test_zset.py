@@ -317,3 +317,32 @@ def test_zrangebyscore_with_limit_from_official_redis_tests():
     assert r.zrangebyscore('zset', 0, 10, start=2, num=3) == ['d', 'e', 'f']
     assert r.zrangebyscore('zset', 0, 10, start=2, num=10) == ['d', 'e', 'f']
     assert r.zrangebyscore('zset', 0, 10, start=20, num=10) == []
+
+
+def test_invalid_floats():
+    r = fresh_redis()
+    r.zadd('myzset', 0, 'test')
+
+    with pytest.raises(redis.ResponseError) as exc1:
+        r.zrangebyscore('myzset', 'invalid', 0)
+    assert exc1.value.message == 'min or max is not a float'
+
+    with pytest.raises(redis.ResponseError) as exc2:
+        r.zrangebyscore('myzset', 0, 'invalid')
+    assert exc2.value.message == 'min or max is not a float'
+
+    with pytest.raises(redis.ResponseError) as exc3:
+        r.zrangebyscore('myzset', 0, 'NaN')
+    assert exc3.value.message == 'min or max is not a float'
+
+    with pytest.raises(redis.ResponseError) as exc4:
+        r.zrangebyscore('myzset', 'NaN', 0)
+    assert exc4.value.message == 'min or max is not a float'
+
+    with pytest.raises(redis.ResponseError) as exc5:
+        r.zrangebyscore('myzset', '', 0)
+    assert exc5.value.message == 'min or max is not a float'
+
+    with pytest.raises(redis.ResponseError) as exc6:
+        r.zadd('myzset', '', 0)
+    assert exc6.value.message == 'min or max is not a float'

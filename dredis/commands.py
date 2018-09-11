@@ -216,6 +216,7 @@ def cmd_zadd(keyspace, key, *flat_pairs):
     count = 0
     pairs = zip(flat_pairs[0::2], flat_pairs[1::2])  # [1, 2, 3, 4] -> [(1,2), (3,4)]
     for score, value in pairs:
+        _validate_zset_score(score)
         count += keyspace.zadd(key, score, value)
     return count
 
@@ -272,9 +273,23 @@ def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
         else:
             raise SYNTAXERR
 
+    clean_min_score = min_score.strip('(').lower().replace('nan', '')
+    clean_max_score = max_score.strip('(').lower().replace('nan', '')
+    _validate_zset_score(clean_min_score)
+    _validate_zset_score(clean_max_score)
+
     members = keyspace.zrangebyscore(
         key, min_score, max_score, withscores=withscores, offset=offset, count=count)
     return members
+
+
+def _validate_zset_score(score):
+    if not score:
+        raise SyntaxError("min or max is not a float")
+    try:
+        float(score)
+    except ValueError:
+        raise SyntaxError("min or max is not a float")
 
 
 @command('ZUNIONSTORE', arity=-4)
