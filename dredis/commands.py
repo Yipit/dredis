@@ -10,9 +10,14 @@ def _check_arity(expected_arity, passed_arity, cmd_name):
     if expected_arity < 0:  # minimum arity
         if passed_arity < -expected_arity:
             raise syntax_err
-    else:  # exact match
+    elif expected_arity > 0:  # exact match
         if passed_arity != expected_arity:  # exact arity
             raise syntax_err
+    else:  # ignore
+        # ignore arity of 0 (at the moment it's only for `COMMAND`).
+        # it could be set to 1 but the redis source has it as 0, just following their implementation.
+        # source: https://github.com/antirez/redis/blob/cb51bb4320d2240001e8fc4a522d59fb28259703/src/server.c#L296
+        return
 
 
 def command(cmd_name, arity):
