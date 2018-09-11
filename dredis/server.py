@@ -1,5 +1,3 @@
-#!/Users/hugo/.virtualenvs/dredis/bin/python
-
 import asyncore
 import json
 import logging
