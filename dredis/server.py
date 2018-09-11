@@ -136,7 +136,10 @@ if __name__ == '__main__':
     setup_logging()
 
     keyspace = DiskKeyspace(ROOT_DIR)
-    keyspace.flushall()
+    if os.environ.get('FLUSHALL_ON_STARTUP', '0') == '1':
+        keyspace.flushall()
+    else:
+        keyspace.setup_directories()
 
     RedisServer('127.0.0.1', port)
 

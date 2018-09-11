@@ -1,6 +1,7 @@
 DEBUG = 1
 ROOT_DIR = dredis-data
 PORT = 6379
+FLUSHALL_ON_STARTUP = 1
 
 test: unit integration
 
@@ -11,7 +12,7 @@ integration: setup
 	@py.test -v tests/integration
 
 server:
-	PYTHONPATH=. DEBUG=$(DEBUG) python dredis/server.py
+	PYTHONPATH=. DEBUG=$(DEBUG) FLUSHALL_ON_STARTUP=$(FLUSHALL_ON_STARTUP) python dredis/server.py
 
 setup:
 	@pip install -r development.txt --quiet
