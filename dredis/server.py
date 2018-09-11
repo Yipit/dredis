@@ -5,7 +5,6 @@ import json
 import logging
 import os.path
 import socket
-import sys
 import tempfile
 import traceback
 
@@ -120,10 +119,10 @@ KEYSPACES = {}
 
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        port = int(sys.argv[1])
-    else:
-        port = int(os.environ.get('DREDIS_PORT', '6377'))
+    HOST = os.getenv('DREDIS_HOST', '127.0.0.1')
+    PORT = int(os.environ.get('DREDIS_PORT', '6377'))
+    DEBUG = os.environ.get('DEBUG', '1') == '1'
+    FLUSHALL_ON_STARTUP = os.environ.get('FLUSHALL_ON_STARTUP', '0')
 
     root_dir_env = os.environ.get('ROOT_DIR')
     if root_dir_env:
@@ -131,19 +130,17 @@ if __name__ == '__main__':
     else:
         ROOT_DIR = tempfile.mkdtemp(prefix="redis-test-")
 
-    DEBUG = os.environ.get('DEBUG', '1') == '1'
-
     setup_logging()
 
     keyspace = DiskKeyspace(ROOT_DIR)
-    if os.environ.get('FLUSHALL_ON_STARTUP', '0') == '1':
+    if FLUSHALL_ON_STARTUP == '1':
         keyspace.flushall()
     else:
         keyspace.setup_directories()
 
-    RedisServer('127.0.0.1', port)
+    RedisServer(HOST, PORT)
 
-    logger.info("Port: {}".format(port))
+    logger.info("Port: {}".format(PORT))
     logger.info("Root directory: {}".format(ROOT_DIR))
     logger.info('PID: {}'.format(os.getpid()))
     logger.info('Ready to accept connections')
