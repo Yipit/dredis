@@ -9,7 +9,7 @@ import sys
 import tempfile
 import traceback
 
-from dredis.commands import run_command, SimpleString
+from dredis.commands import run_command, SimpleString, CommandNotFound
 from dredis.keyspace import DiskKeyspace
 from dredis.lua import RedisScriptError
 from dredis.parser import Parser
@@ -36,7 +36,7 @@ def execute_cmd(keyspace, send_fn, cmd, *args):
         result = run_command(keyspace, cmd, args)
     except (ValueError, RedisScriptError) as exc:
         error(send_fn, str(exc))
-    except KeyError:
+    except CommandNotFound:
         not_found(send_fn, cmd)
     except SyntaxError as exc:
         err(send_fn, str(exc))

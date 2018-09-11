@@ -2,7 +2,7 @@ import json
 
 from lupa._lupa import LuaRuntime
 
-from dredis.commands import run_command, SimpleString
+from dredis.commands import run_command, SimpleString, CommandNotFound
 
 
 class RedisScriptError(Exception):
@@ -18,7 +18,7 @@ class RedisLua(object):
     def call(self, cmd, *args):
         try:
             result = run_command(self._keyspace, cmd, args)
-        except KeyError:
+        except CommandNotFound:
             raise RedisScriptError('@user_script: Unknown Redis command called from Lua script')
         except Exception as exc:
             raise RedisScriptError(str(exc))
