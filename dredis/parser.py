@@ -8,7 +8,7 @@ class Parser(object):
         self._read_fn = read_fn
 
     def _readline(self):
-        if '\r\n' not in self._buffer:
+        if '\n' not in self._buffer:
             self._read_into_buffer()
         crlf_position = self._buffer.find(self.CRLF)
         result = self._buffer[:crlf_position]
