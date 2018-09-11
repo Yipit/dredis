@@ -41,12 +41,17 @@ class Parser(object):
             # the Redis protocol says that all commands are arrays, however,
             # Redis's own tests have commands like PING being sent as a Simple String
             if instructions.startswith('+'):
-                result = [instructions[1:].strip()]
-            else:
-                # assume it's an array of instructions
+                result.extend(instructions[1:].strip().split())
+            # if instructions.startswith('*'):
+            elif instructions.startswith('*'):
+                # array of instructions
                 array_length = int(instructions[1:])  # skip '*' char
                 for _ in range(array_length):
                     str_len = int(self._readline()[1:])  # skip '$' char
                     instruction = self._read(str_len)
                     result.append(instruction)
+            else:
+                # inline instructions, saw them in the Redis tests
+                for line in instructions.split('\r\n'):
+                    result.extend(line.strip().split())
         return result
