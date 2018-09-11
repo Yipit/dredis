@@ -1,4 +1,8 @@
+import logging
 from functools import wraps
+
+
+logger = logging.getLogger(__name__)
 
 
 REDIS_COMMANDS = {}
@@ -351,6 +355,8 @@ class CommandNotFound(Exception):
 
 
 def run_command(keyspace, cmd, args):
+    logger.debug('[run_command] cmd={}, args={}'.format(repr(cmd), repr(args)))
+
     str_args = map(str, args)
     if cmd.upper() not in REDIS_COMMANDS:
         raise CommandNotFound()

@@ -30,7 +30,6 @@ def error(send_fn, msg):
 
 
 def execute_cmd(keyspace, send_fn, cmd, *args):
-    logger.debug('cmd={}, args={}'.format(repr(cmd), repr(args)))
     try:
         result = run_command(keyspace, cmd, args)
     except (ValueError, RedisScriptError) as exc:
