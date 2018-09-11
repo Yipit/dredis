@@ -32,3 +32,15 @@ def test_ping():
 
     assert r.execute_command('ping') == 'PONG'
     assert r.execute_command('ping', 'msg') == 'msg'
+
+
+def test_dbsize():
+    r0 = fresh_redis(db=0)
+    r1 = fresh_redis(db=1)
+
+    assert r0.dbsize() == 0
+    assert r1.dbsize() == 0
+
+    r0.set('test', 'value')
+    assert r0.dbsize() == 1
+    assert r1.dbsize() == 0

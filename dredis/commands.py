@@ -71,6 +71,11 @@ def cmd_flushdb(keyspace, *args):
     return SimpleString('OK')
 
 
+@command('DBSIZE', arity=1)
+def cmd_dbsize(keyspace):
+    return keyspace.dbsize()
+
+
 """
 ****************
 * Key commands *
