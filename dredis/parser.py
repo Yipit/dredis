@@ -50,4 +50,3 @@ class Parser(object):
                     instruction = self._read(str_len)
                     result.append(instruction)
         return result
-

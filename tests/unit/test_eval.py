@@ -7,6 +7,7 @@ from dredis.lua import RedisScriptError
 
 test_dir = tempfile.mkdtemp(prefix="redis-test-")
 
+
 def test_eval_with_error_call():
     k = DiskKeyspace(test_dir)
 

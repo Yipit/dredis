@@ -3,13 +3,16 @@ ROOT_DIR = dredis-data
 PORT = 6379
 FLUSHALL_ON_STARTUP = 1
 
-test: unit integration
+test: unit integration lint
 
 unit: setup
 	@py.test -v tests/unit
 
 integration: setup
 	@py.test -v tests/integration
+
+lint: setup
+	@flake8 .
 
 server:
 	PYTHONPATH=. DEBUG=$(DEBUG) FLUSHALL_ON_STARTUP=$(FLUSHALL_ON_STARTUP) python dredis/server.py

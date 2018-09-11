@@ -286,6 +286,7 @@ def cmd_zunionstore(keyspace, destination, numkeys, *args):
     weights = weights + ones
     return keyspace.zunionstore(destination, keys, weights)
 
+
 """
 *******************
 * Hash commands *
@@ -341,7 +342,7 @@ def cmd_hincrby(keyspace, key, field, increment):
 
 
 @command('HGETALL', arity=2)
-def cmd_hincrby(keyspace, key):
+def cmd_hgetall(keyspace, key):
     return keyspace.hgetall(key)
 
 

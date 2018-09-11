@@ -42,7 +42,6 @@ def test_zset_zrange_with_negative_numbers():
     assert r.zrange('myzset', 0, -3) == []
 
 
-
 def test_zset_zrange_with_scores():
     r = fresh_redis()
     r.zadd('myzset', 0, 'myvalue1')

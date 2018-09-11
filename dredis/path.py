@@ -15,11 +15,11 @@ class Path(str):
     def reset(self):
         try:
             shutil.rmtree(self._path)
-        except:
+        except Exception:
             pass
         try:
             os.makedirs(self._path)
-        except:
+        except Exception:
             pass
 
     def read(self):
