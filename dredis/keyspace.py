@@ -9,6 +9,8 @@ import sys
 from dredis.lua import LuaRunner
 from dredis.path import Path
 
+
+NUMBER_OF_REDIS_DATABASES = 15
 DECIMAL_REGEX = re.compile('(\d+)\.0+$')
 
 
@@ -26,7 +28,7 @@ class DiskKeyspace(object):
         return self.directory.join(key)
 
     def setup_directories(self):
-        for db_id in range(15):
+        for db_id in range(NUMBER_OF_REDIS_DATABASES):
             try:
                 self._root_directory.join(str(db_id)).makedirs()
             except OSError as exc:
@@ -36,7 +38,7 @@ class DiskKeyspace(object):
                     six.reraise(*sys.exc_info())
 
     def flushall(self):
-        for db_id in range(15):
+        for db_id in range(NUMBER_OF_REDIS_DATABASES):
             self._root_directory.join(str(db_id)).reset()
 
     def flushdb(self):
