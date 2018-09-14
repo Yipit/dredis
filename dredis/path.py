@@ -1,4 +1,5 @@
 import fnmatch
+import json
 import os.path
 import shutil
 import tempfile
@@ -25,11 +26,11 @@ class Path(str):
     def read(self):
         with open(self._path, 'r') as f:
             result = f.read()
-        return result
+        return self._deserialize(result)
 
     def write(self, content):
         with open(self._path, 'w') as f:
-            f.write(content)
+            f.write(self._serialize(content))
 
     def delete(self):
         if os.path.isfile(self._path):
@@ -39,12 +40,12 @@ class Path(str):
 
     def append(self, line):
         with open(self._path, 'a') as f:
-            f.write(line + '\n')
+            f.write(self._serialize(line) + '\n')
 
     def readlines(self):
         with open(self._path) as f:
             lines = f.readlines()
-        return [line.strip() for line in lines]
+        return map(self._deserialize, lines)
 
     def exists(self):
         return os.path.exists(self._path)
@@ -63,9 +64,15 @@ class Path(str):
         with tempfile.NamedTemporaryFile('w', delete=False) as tfile:
             for line in self.readlines():
                 if line != line_to_remove:
-                    tfile.write(line + "\n")
+                    tfile.write(self._serialize(line) + "\n")
             tfile.close()
         os.rename(tfile.name, self._path)
 
     def empty_directory(self):
         return self.exists() and not self.listdir()
+
+    def _deserialize(self, value):
+        return json.loads(value)
+
+    def _serialize(self, value):
+        return json.dumps(value)

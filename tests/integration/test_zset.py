@@ -346,3 +346,12 @@ def test_invalid_floats():
     with pytest.raises(redis.ResponseError) as exc6:
         r.zadd('myzset', '', 0)
     assert exc6.value.message == 'min or max is not a float'
+
+
+def test_zadd_with_newlines():
+    r = fresh_redis()
+    r.zadd('myzset', 0, 'my\ntest\nstring')
+    r.zadd('myzset', 0, 'my\nsecond\nstring')
+
+    assert r.zcard('myzset') == 2
+    assert r.zrange('myzset', 0, 1) == ['my\nsecond\nstring', 'my\ntest\nstring']
