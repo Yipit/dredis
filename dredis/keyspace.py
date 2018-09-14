@@ -2,6 +2,7 @@ import collections
 import hashlib
 import re
 
+import errno
 import six
 import sys
 
@@ -29,7 +30,7 @@ class DiskKeyspace(object):
             try:
                 self._root_directory.join(str(db_id)).makedirs()
             except OSError as exc:
-                if exc.errno == 17:  # ignore if directory already exists
+                if exc.errno != errno.EEXIST:  # ignore if directory already exists
                     pass
                 else:
                     six.reraise(*sys.exc_info())
