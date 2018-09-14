@@ -136,7 +136,7 @@ A straightforward approach is to have period backups to an object storage such a
 Because it's a good language to get things off the ground quickly and @hltbra knows it very well.
 If this becomes a valuable project, other languages will be evaluated — the language of choice won't affect much of the I/O bottleneck, though. 
 
-Python 3 will be eventually supported, @hltbra didn't want to deal with bytes/str shinannigans when this project started as a proof-of-concept.
+Python 3 will be eventually supported, @hltbra didn't want to deal with bytes/str shenanigans when this project started as a proof-of-concept.
 
 
 ## Didn't you have better names?
