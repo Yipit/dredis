@@ -17,14 +17,8 @@ class Path(str):
         return Path(os.path.join(self._path, path))
 
     def reset(self):
-        try:
-            shutil.rmtree(self._path)
-        except Exception:
-            pass
-        try:
-            os.makedirs(self._path)
-        except Exception:
-            pass
+        shutil.rmtree(self._path, ignore_errors=True)
+        os.makedirs(self._path)
 
     def read(self):
         with open(self._path, 'r') as f:
