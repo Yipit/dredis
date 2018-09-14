@@ -51,7 +51,7 @@ class Path(str):
         try:
             return os.makedirs(self._path)
         except OSError as exc:
-            if ignore_if_exists and exc.errno != errno.EEXIST:
+            if ignore_if_exists and exc.errno == errno.EEXIST:
                 pass
             else:
                 six.reraise(*sys.exc_info())
