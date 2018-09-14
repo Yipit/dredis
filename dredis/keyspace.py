@@ -6,6 +6,7 @@ from dredis.lua import LuaRunner
 from dredis.path import Path
 
 
+DEFAULT_REDIS_DB = '0'
 NUMBER_OF_REDIS_DATABASES = 15
 DECIMAL_REGEX = re.compile('(\d+)\.0+$')
 
@@ -14,8 +15,7 @@ class DiskKeyspace(object):
 
     def __init__(self, root_dir):
         self._root_directory = Path(root_dir)
-        default_db = '0'
-        self._set_db_directory(default_db)
+        self._set_db_directory(DEFAULT_REDIS_DB)
 
     def _set_db_directory(self, db):
         self.directory = self._root_directory.join(db)
