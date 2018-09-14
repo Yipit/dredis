@@ -92,7 +92,7 @@ class DiskKeyspace(object):
         if not self.exists(key):
             values_path.makedirs()
             self.write_type(key, 'set')
-        fname = hashlib.md5(value).hexdigest()
+        fname = self._get_filename_hash(value)
         value_path = values_path.join(fname)
         if value_path.exists():
             return 0
@@ -113,7 +113,7 @@ class DiskKeyspace(object):
     def sismember(self, key, value):
         key_path = self._key_path(key)
         values_path = key_path.join('values')
-        fname = hashlib.md5(value).hexdigest()
+        fname = self._get_filename_hash(value)
         value_path = values_path.join(fname)
         return value_path.exists()
 
@@ -168,7 +168,7 @@ class DiskKeyspace(object):
             self.write_type(key, 'zset')
 
         score_path = scores_path.join(score)
-        value_path = values_path.join(hashlib.md5(value).hexdigest())
+        value_path = values_path.join(self._get_filename_hash(value))
         if value_path.exists():
             previous_score = value_path.read()
             if previous_score == score:
@@ -224,7 +224,7 @@ class DiskKeyspace(object):
 
     def zscore(self, key, member):
         key_path = self._key_path(key)
-        value_path = key_path.join('values').join(hashlib.md5(member).hexdigest())
+        value_path = key_path.join('values').join(self._get_filename_hash(member))
         if value_path.exists():
             return value_path.read().strip()
         else:
@@ -246,7 +246,7 @@ class DiskKeyspace(object):
         values_path = key_path.join('values')
         result = 0
         for member in members:
-            value_path = values_path.join(hashlib.md5(member).hexdigest())
+            value_path = values_path.join(self._get_filename_hash(member))
             if not value_path.exists():
                 continue
             result += 1
@@ -289,7 +289,7 @@ class DiskKeyspace(object):
 
     def zrank(self, key, member):
         key_path = self._key_path(key)
-        value_path = key_path.join('values').join(hashlib.md5(member).hexdigest())
+        value_path = key_path.join('values').join(self._get_filename_hash(member))
         if value_path.exists():
             scores_path = key_path.join('scores')
             scores = sorted(scores_path.listdir(), key=float)
@@ -443,6 +443,9 @@ class DiskKeyspace(object):
             result.append(k)
             result.append(v)
         return result
+
+    def _get_filename_hash(self, value):
+        return hashlib.md5(value).hexdigest()
 
 
 class ScoreRange(object):
