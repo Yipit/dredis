@@ -60,13 +60,12 @@ class Path(str):
             return list(fnmatch.filter(all_files, pattern))
 
     def remove_line(self, line_to_remove):
-        tempfd, tempfname = tempfile.mkstemp()
-        with open(tempfname, 'w') as tfile:
+        with tempfile.NamedTemporaryFile('w', delete=False) as tfile:
             for line in self.readlines():
                 if line != line_to_remove:
                     tfile.write(line + "\n")
-        os.close(tempfd)
-        os.rename(tempfname, self._path)
+            tfile.close()
+        os.rename(tfile.name, self._path)
 
     def empty_directory(self):
         return self.exists() and not self.listdir()
