@@ -2,10 +2,6 @@ import collections
 import hashlib
 import re
 
-import errno
-import six
-import sys
-
 from dredis.lua import LuaRunner
 from dredis.path import Path
 
@@ -29,13 +25,7 @@ class DiskKeyspace(object):
 
     def setup_directories(self):
         for db_id in range(NUMBER_OF_REDIS_DATABASES):
-            try:
-                self._root_directory.join(str(db_id)).makedirs()
-            except OSError as exc:
-                if exc.errno != errno.EEXIST:  # ignore if directory already exists
-                    pass
-                else:
-                    six.reraise(*sys.exc_info())
+            self._root_directory.join(str(db_id)).makedirs(ignore_if_exists=True)
 
     def flushall(self):
         for db_id in range(NUMBER_OF_REDIS_DATABASES):

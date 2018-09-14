@@ -1,7 +1,10 @@
+import errno
 import fnmatch
 import json
 import os.path
 import shutil
+import six
+import sys
 import tempfile
 
 
@@ -50,8 +53,14 @@ class Path(str):
     def exists(self):
         return os.path.exists(self._path)
 
-    def makedirs(self):
-        return os.makedirs(self._path)
+    def makedirs(self, ignore_if_exists=False):
+        try:
+            return os.makedirs(self._path)
+        except OSError as exc:
+            if ignore_if_exists and exc.errno != errno.EEXIST:
+                pass
+            else:
+                six.reraise(*sys.exc_info())
 
     def listdir(self, pattern=None):
         all_files = os.listdir(self._path)
