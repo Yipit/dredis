@@ -1,11 +1,13 @@
-DEBUG = 1
-ROOT_DIR = dredis-data
-PORT = 6379
-FLUSHALL_ON_STARTUP = 1
+DEBUG ?= --debug
+ROOT_DIR ?= --dir dredis-data
+FLUSHALL_ON_STARTUP ?= --flushall
+OPTIONS = $(DEBUG) $(ROOT_DIR) $(FLUSHALL_ON_STARTUP)
+TEST_PORT_OPTION = --port 6377
+
 PID = redis-test-server.pid
 
 fulltests:
-	bash -c "trap 'make stop-testserver' EXIT; make start-testserver DEBUG=0; make test"
+	bash -c "trap 'make stop-testserver' EXIT; make start-testserver DEBUG=''; make test"
 
 test: unit integration lint
 
@@ -19,10 +21,10 @@ lint: setup
 	@flake8 .
 
 server:
-	PYTHONPATH=. DEBUG=$(DEBUG) FLUSHALL_ON_STARTUP=$(FLUSHALL_ON_STARTUP) python -m dredis.server
+	PYTHONPATH=. python -m dredis.server $(OPTIONS) $(TEST_PORT_OPTION)
 
 start-testserver:
-	-PYTHONPATH=. DEBUG=$(DEBUG) FLUSHALL_ON_STARTUP=$(FLUSHALL_ON_STARTUP) python -m dredis.server 2>&1 & echo $$! > $(PID)
+	-PYTHONPATH=. python -m dredis.server $(OPTIONS) $(TEST_PORT_OPTION) 2>&1 & echo $$! > $(PID)
 
 stop-testserver:
 	@-touch $(PID)
@@ -34,4 +36,4 @@ setup:
 
 redis_server:
 	@mkdir -p dredis-data
-	PYTHONPATH=. DREDIS_PORT=$(PORT) ROOT_DIR=$(ROOT_DIR) DEBUG=$(DEBUG) python -m dredis.server
+	PYTHONPATH=. python -m dredis.server $(OPTIONS) --port 6379

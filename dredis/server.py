@@ -1,3 +1,4 @@
+import argparse
 import asyncore
 import json
 import logging
@@ -116,32 +117,35 @@ def setup_logging(level):
 
 
 def main():
-    global ROOT_DIR
-    HOST = os.getenv('DREDIS_HOST', '127.0.0.1')
-    PORT = int(os.environ.get('DREDIS_PORT', '6377'))
-    DEBUG = os.environ.get('DEBUG', '1') == '1'
-    FLUSHALL_ON_STARTUP = os.environ.get('FLUSHALL_ON_STARTUP', '0')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--host', default='127.0.0.1', help='Server host')
+    parser.add_argument('--port', default='6377', type=int, help='Server port')
+    parser.add_argument('--dir', default=None,
+                        help='Directory to save data. By default, a temporary directory will be created')
+    parser.add_argument('--debug', action='store_true', help='Change log level to DEBUG')
+    parser.add_argument('--flushall', action='store_true', default=False, help='Run FLUSHALL on startup')
+    args = parser.parse_args()
 
-    root_dir_env = os.environ.get('ROOT_DIR')
-    if root_dir_env:
-        ROOT_DIR = root_dir_env
+    global ROOT_DIR
+    if args.dir:
+        ROOT_DIR = args.dir
     else:
         ROOT_DIR = tempfile.mkdtemp(prefix="redis-test-")
 
-    if DEBUG:
+    if args.debug:
         setup_logging(logging.DEBUG)
     else:
         setup_logging(logging.INFO)
 
     keyspace = DiskKeyspace(ROOT_DIR)
-    if FLUSHALL_ON_STARTUP == '1':
+    if args.flushall:
         keyspace.flushall()
     else:
         keyspace.setup_directories()
 
-    RedisServer(HOST, PORT)
+    RedisServer(args.host, args.port)
 
-    logger.info("Port: {}".format(PORT))
+    logger.info("Port: {}".format(args.port))
     logger.info("Root directory: {}".format(ROOT_DIR))
     logger.info('PID: {}'.format(os.getpid()))
     logger.info('Ready to accept connections')
