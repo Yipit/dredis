@@ -2,6 +2,8 @@ import collections
 import hashlib
 import re
 
+from typing import Any, List, Set
+
 from dredis.lua import LuaRunner
 from dredis.path import Path
 
@@ -14,30 +16,38 @@ DECIMAL_REGEX = re.compile('(\d+)\.0+$')
 class DiskKeyspace(object):
 
     def __init__(self, root_dir):
+        # type: (str) -> None
         self._root_directory = Path(root_dir)
         self._set_db_directory(DEFAULT_REDIS_DB)
 
     def _set_db_directory(self, db):
-        self.directory = self._root_directory.join(db)
+        # type: (str) -> None
+        self.directory = self._root_directory.join(db)  # type: Path
 
     def _key_path(self, key):
+        # type: (str) -> Path
         return self.directory.join(key)
 
     def setup_directories(self):
+        # type: () -> None
         for db_id in range(NUMBER_OF_REDIS_DATABASES):
             self._root_directory.join(str(db_id)).makedirs(ignore_if_exists=True)
 
     def flushall(self):
+        # type: () -> None
         for db_id in range(NUMBER_OF_REDIS_DATABASES):
             self._root_directory.join(str(db_id)).reset()
 
     def flushdb(self):
+        # type: () -> None
         self.directory.reset()
 
     def select(self, db):
+        # type: (str) -> None
         self._set_db_directory(db)
 
     def incrby(self, key, increment=1):
+        # type: (str, int) -> int
         key_path = self._key_path(key)
         value_path = key_path.join('value')
         number = 0
@@ -52,6 +62,7 @@ class DiskKeyspace(object):
         return result
 
     def get(self, key):
+        # type: (str) -> Any[None, str]
         key_path = self._key_path(key)
         value_path = key_path.join('value')
         if self.exists(key):
@@ -60,6 +71,7 @@ class DiskKeyspace(object):
             return None
 
     def set(self, key, value):
+        # type: (str, str) -> None
         key_path = self._key_path(key)
         if not self.exists(key):
             key_path.makedirs()
@@ -67,6 +79,7 @@ class DiskKeyspace(object):
         key_path.join('value').write(value)
 
     def getrange(self, key, start, end):
+        # type: (str, int, int) -> str
         value = self.get(key)
         if value is None:
             return ''
@@ -77,6 +90,7 @@ class DiskKeyspace(object):
             return value[start:end]
 
     def sadd(self, key, value):
+        # type: (str, str) -> int
         key_path = self._key_path(key)
         values_path = key_path.join('values')
         if not self.exists(key):
@@ -91,6 +105,7 @@ class DiskKeyspace(object):
             return 1
 
     def smembers(self, key):
+        # type: (str) -> Set
         result = set()
         if self.exists(key):
             key_path = self._key_path(key)
@@ -101,6 +116,7 @@ class DiskKeyspace(object):
         return result
 
     def sismember(self, key, value):
+        # type: (str, str) -> bool
         key_path = self._key_path(key)
         values_path = key_path.join('values')
         fname = self._get_filename_hash(value)
@@ -108,9 +124,11 @@ class DiskKeyspace(object):
         return value_path.exists()
 
     def scard(self, key):
+        # type: (str) -> int
         return len(self.smembers(key))
 
     def delete(self, *keys):
+        # type: (*str) -> int
         result = 0
         for key in keys:
             if self.exists(key):
@@ -120,6 +138,7 @@ class DiskKeyspace(object):
         return result
 
     def zadd(self, key, score, value):
+        # type: (str, str, str) -> int
         """
         # alternative
         /path/x/10
@@ -172,11 +191,13 @@ class DiskKeyspace(object):
         return 1
 
     def write_type(self, key, name):
+        # type: (str, str) -> None
         key_path = self._key_path(key)
         type_path = key_path.join('type')
         type_path.write(name)
 
     def zrange(self, key, start, stop, with_scores):
+        # type: (str, int, int, bool) -> List[str]
         key_path = self._key_path(key)
         lines = []
         if with_scores:
@@ -205,6 +226,7 @@ class DiskKeyspace(object):
         return lines[begin:end]
 
     def zcard(self, key):
+        # type: (str) -> int
         key_path = self._key_path(key)
         values_path = key_path.join('values')
         if values_path.exists():
@@ -213,6 +235,7 @@ class DiskKeyspace(object):
             return 0
 
     def zscore(self, key, member):
+        # type: (str, str) -> Any[str, None]
         key_path = self._key_path(key)
         value_path = key_path.join('values').join(self._get_filename_hash(member))
         if value_path.exists():
@@ -221,10 +244,13 @@ class DiskKeyspace(object):
             return None
 
     def eval(self, script, keys, argv):
+        # type: (str, List[str], List[str]) -> Any
+        # this method can return so many things that it was simpler to ignore the return type
         runtime = LuaRunner(self)
         return runtime.run(script, keys, argv)
 
     def zrem(self, key, *members):
+        # type: (str, *str) -> int
         """
         /path/scores/10 -> "x1\nx2"
         /path/scores/20 -> "y"
@@ -250,6 +276,7 @@ class DiskKeyspace(object):
         return result
 
     def zrangebyscore(self, key, min_score, max_score, withscores=False, offset=0, count=float('+inf')):
+        # type: (str, str, str, bool, int, float) -> List[str]
         result = []
         num_elems_read = 0
         if withscores:
@@ -275,9 +302,11 @@ class DiskKeyspace(object):
         return result
 
     def zcount(self, key, min_score, max_score):
+        # type: (str, str, str) -> int
         return len(self.zrangebyscore(key, min_score, max_score))
 
     def zrank(self, key, member):
+        # type: (str, str) -> Any[int, None]
         key_path = self._key_path(key)
         value_path = key_path.join('values').join(self._get_filename_hash(member))
         if value_path.exists():
@@ -302,6 +331,7 @@ class DiskKeyspace(object):
             return None
 
     def zunionstore(self, destination, keys, weights):
+        # type: (str, List[str], List[int]) -> int
         union = collections.defaultdict(list)
         for (key, weight) in zip(keys, weights):
             elem_with_scores = self.zrange(key, 0, -1, with_scores=True)
@@ -318,6 +348,7 @@ class DiskKeyspace(object):
         return result
 
     def type(self, key):
+        # type: (str) -> str
         key_path = self._key_path(key)
         if key_path.exists():
             type_path = key_path.join('type')
@@ -326,12 +357,15 @@ class DiskKeyspace(object):
             return 'none'
 
     def keys(self, pattern):
+        # type: (str) -> List[str]
         return self.directory.listdir(pattern)
 
     def dbsize(self):
+        # type: () -> int
         return len(self.directory.listdir())
 
     def exists(self, *keys):
+        # type: (*str) -> int
         result = 0
         for key in keys:
             key_path = self._key_path(key)
@@ -340,6 +374,7 @@ class DiskKeyspace(object):
         return result
 
     def hset(self, key, field, value):
+        # type: (str, str, str) -> int
         key_path = self._key_path(key)
         fields_path = key_path.join('fields')
         if not self.exists(key):
@@ -354,6 +389,7 @@ class DiskKeyspace(object):
         return result
 
     def hsetnx(self, key, field, value):
+        # type: (str, str, str) -> int
         key_path = self._key_path(key)
         fields_path = key_path.join('fields')
         if not self.exists(key):
@@ -368,6 +404,7 @@ class DiskKeyspace(object):
         return result
 
     def hdel(self, key, *fields):
+        # type: (str, *str) -> int
         result = 0
         key_path = self._key_path(key)
         fields_path = key_path.join('fields')
@@ -382,6 +419,7 @@ class DiskKeyspace(object):
         return result
 
     def hget(self, key, field):
+        # type: (str, str) -> Any[str, None]
         key_path = self._key_path(key)
         fields_path = key_path.join('fields')
         field_path = fields_path.join(field)
@@ -392,6 +430,7 @@ class DiskKeyspace(object):
         return result
 
     def hkeys(self, key):
+        # type: (str) -> List[str]
         key_path = self._key_path(key)
         fields_path = key_path.join('fields')
         if fields_path.exists():
@@ -401,6 +440,7 @@ class DiskKeyspace(object):
         return result
 
     def hvals(self, key):
+        # type: (str) -> List[str]
         result = []
         key_path = self._key_path(key)
         fields_path = key_path.join('fields')
@@ -412,6 +452,7 @@ class DiskKeyspace(object):
         return result
 
     def hlen(self, key):
+        # type: (str) -> int
         key_path = self._key_path(key)
         fields_path = key_path.join('fields')
         result = 0
@@ -420,12 +461,14 @@ class DiskKeyspace(object):
         return result
 
     def hincrby(self, key, field, increment):
+        # type: (str, str, str) -> int
         before = self.hget(key, field) or '0'
         new_value = int(before) + int(increment)
         self.hset(key, field, str(new_value))
         return new_value
 
     def hgetall(self, key):
+        # type: (str) -> List[str]
         keys = self.hkeys(key)
         values = self.hvals(key)
         result = []
@@ -435,16 +478,19 @@ class DiskKeyspace(object):
         return result
 
     def _get_filename_hash(self, value):
+        # type: (str) -> str
         return hashlib.md5(value).hexdigest()
 
 
 class ScoreRange(object):
 
     def __init__(self, min_value, max_value):
+        # type: (str, str) -> None
         self._min_value = min_value
         self._max_value = max_value
 
     def check(self, value):
+        # type: (float) -> bool
         if self._min_value.startswith('('):
             if float(self._min_value[1:]) >= value:
                 return False
