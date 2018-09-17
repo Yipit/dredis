@@ -16,6 +16,9 @@ from dredis.parser import Parser
 
 logger = logging.getLogger('dredis')
 
+KEYSPACES = {}
+ROOT_DIR = None  # defined by `main()`
+
 
 def not_found(send_fn, cmd):
     err(send_fn, "unknown command '{}'".format(cmd))
@@ -104,21 +107,16 @@ class RedisServer(asyncore.dispatcher):
             CommandHandler(sock)
 
 
-def setup_logging():
-    if DEBUG:
-        logger.setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.INFO)
+def setup_logging(level):
+    logger.setLevel(level)
     formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
 
-KEYSPACES = {}
-
-
-if __name__ == '__main__':
+def main():
+    global ROOT_DIR
     HOST = os.getenv('DREDIS_HOST', '127.0.0.1')
     PORT = int(os.environ.get('DREDIS_PORT', '6377'))
     DEBUG = os.environ.get('DEBUG', '1') == '1'
@@ -130,7 +128,10 @@ if __name__ == '__main__':
     else:
         ROOT_DIR = tempfile.mkdtemp(prefix="redis-test-")
 
-    setup_logging()
+    if DEBUG:
+        setup_logging(logging.DEBUG)
+    else:
+        setup_logging(logging.INFO)
 
     keyspace = DiskKeyspace(ROOT_DIR)
     if FLUSHALL_ON_STARTUP == '1':
@@ -146,3 +147,7 @@ if __name__ == '__main__':
     logger.info('Ready to accept connections')
 
     asyncore.loop()
+
+
+if __name__ == '__main__':
+    main()
