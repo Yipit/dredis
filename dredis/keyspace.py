@@ -121,27 +121,10 @@ class DiskKeyspace(object):
 
     def zadd(self, key, score, value):
         """
-        # alternative
-        /path/x/10
-        /path/y/20 -> 10
-        /path/z/30
-        --------
-        # alternative
-        /path/10/x
-        /path/20/y ->
-        /path/30/z
-        /path/1/y <-
-        ------
-        # alternative
-        /path/10.txt -> x
-        /path/20.txt -> y
-        /path/30.txt -> z
-        ------
-        # current
-        /path/scores/10 -> "x1\nx2"
-        /path/scores/20 -> "y"
-        /path/scores/30 -> "z"
-        /path/values/hash(x) -> 1
+        /path/scores/10 -> '"x1"\n"x2"'
+        /path/scores/20 -> '"y"'
+        /path/scores/30 -> '"z"'
+        /path/values/hash("x1") -> "10"
         """
 
         # if `score` has 0 as the decimal point, trim it: 10.00 -> 10
