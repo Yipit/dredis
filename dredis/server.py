@@ -80,6 +80,7 @@ class CommandHandler(asyncore.dispatcher_with_send):
         return self.send(*args)
 
     def handle_close(self):
+        logger.debug("closing {}".format(self.addr))
         self.close()
         if self.addr in KEYSPACES:
             del KEYSPACES[self.addr]
