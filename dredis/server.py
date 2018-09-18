@@ -150,7 +150,10 @@ def main():
     logger.info('PID: {}'.format(os.getpid()))
     logger.info('Ready to accept connections')
 
-    asyncore.loop()
+    try:
+        asyncore.loop()
+    except KeyboardInterrupt:
+        logger.info("Shutting down...")
 
 
 if __name__ == '__main__':
