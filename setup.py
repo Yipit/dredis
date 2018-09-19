@@ -56,6 +56,8 @@ if __name__ == '__main__':
         include_package_data=True,
         classifiers=[
             'Programming Language :: Python',
+            'License :: OSI Approved :: MIT License',
+            'Topic :: Database',
         ],
         entry_points={
             'console_scripts': [
