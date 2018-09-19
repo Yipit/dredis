@@ -10,46 +10,43 @@ import tempfile
 
 class Path(str):
 
-    def __init__(self, path):
-        self._path = path
-
     def join(self, path):
-        return Path(os.path.join(self._path, path))
+        return Path(os.path.join(self, path))
 
     def reset(self):
-        shutil.rmtree(self._path, ignore_errors=True)
-        os.makedirs(self._path)
+        shutil.rmtree(self, ignore_errors=True)
+        os.makedirs(self)
 
     def read(self):
-        with open(self._path, 'r') as f:
+        with open(self, 'r') as f:
             result = f.read()
         return self._deserialize(result)
 
     def write(self, content):
-        with open(self._path, 'w') as f:
+        with open(self, 'w') as f:
             f.write(self._serialize(content))
 
     def delete(self):
-        if os.path.isfile(self._path):
-            os.remove(self._path)
+        if os.path.isfile(self):
+            os.remove(self)
         else:
-            shutil.rmtree(self._path)
+            shutil.rmtree(self)
 
     def append(self, line):
-        with open(self._path, 'a') as f:
+        with open(self, 'a') as f:
             f.write(self._serialize(line) + '\n')
 
     def readlines(self):
-        with open(self._path) as f:
+        with open(self) as f:
             lines = f.readlines()
         return map(self._deserialize, lines)
 
     def exists(self):
-        return os.path.exists(self._path)
+        return os.path.exists(self)
 
     def makedirs(self, ignore_if_exists=False):
         try:
-            return os.makedirs(self._path)
+            return os.makedirs(self)
         except OSError as exc:
             if ignore_if_exists and exc.errno == errno.EEXIST:
                 pass
@@ -57,7 +54,7 @@ class Path(str):
                 six.reraise(*sys.exc_info())
 
     def listdir(self, pattern=None):
-        all_files = os.listdir(self._path)
+        all_files = os.listdir(self)
         if pattern is None:
             return all_files
         else:
@@ -69,7 +66,7 @@ class Path(str):
                 if line != line_to_remove:
                     tfile.write(self._serialize(line) + "\n")
             tfile.close()
-        os.rename(tfile.name, self._path)
+        os.rename(tfile.name, self)
 
     def empty_directory(self):
         return self.exists() and not self.listdir()
