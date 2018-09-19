@@ -48,6 +48,7 @@ if __name__ == '__main__':
         version=dredis.__version__,
         description="Disk-based Redis implementation",
         long_description=local_file('README.md'),
+        long_description_content_type='text/markdown',
         author='Yipit Coders',
         author_email='coders@yipitdata.com',
         url='https://github.com/Yipit/dredis',
