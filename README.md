@@ -7,20 +7,36 @@ that can afford slower performance and want unlimited storage, DRedis may be an 
 **WARNING: This project is still experimental and it doesn't implement all Redis commands!**
 
 
+
+## Installing
+
+```shell
+$ pip install dredis
+```
+
 ## Running
 
 
-```bash
-$ make redis_server
+```shell
+$ dredis --dir /tmp/dredis-data
 ```
 
-All the current options are configured through environment variables:
-* DREDIS_HOST (defaults to 127.0.0.1)
-* DREDIS_PORT (defaults to 6377)
-* ROOT_DIR (will create temporary directory if nothing is specified)
-* DEBUG (defaults to false)
-* FLUSHALL_ON_STARTUP (defaults to false)
+To know about all of the options, use `--help`:
 
+```shell
+$ dredis --help
+usage: dredis [-h] [-v] [--host HOST] [--port PORT] [--dir DIR] [--debug]
+              [--flushall]
+
+optional arguments:
+  -h, --help     show this help message and exit
+  -v, --version  show program's version number and exit
+  --host HOST    server host (defaults to 127.0.0.1)
+  --port PORT    server port (defaults to 6377)
+  --dir DIR      directory to save data (defaults to a temporary directory)
+  --debug        enable debug logs
+  --flushall     run FLUSHALL on startup
+```
 
 ## Supported Commands
 
