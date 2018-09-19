@@ -37,3 +37,7 @@ setup:
 redis_server:
 	@mkdir -p dredis-data
 	PYTHONPATH=. python -m dredis.server $(OPTIONS) --port 6379
+
+release:
+	python setup.py sdist bdist_wheel
+	twine upload dist/*
