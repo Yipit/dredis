@@ -141,4 +141,4 @@ Python 3 will be eventually supported, @hltbra didn't want to deal with bytes/st
 
 ## Didn't you have better names?
 
-@awgross suggested [RedisK](https://twitter.com/awgross/status/1031962830633934849). The name will only matter if this project survives, it's still an experiment.
+@awgross suggested [REDISK](https://twitter.com/awgross/status/1031962830633934849). The name will only matter if this project survives, it's still an experiment.
