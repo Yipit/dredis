@@ -6,7 +6,7 @@ def test_parse_simple_string():
         return "+PING\r\n"
 
     p = Parser(read)
-    assert p.get_instructions() == ['PING']
+    assert list(p.get_instructions()) == [['PING']]
 
 
 def test_simple_array():
@@ -14,7 +14,7 @@ def test_simple_array():
         return "*1\r\n$4\r\nPING\r\n"
 
     p = Parser(read)
-    assert p.get_instructions() == ['PING']
+    assert list(p.get_instructions()) == [['PING']]
 
 
 def test_bulk_string_inside_array():
@@ -34,13 +34,13 @@ $9\r\n\
 testvalue\r\n"
 
     p = Parser(read)
-    assert p.get_instructions() == [
+    assert list(p.get_instructions()) == [[
         'EVAL',
         '''redis.call('set', KEYS[1], KEYS[2])\nreturn redis.call('get', KEYS[1])''',
         '2',
         'testkey',
         'testvalue'
-    ]
+    ]]
 
 
 def test_multiple_arrays():
@@ -48,7 +48,7 @@ def test_multiple_arrays():
         return "*1\r\n$4\r\nPING\r\n*1\r\n$4\r\nPING\r\n"
 
     p = Parser(read)
-    assert p.get_instructions() == ['PING', 'PING']
+    assert list(p.get_instructions()) == [['PING'], ['PING']]
 
 
 def test_parser_should_request_more_data_if_needed():
@@ -61,4 +61,4 @@ def test_parser_should_request_more_data_if_needed():
         return responses.pop(0)
 
     p = Parser(read)
-    assert p.get_instructions() == ['PING']
+    assert list(p.get_instructions()) == [['PING']]

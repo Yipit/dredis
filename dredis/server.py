@@ -70,11 +70,9 @@ class CommandHandler(asyncore.dispatcher_with_send):
 
     def handle_read(self):
         parser = Parser(self.recv)
-        cmd = parser.get_instructions()
-        logger.debug('{} data = {}'.format(self.addr, repr(cmd)))
-        if not cmd:
-            return
-        execute_cmd(self.keyspace, self.debug_send, *cmd)
+        for cmd in parser.get_instructions():
+            logger.debug('{} data = {}'.format(self.addr, repr(cmd)))
+            execute_cmd(self.keyspace, self.debug_send, *cmd)
 
     def debug_send(self, *args):
         logger.debug("out={}".format(repr(args)))

@@ -30,28 +30,27 @@ class Parser(object):
         return result
 
     def get_instructions(self):
-        result = []
         self._read_into_buffer()
-
         while self._buffer:
             instructions = self._readline()
             if not instructions:
-                return result
+                raise StopIteration()
 
             # the Redis protocol says that all commands are arrays, however,
             # Redis's own tests have commands like PING being sent as a Simple String
             if instructions.startswith('+'):
-                result.extend(instructions[1:].strip().split())
+                yield instructions[1:].strip().split()
             # if instructions.startswith('*'):
             elif instructions.startswith('*'):
                 # array of instructions
                 array_length = int(instructions[1:])  # skip '*' char
+                instruction_set = []
                 for _ in range(array_length):
                     str_len = int(self._readline()[1:])  # skip '$' char
                     instruction = self._read(str_len)
-                    result.append(instruction)
+                    instruction_set.append(instruction)
+                yield instruction_set
             else:
                 # inline instructions, saw them in the Redis tests
                 for line in instructions.split('\r\n'):
-                    result.extend(line.strip().split())
-        return result
+                    yield line.strip().split()
