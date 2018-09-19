@@ -120,12 +120,12 @@ def setup_logging(level):
 
 def main():
     parser = argparse.ArgumentParser(version=__version__)
-    parser.add_argument('--host', default='127.0.0.1', help='Server host')
-    parser.add_argument('--port', default='6377', type=int, help='Server port')
+    parser.add_argument('--host', default='127.0.0.1', help='server host (defaults to %(default)s)')
+    parser.add_argument('--port', default='6377', type=int, help='server port (defaults to %(default)s)')
     parser.add_argument('--dir', default=None,
-                        help='Directory to save data. By default, a temporary directory will be created')
-    parser.add_argument('--debug', action='store_true', help='Change log level to DEBUG')
-    parser.add_argument('--flushall', action='store_true', default=False, help='Run FLUSHALL on startup')
+                        help='directory to save data (defaults to a temporary directory)')
+    parser.add_argument('--debug', action='store_true', help='enable debug logs')
+    parser.add_argument('--flushall', action='store_true', default=False, help='run FLUSHALL on startup')
     args = parser.parse_args()
 
     global ROOT_DIR
