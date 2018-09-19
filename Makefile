@@ -1,8 +1,7 @@
 DEBUG ?= --debug
-ROOT_DIR ?= --dir dredis-data
 FLUSHALL_ON_STARTUP ?= --flushall
-OPTIONS = $(DEBUG) $(ROOT_DIR) $(FLUSHALL_ON_STARTUP)
-TEST_PORT_OPTION = --port 6377
+PORT ?= --port 6377
+TEST_OPTIONS = $(DEBUG) $(FLUSHALL_ON_STARTUP) $(PORT)
 
 PID = redis-test-server.pid
 
@@ -21,10 +20,10 @@ lint: setup
 	@flake8 .
 
 server:
-	PYTHONPATH=. python -m dredis.server $(OPTIONS) $(TEST_PORT_OPTION)
+	PYTHONPATH=. python -m dredis.server $(TEST_OPTIONS)
 
 start-testserver:
-	-PYTHONPATH=. python -m dredis.server $(OPTIONS) $(TEST_PORT_OPTION) 2>&1 & echo $$! > $(PID)
+	-PYTHONPATH=. python -m dredis.server $(TEST_OPTIONS) 2>&1 & echo $$! > $(PID)
 
 stop-testserver:
 	@-touch $(PID)
@@ -36,7 +35,7 @@ setup:
 
 redis_server:
 	@mkdir -p dredis-data
-	PYTHONPATH=. python -m dredis.server $(OPTIONS) --port 6379
+	PYTHONPATH=. python -m dredis.server --dir /tmp/dredis-data --port 6379
 
 release:
 	rm -rf dist
