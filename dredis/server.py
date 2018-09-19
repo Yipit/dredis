@@ -9,6 +9,7 @@ import traceback
 
 import sys
 
+from dredis import __version__
 from dredis.commands import run_command, SimpleString, CommandNotFound
 from dredis.keyspace import DiskKeyspace
 from dredis.lua import RedisScriptError
@@ -118,7 +119,7 @@ def setup_logging(level):
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(version=__version__)
     parser.add_argument('--host', default='127.0.0.1', help='Server host')
     parser.add_argument('--port', default='6377', type=int, help='Server port')
     parser.add_argument('--dir', default=None,

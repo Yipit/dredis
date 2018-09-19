@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 
 import re
 import os
+import dredis
 from setuptools import setup, find_packages
 
 
@@ -44,7 +45,7 @@ install_requires, dependency_links = parse_requirements()
 if __name__ == '__main__':
     setup(
         name="dredis",
-        version='0.0.1',
+        version=dredis.__version__,
         description="Disk-based Redis implementation",
         long_description=local_file('README.md'),
         author='Yipit Coders',
