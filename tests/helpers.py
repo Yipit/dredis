@@ -3,9 +3,10 @@ import redis
 
 HOST = 'localhost'
 PORT = 6377
+DB = 0
 
 
-def fresh_redis(db=0):
-    r = redis.StrictRedis(host=HOST, port=PORT, db=db)
+def fresh_redis(db=DB, host=HOST, port=PORT):
+    r = redis.StrictRedis(host=host, port=port, db=db)
     r.flushall()
     return r

@@ -1,5 +1,3 @@
-import time
-
 import pytest
 import redis
 
@@ -92,23 +90,6 @@ def test_zset_with_rescoring():
     r.zadd('myzset', 0, 'myvalue2')  # now the score 0 has "myvalue1" & "myvalue2"
     assert r.zcard('myzset') == 2
     assert r.zrange('myzset', 0, -1, withscores=True) == [('myvalue1', 0), ('myvalue2', 0)]
-
-
-def test_very_large_zset():
-    r = fresh_redis()
-    large_number = int(1e3)
-    before_zadd = time.time()
-    for score in range(large_number):
-        r.zadd('myzset', 0, 'value{}'.format(score))
-        # r.zadd('myzset', score, 'value{}'.format(score))
-    after_zadd = time.time()
-    before_zcard = time.time()
-    # assert r.zcard('myzset') == large_number
-    r.zcard('myzset')
-    after_zcard = time.time()
-
-    print '\nZADD time = {}s'.format(after_zadd - before_zadd)
-    print 'ZCARD time = {}s'.format(after_zcard - before_zcard)
 
 
 def test_zrem():
