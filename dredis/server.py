@@ -151,7 +151,7 @@ def main():
     logger.info('Ready to accept connections')
 
     try:
-        asyncore.loop()
+        asyncore.loop(use_poll=True)
     except KeyboardInterrupt:
         logger.info("Shutting down...")
 
