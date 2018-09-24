@@ -66,7 +66,7 @@ def transmit(send_fn, result):
         assert False, 'couldnt catch a response for {} (type {})'.format(repr(result), type(result))
 
 
-class CommandHandler(asyncore.dispatcher_with_send):
+class CommandHandler(asyncore.dispatcher):
 
     def handle_read(self):
         parser = Parser(self.recv)
