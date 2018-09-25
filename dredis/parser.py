@@ -30,7 +30,8 @@ class Parser(object):
         return result
 
     def get_instructions(self):
-        self._read_into_buffer()
+        if not self._buffer:
+            self._read_into_buffer()
         while self._buffer:
             instructions = self._readline()
             if not instructions:
