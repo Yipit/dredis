@@ -7,7 +7,7 @@ PROFILE_PORT = 6376
 LARGE_NUMBER = 1000
 
 
-def test_zadd():
+def test_zadd_same_score_all_elements():
     r = fresh_redis(port=PROFILE_PORT)
     before_zadd = time.time()
     for score in range(LARGE_NUMBER):
@@ -55,3 +55,14 @@ def test_zcount():
     after_zcount = time.time()
 
     print '\nZCOUNT time = {}s'.format(after_zcount - before_zcount)
+
+
+def test_zrange():
+    r = fresh_redis(port=PROFILE_PORT)
+    for score in range(LARGE_NUMBER):
+        assert r.zadd('myzset', 0, 'value{}'.format(score)) == 1
+    before_zrange = time.time()
+    assert len(r.zrange('myzset', 0, LARGE_NUMBER)) == LARGE_NUMBER
+    after_zrange = time.time()
+
+    print '\nZRANGE time = {}s'.format(after_zrange - before_zrange)
