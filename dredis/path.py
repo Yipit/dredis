@@ -5,7 +5,6 @@ import os.path
 import shutil
 import six
 import sys
-import tempfile
 
 
 class Path(str):
@@ -61,12 +60,11 @@ class Path(str):
             return list(fnmatch.filter(all_files, pattern))
 
     def remove_line(self, line_to_remove):
-        with tempfile.NamedTemporaryFile('w', delete=False) as tfile:
-            for line in self.readlines():
+        lines = self.readlines()
+        with open(self, 'w') as f:
+            for line in lines:
                 if line != line_to_remove:
-                    tfile.write(self._serialize(line) + "\n")
-            tfile.close()
-        os.rename(tfile.name, self)
+                    f.write(line)
 
     def empty_directory(self):
         return self.exists() and not self.listdir()
