@@ -143,16 +143,19 @@ class DiskKeyspace(object):
         score_path = scores_path.join(score)
         value_path = values_path.join(self._get_filename_hash(value))
         if value_path.exists():
+            result = 0
             previous_score = value_path.read()
             if previous_score == score:
-                return 0
+                return result
             else:
                 previous_score_path = scores_path.join(previous_score)
                 previous_score_path.remove_line(value)
+        else:
+            result = 1
 
         value_path.write(score)
         score_path.append(value)
-        return 1
+        return result
 
     def write_type(self, key, name):
         key_path = self._key_path(key)

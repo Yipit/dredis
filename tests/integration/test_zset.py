@@ -85,9 +85,9 @@ def test_zset_zrange_with_scores():
 
 def test_zset_with_rescoring():
     r = fresh_redis()
-    r.zadd('myzset', 0, 'myvalue1')
-    r.zadd('myzset', 1, 'myvalue2')
-    r.zadd('myzset', 0, 'myvalue2')  # now the score 0 has "myvalue1" & "myvalue2"
+    assert r.zadd('myzset', 0, 'myvalue1') == 1
+    assert r.zadd('myzset', 1, 'myvalue2') == 1
+    assert r.zadd('myzset', 0, 'myvalue2') == 0  # now the score 0 has "myvalue1" & "myvalue2"
     assert r.zcard('myzset') == 2
     assert r.zrange('myzset', 0, -1, withscores=True) == [('myvalue1', 0), ('myvalue2', 0)]
 

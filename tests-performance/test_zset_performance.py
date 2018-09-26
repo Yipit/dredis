@@ -20,7 +20,7 @@ def test_zadd_rescore_same_element():
     r = fresh_redis(port=PROFILE_PORT)
     before_zadd = time.time()
     for score in range(LARGE_NUMBER):
-        assert r.zadd('myzset', score, 'value') == 1
+        assert r.zadd('myzset', score, 'value') == 0
     after_zadd = time.time()
     print '\nZADD time = {}s'.format(after_zadd - before_zadd)
 
