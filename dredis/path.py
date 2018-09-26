@@ -64,7 +64,7 @@ class Path(str):
         with open(self, 'w') as f:
             for line in lines:
                 if line != line_to_remove:
-                    f.write(line)
+                    f.write(self._serialize(line) + "\n")
 
     def empty_directory(self):
         return self.exists() and not self.listdir()
