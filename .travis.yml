@@ -1,5 +1,9 @@
 language: python
 python:
   - "2.7"
+before_install: apt-get update && apt-get install redis-server
 install: make setup
-script: make fulltests
+env:
+  - TEST_SUITE=fulltests
+  - TEST_SUITE=fulltests-real-redis
+script: make $(TEST_SUITE)
