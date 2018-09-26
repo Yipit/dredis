@@ -1,7 +1,7 @@
 language: python
 python:
   - "2.7"
-before_install: apt-get update && apt-get install redis-server
+before_install: sudo apt-get update && sudo apt-get install redis-server
 install: make setup
 env:
   - TEST_SUITE=fulltests
