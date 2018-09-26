@@ -1,6 +1,7 @@
 import logging
 from functools import wraps
 
+from dredis.utils import to_float
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +11,7 @@ SYNTAXERR = SyntaxError('syntax error')
 
 
 def _check_arity(expected_arity, passed_arity, cmd_name):
-    syntax_err = SyntaxError("Wrong number of arguments for '{}' command".format(cmd_name.lower()))
+    syntax_err = SyntaxError("wrong number of arguments for '{}' command".format(cmd_name.lower()))
     if expected_arity < 0:  # minimum arity
         if passed_arity < -expected_arity:
             raise syntax_err
@@ -273,10 +274,8 @@ def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
         else:
             raise SYNTAXERR
 
-    clean_min_score = min_score.strip('(').lower().replace('nan', '')
-    clean_max_score = max_score.strip('(').lower().replace('nan', '')
-    _validate_zset_score(clean_min_score)
-    _validate_zset_score(clean_max_score)
+    _validate_zset_score(min_score)
+    _validate_zset_score(max_score)
 
     members = keyspace.zrangebyscore(
         key, min_score, max_score, withscores=withscores, offset=offset, count=count)
@@ -284,10 +283,9 @@ def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
 
 
 def _validate_zset_score(score):
-    if not score:
-        raise SyntaxError("min or max is not a float")
+    clean_score = score.strip('(').lower().replace('nan', 'invalid')
     try:
-        float(score)
+        to_float(clean_score)
     except ValueError:
         raise SyntaxError("min or max is not a float")
 

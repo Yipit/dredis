@@ -23,15 +23,14 @@ def test_lua_with_redis_error_call():
     r = fresh_redis()
     with pytest.raises(redis.ResponseError) as exc:
         r.eval("""return redis.call('cmd_not_found')""", 0)
-    assert exc.value.message == '@user_script: Unknown Redis command called from Lua script'
+    assert exc.value.message.strip().endswith('Unknown Redis command called from Lua script')
 
 
 def test_lua_with_redis_error_pcall():
     r = fresh_redis()
     with pytest.raises(redis.ResponseError) as exc:
         r.eval("""return redis.pcall('cmd_not_found')""", 0)
-    assert exc.value.message == (
-        'Error running script: @user_script: Unknown Redis command called from Lua script')
+    assert exc.value.message.strip().endswith('Unknown Redis command called from Lua script')
 
 
 def test_commands_should_be_case_insensitive_inside_lua():
@@ -73,8 +72,8 @@ def test_should_convert_redis_reply_to_lua_types_inside_script():
     assert r.eval('return redis.call("incr", "i") == 1', 0) == 1
     assert r.eval('''
         local result = redis.pcall("cmdnotfound")
-        return result["err"] == "@user_script: Unknown Redis command called from Lua script"
-    ''', 0) == 1
+        return string.find(result["err"], "Unknown Redis command called from Lua script")
+    ''', 0) > 0
     assert r.eval('return #redis.call("zrange", "myzset", 0, 0) == 0', 0) == 1
 
 

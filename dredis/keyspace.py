@@ -4,7 +4,7 @@ import re
 
 from dredis.lua import LuaRunner
 from dredis.path import Path
-
+from dredis.utils import to_float
 
 DEFAULT_REDIS_DB = '0'
 NUMBER_OF_REDIS_DATABASES = 15
@@ -429,15 +429,15 @@ class ScoreRange(object):
 
     def check(self, value):
         if self._min_value.startswith('('):
-            if float(self._min_value[1:]) >= value:
+            if to_float(self._min_value[1:]) >= value:
                 return False
-        elif float(self._min_value) > value:
+        elif to_float(self._min_value) > value:
             return False
 
         if self._max_value.startswith('('):
-            if float(self._max_value[1:]) <= value:
+            if to_float(self._max_value[1:]) <= value:
                 return False
-        elif float(self._max_value) < value:
+        elif to_float(self._max_value) < value:
             return False
 
         return True

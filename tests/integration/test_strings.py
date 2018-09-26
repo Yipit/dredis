@@ -72,4 +72,4 @@ def test_get_arity():
 
     with pytest.raises(redis.ResponseError) as exc:
         r.execute_command('GET')
-    assert exc.value.message == "Wrong number of arguments for 'get' command"
+    assert exc.value.message == "wrong number of arguments for 'get' command"

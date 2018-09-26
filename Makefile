@@ -2,18 +2,22 @@ DEBUG ?= --debug
 FLUSHALL_ON_STARTUP ?= --flushall
 PORT ?= --port 6377
 TEST_OPTIONS = $(DEBUG) $(FLUSHALL_ON_STARTUP) $(PORT)
-PID = redis-test-server.pid
+PID = dredis-test-server.pid
+REDIS_PID = redis-test-server.pid
 
 PROFILE_DIR ?= --dir /tmp/dredis-data
 PROFILE_PORT = --port 6376
 PROFILE_OPTIONS = $(PROFILE_DIR) $(FLUSHALL_ON_STARTUP) $(PROFILE_PORT)
 STATS_FILE = stats.prof
 STATS_METRIC ?= cumtime
-PERFORMANCE_PID = redis-performance-test-server.pid
+PERFORMANCE_PID = dredis-performance-test-server.pid
 
 
 fulltests:
 	bash -c "trap 'make stop-testserver' EXIT; make start-testserver DEBUG=''; make test"
+
+fulltests-real-redis:
+	bash -c "trap 'make stop-redistestserver' EXIT; make start-redistestserver; make test"
 
 test: unit integration lint
 
@@ -39,6 +43,14 @@ stop-testserver:
 
 setup:
 	@pip install -r development.txt --quiet
+
+start-redistestserver:
+	-@redis-server $(PORT) 2>&1 & echo $$! > $(REDIS_PID)
+
+stop-redistestserver:
+	@-touch $(REDIS_PID)
+	@-kill `cat $(REDIS_PID)` 2> /dev/null
+	@-rm $(REDIS_PID)
 
 redis_server:
 	@mkdir -p dredis-data

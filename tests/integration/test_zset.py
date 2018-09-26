@@ -185,6 +185,9 @@ def test_zsets_should_support_floats_as_score_and_ranges():
     assert r.zrank('myzset', 'zero') == 0
     assert r.zrange('myzset', 0, 10) == ['zero', 'one', 'two', 'three']
 
+    # redis accepts empty string and converts it to 0
+    assert r.zrangebyscore('myzset', '', 1, withscores=True) == [('zero', 0.2), ('one', 0.7)]
+
 
 def test_zset_rescore_when_zero_is_decimal_point():
     r = fresh_redis()
@@ -319,14 +322,6 @@ def test_invalid_floats():
     with pytest.raises(redis.ResponseError) as exc4:
         r.zrangebyscore('myzset', 'NaN', 0)
     assert exc4.value.message == 'min or max is not a float'
-
-    with pytest.raises(redis.ResponseError) as exc5:
-        r.zrangebyscore('myzset', '', 0)
-    assert exc5.value.message == 'min or max is not a float'
-
-    with pytest.raises(redis.ResponseError) as exc6:
-        r.zadd('myzset', '', 0)
-    assert exc6.value.message == 'min or max is not a float'
 
 
 def test_zadd_with_newlines():
