@@ -91,3 +91,18 @@ def test_zrange():
     after_zrange = time.time()
 
     print '\nZRANGE time = {:.5f}s'.format(after_zrange - before_zrange)
+
+
+def test_zrem():
+    r = fresh_redis(port=PROFILE_PORT)
+    elems = ['value{}'.format(i) for i in range(LARGE_NUMBER)]
+
+    for elem in elems:
+        assert r.zadd('myzset', 0, elem) == 1
+
+    before_zrem = time.time()
+    for elem in elems:
+        assert r.zrem('myzset', elem) == 1
+    after_zrem = time.time()
+
+    print '\nZREM time = {:.5f}s'.format(after_zrem - before_zrem)
