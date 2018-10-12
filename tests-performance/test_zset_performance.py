@@ -2,24 +2,26 @@
 The following results should serve as reference
 ------
 
-Results from 2018-09-26 on @htlbra's Macbook (LARGE_NUMBER == 1000):
+Results from 2018-10-12 on @htlbra's Macbook (LARGE_NUMBER == 1000):
 
 $ make performance-server & make test-performance | grep time
-ZADD time = 0.47492s
-ZADD time = 0.71635s
-ZCARD time = 0.00120s
-ZRANK time = 0.00430s
-ZCOUNT time = 0.00449s
-ZRANGE time = 0.01667s
+ZADD time = 0.45322s
+ZADD time = 0.66988s
+ZCARD time = 0.00116s
+ZRANK time = 0.00414s
+ZCOUNT time = 0.00445s
+ZRANGE time = 0.01570s
+ZREM time = 4.24112s
 
 
 $ redis-server --port 6376 & make test-performance | grep time
-ZADD time = 0.07227s
-ZADD time = 0.07522s
+ZADD time = 0.07050s
+ZADD time = 0.06960s
 ZCARD time = 0.00008s
-ZRANK time = 0.00010s
-ZCOUNT time = 0.00010s
+ZRANK time = 0.00008s
+ZCOUNT time = 0.00009s
 ZRANGE time = 0.00379s
+ZREM time = 0.06466s
 
 """
 
