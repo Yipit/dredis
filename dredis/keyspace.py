@@ -231,7 +231,7 @@ class DiskKeyspace(object):
             score_path.remove_line(member)
             value_path.delete()
         # empty zset should be removed from keyspace
-        if values_path.empty_directory():
+        if scores_path.empty_directory():
             self.delete(key)
         return result
 
