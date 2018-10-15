@@ -65,18 +65,18 @@ class RedisLua(object):
 
 class LuaRunner(object):
     def __init__(self, keyspace):
-        self._keyspace = keyspace
+        self._runtime = LuaRuntime(unpack_returned_tuples=True)
+        self._lua_table_type = type(self._runtime.table())
+        self._redis_obj = RedisLua(keyspace, self._runtime)
 
     def run(self, script, keys, argv):
-        lua = LuaRuntime(unpack_returned_tuples=True)
-        lua.execute('KEYS = {%s}' % ', '.join(map(json.dumps, keys)))
-        lua.execute('ARGV = {%s}' % ', '.join(map(json.dumps, argv)))
-        redis_obj = RedisLua(self._keyspace, lua)
-        redis_lua = lua.eval('function(redis) {} end'.format(script))
-        result = redis_lua(redis_obj)
-        return self._convert_lua_types_to_redis_types(result, type(lua.table()))
+        self._runtime.execute('KEYS = {%s}' % ', '.join(map(json.dumps, keys)))
+        self._runtime.execute('ARGV = {%s}' % ', '.join(map(json.dumps, argv)))
+        script_function = self._runtime.eval('function(redis) {} end'.format(script))
+        result = script_function(self._redis_obj)
+        return self._convert_lua_types_to_redis_types(result)
 
-    def _convert_lua_types_to_redis_types(self, result, table_type):
+    def _convert_lua_types_to_redis_types(self, result):
         def convert(value):
             """
             str -> str
@@ -93,7 +93,7 @@ class LuaRunner(object):
             https://github.com/antirez/redis/blob/5b4bec9d336655889641b134791dfdd2adc864cf/src/scripting.c#L273-L340
 
             """
-            if isinstance(value, table_type):
+            if isinstance(value, self._lua_table_type):
                 if 'err' in value:
                     raise ValueError('ERR Error running script: {}'.format(value['err']))
                 elif 'ok' in value:

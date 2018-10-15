@@ -1,3 +1,5 @@
+export PYTHONPATH=.
+
 DEBUG ?= --debug
 FLUSHALL_ON_STARTUP ?= --flushall
 PORT ?= --port 6377
@@ -31,10 +33,10 @@ lint: setup
 	@flake8 .
 
 server:
-	PYTHONPATH=. python -m dredis.server $(TEST_OPTIONS)
+	python -m dredis.server $(TEST_OPTIONS)
 
 start-testserver:
-	-PYTHONPATH=. python -m dredis.server $(TEST_OPTIONS) 2>&1 & echo $$! > $(PID)
+	-python -m dredis.server $(TEST_OPTIONS) 2>&1 & echo $$! > $(PID)
 
 stop-testserver:
 	@-touch $(PID)

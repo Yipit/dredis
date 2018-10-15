@@ -14,6 +14,7 @@ DECIMAL_REGEX = re.compile('(\d+)\.0+$')
 class DiskKeyspace(object):
 
     def __init__(self, root_dir):
+        self._lua_runner = LuaRunner(self)
         self._root_directory = Path(root_dir)
         self._set_db_directory(DEFAULT_REDIS_DB)
 
@@ -207,8 +208,7 @@ class DiskKeyspace(object):
             return None
 
     def eval(self, script, keys, argv):
-        runtime = LuaRunner(self)
-        return runtime.run(script, keys, argv)
+        return self._lua_runner.run(script, keys, argv)
 
     def zrem(self, key, *members):
         """
