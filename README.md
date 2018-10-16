@@ -160,4 +160,7 @@ Python 3 will be eventually supported, @hltbra didn't want to deal with bytes/st
 
 ## Didn't you have better names?
 
-@awgross suggested [REDISK](https://twitter.com/awgross/status/1031962830633934849). The name will only matter if this project survives, it's still an experiment.
+[@andrewgross](https://github.com/andrewgross) suggested [REDISK](https://twitter.com/awgross/status/1031962830633934849). The name will only matter if this project survives, it's still an experiment.
+Also, [other projects use the name redisk](https://github.com/search?q=redisk&type=Repositories).
+
+[@nadlerjessie](https://github.com/nadlerjessie) is okay with the name dredis but wants it to be pronunced "Doctor Redis". The YipitData engineering team has fun with this pronunciation.
