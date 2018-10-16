@@ -1,0 +1,62 @@
+#!/bin/bash
+
+set -e
+
+
+help() {
+    echo "usage: dredis-snapshot [-v] <data-dir> [<local-path> | <s3-path>]"
+    echo
+    echo "examples:"
+    echo "  dredis-snapshot /tmp/dredis-data /tmp/dredis-snapshot-2018.tar.gz"
+    echo "  dredis-snapshot /tmp/dredis-data s3://dredis-snapshots/dredis-snapshot-2018.tar.gz"
+    exit 1
+}
+
+
+debug() {
+    msg="$1"
+    test ! -z "$verbose" && echo $msg || true
+}
+
+
+main() {
+    debug "Copying data to $snapshot_dir..."
+    cp -r "$data_dir" "$snapshot_dir"
+
+    debug "Creating $tarball_name..."
+    tar czf "$tarball_name" "$snapshot_dir"
+
+    debug "Removing $snapshot_dir..."
+    rm -rf "$snapshot_dir"
+
+    if [[ -z "$s3_path" ]]; then
+        echo "Snapshot: $tarball_name"
+    else
+        debug "Uploading to $s3_path..."
+        aws s3 cp "$tarball_name" "$s3_path"
+
+        debug "Removing $tarball_name"
+        rm "$tarball_name"
+    fi
+}
+
+
+snapshot_dir="dredis-snapshot-$(date +\%Y-\%m-\%dT\%H-\%M-\%S)"
+default_tarball_name="${snapshot_dir}.tar.gz"
+
+if [[ "$1" = "-v" ]]; then
+    verbose="-v"
+    shift
+fi
+data_dir="$1"
+
+test -z "$data_dir" && help
+
+if [[ "$2" == s3://* ]]; then
+    tarball_name="$default_tarball_name"
+    s3_path="$2"
+else
+    tarball_name="${2:-$default_tarball_name}"
+fi
+
+main

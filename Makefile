@@ -59,7 +59,7 @@ redis_server:
 	PYTHONPATH=. python -m dredis.server --dir /tmp/dredis-data --port 6379
 
 release:
-	rm -rf dist
+	rm -rf dist build
 	python setup.py sdist bdist_wheel
 	twine upload dist/*
 

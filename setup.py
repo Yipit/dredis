@@ -61,6 +61,7 @@ if __name__ == '__main__':
             'License :: OSI Approved :: MIT License',
             'Topic :: Database',
         ],
+        scripts=['contrib/dredis-snapshot'],
         entry_points={
             'console_scripts': [
                 'dredis = dredis.server:main',

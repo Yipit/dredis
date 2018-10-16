@@ -146,6 +146,9 @@ Use DNS routing or a network load balancer to route requests properly.
 There are many solutions to back up files. DRedis will have no impact when backups are performed because it's done from the outside (different from Redis, which uses `fork()` to snapshot the data).
 A straightforward approach is to have period backups to an object storage such as Amazon S3.
 
+This project includes a snapshot utility (`dredis-snapshot`) to make it easier to back up data locally or to AWS S3.
+Be aware that there may be consistency issues during the snapshot (`dredis` won't pause during the temporary copy of the data directory).
+
 
 ## Why Python
 
