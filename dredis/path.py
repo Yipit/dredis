@@ -6,6 +6,8 @@ import shutil
 import six
 import sys
 
+from scandir import scandir
+
 
 class Path(str):
 
@@ -71,7 +73,15 @@ class Path(str):
                     f.write(new_content)
 
     def empty_directory(self):
-        return self.exists() and not self.listdir()
+        if self.exists():
+            try:
+                next(scandir(self))
+            except StopIteration:
+                return True
+            else:
+                return False
+        else:
+            return False
 
     def _deserialize(self, value):
         return json.loads(value)
