@@ -55,7 +55,7 @@ def test_zadd_rescore_same_element():
 def test_zcard():
     r = fresh_redis(port=PROFILE_PORT)
     for score in range(LARGE_NUMBER):
-        assert r.zadd('myzset', 0, 'value{}'.format(score)) == 1
+        assert r.zadd('myzset', score, 'value{}'.format(score)) == 1
     before_zcard = time.time()
     assert r.zcard('myzset') == LARGE_NUMBER
     after_zcard = time.time()
