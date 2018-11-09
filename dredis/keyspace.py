@@ -122,9 +122,16 @@ class DiskKeyspace(object):
 
     def zadd(self, key, score, value):
         """
-        /path/scores/10 -> '"x1"\n"x2"'
-        /path/scores/20 -> '"y"'
-        /path/scores/30 -> '"z"'
+        score structure (binary)
+        ------
+        /path/to/scores/10 -> 8 bytes + (4 bytes + content)*
+        example:
+        0x0002   0x05 hello     0x05 world
+         count   size data      size data
+          2       5   "hello"   5    "world"
+
+        value structure
+        ------
         /path/values/hash("x1") -> "10"
         """
 
@@ -212,10 +219,7 @@ class DiskKeyspace(object):
 
     def zrem(self, key, *members):
         """
-        /path/scores/10 -> "x1\nx2"
-        /path/scores/20 -> "y"
-        /path/scores/30 -> "z"
-        /path/values/hash(x) -> 1
+        see zadd() for information about score and value structures
         """
         key_path = self._key_path(key)
         scores_path = key_path.join('scores')

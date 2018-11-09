@@ -3,6 +3,8 @@ import fnmatch
 import json
 import os.path
 import shutil
+import struct
+
 import six
 import sys
 
@@ -34,13 +36,34 @@ class Path(str):
             shutil.rmtree(self)
 
     def append(self, line):
-        with open(self, 'a') as f:
-            f.write(self._serialize(line) + '\n')
+        try:
+            f = open(self, 'rb+')
+        except IOError:
+            f = open(self, 'wb')
+            old_size = 0
+        else:
+            old_size = struct.unpack(">Q", f.read(8))[0]
+
+        # rewrite header
+        f.seek(0, os.SEEK_SET)
+        f.write(struct.pack(">Q", old_size + 1))
+
+        # add new (size,element) to the end
+        f.seek(0, os.SEEK_END)
+        f.write(struct.pack(">I", len(line)))
+        f.write(line)
 
     def readlines(self):
-        with open(self) as f:
-            lines = f.readlines()
-        return map(self._deserialize, lines)
+        lines = []
+        with open(self, 'rb') as f:
+            f.seek(8)
+            string_size = f.read(4)
+            while string_size:
+                size = struct.unpack(">I", string_size)[0]
+                line = f.read(size)
+                lines.append(line)
+                string_size = f.read(4)
+        return lines
 
     def exists(self):
         return os.path.exists(self)
@@ -68,9 +91,11 @@ class Path(str):
             if len(lines) == 0:
                 os.remove(self)
             else:
-                new_content = "".join(self._serialize(line) + "\n" for line in lines)
-                with open(self, 'w') as f:
-                    f.write(new_content)
+                with open(self, 'wb') as f:
+                    f.write(struct.pack(">Q", len(lines)))
+                    for line in lines:
+                        f.write(struct.pack(">I", len(line)))
+                        f.write(line)
 
     def empty_directory(self):
         if self.exists():
