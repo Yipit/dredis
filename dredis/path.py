@@ -42,28 +42,14 @@ class Path(str):
             f = open(self, 'wb')
             old_size = 0
         else:
-            old_size = struct.unpack(">Q", f.read(8))[0]
+            old_size = ZSetEncoder.read_header(f)
 
-        # rewrite header
-        f.seek(0, os.SEEK_SET)
-        f.write(struct.pack(">Q", old_size + 1))
-
-        # add new (size,element) to the end
-        f.seek(0, os.SEEK_END)
-        f.write(struct.pack(">I", len(line)))
-        f.write(line)
+        ZSetEncoder.write_header(f, old_size + 1)
+        ZSetEncoder.write_element(f, line)
 
     def readlines(self):
-        lines = []
         with open(self, 'rb') as f:
-            f.seek(8)
-            string_size = f.read(4)
-            while string_size:
-                size = struct.unpack(">I", string_size)[0]
-                line = f.read(size)
-                lines.append(line)
-                string_size = f.read(4)
-        return lines
+            return ZSetEncoder.read_elements(f)
 
     def exists(self):
         return os.path.exists(self)
@@ -92,10 +78,7 @@ class Path(str):
                 os.remove(self)
             else:
                 with open(self, 'wb') as f:
-                    f.write(struct.pack(">Q", len(lines)))
-                    for line in lines:
-                        f.write(struct.pack(">I", len(line)))
-                        f.write(line)
+                    ZSetEncoder.rewrite_content(f, lines)
 
     def empty_directory(self):
         if self.exists():
@@ -116,4 +99,52 @@ class Path(str):
 
     def read_zset_header(self):
         with open(self, 'rb') as f:
-            return struct.unpack(">Q", f.read(8))[0]
+            return ZSetEncoder.read_header(f)
+
+
+class ZSetEncoder(object):
+
+    HEADER_FMT = ">Q"
+    HEADER_BYTES = 8
+    ELEMENT_FMT = ">I"
+    SIZE_BYTES = 4
+
+    @classmethod
+    def write_header(cls, f, size):
+        f.seek(0, os.SEEK_SET)
+        f.write(struct.pack(cls.HEADER_FMT, size))
+
+    @classmethod
+    def read_header(cls, f):
+        return struct.unpack(cls.HEADER_FMT, f.read(cls.HEADER_BYTES))[0]
+
+    @classmethod
+    def write_element(cls, f, element):
+        f.seek(0, os.SEEK_END)
+        f.write(struct.pack(cls.ELEMENT_FMT, len(element)))
+        f.write(element)
+
+    @classmethod
+    def read_element(cls, f):
+        size_string = f.read(cls.SIZE_BYTES)
+        if size_string:
+            size = struct.unpack(cls.ELEMENT_FMT, size_string)[0]
+            return f.read(size)
+        else:
+            return None
+
+    @classmethod
+    def rewrite_content(cls, f, lines):
+        cls.write_header(f, len(lines))
+        for line in lines:
+            cls.write_element(f, line)
+
+    @classmethod
+    def read_elements(cls, f):
+        elements = []
+        f.seek(cls.HEADER_BYTES)  # skip header
+        element = cls.read_element(f)
+        while element:
+            elements.append(element)
+            element = cls.read_element(f)
+        return elements
