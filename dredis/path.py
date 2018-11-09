@@ -113,3 +113,7 @@ class Path(str):
 
     def _serialize(self, value):
         return json.dumps(value)
+
+    def read_zset_header(self):
+        with open(self, 'rb') as f:
+            return struct.unpack(">Q", f.read(8))[0]

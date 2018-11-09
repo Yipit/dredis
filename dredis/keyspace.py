@@ -265,7 +265,16 @@ class DiskKeyspace(object):
         return result
 
     def zcount(self, key, min_score, max_score):
-        return len(self.zrangebyscore(key, min_score, max_score))
+        key_path = self._key_path(key)
+        scores_path = key_path.join('scores')
+        count = 0
+        if scores_path.exists():
+            scores = sorted(scores_path.listdir(), key=float)
+            score_range = ScoreRange(min_score, max_score)
+            scores = [score for score in scores if score_range.check(float(score))]
+            for score in scores:
+                count += scores_path.join(score).read_zset_header()
+        return count
 
     def zrank(self, key, member):
         key_path = self._key_path(key)
