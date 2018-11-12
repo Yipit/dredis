@@ -125,11 +125,8 @@ class ZSetEncoder(object):
     @classmethod
     def read_element(cls, f):
         size_string = f.read(cls.SIZE_BYTES)
-        if size_string:
-            size = struct.unpack(cls.ELEMENT_FMT, size_string)[0]
-            return f.read(size)
-        else:
-            return None
+        size = struct.unpack(cls.ELEMENT_FMT, size_string)[0]
+        return f.read(size)
 
     @classmethod
     def rewrite_content(cls, f, lines):
@@ -140,11 +137,10 @@ class ZSetEncoder(object):
     @classmethod
     def read_elements(cls, f):
         elements = []
-        cls.skip_header(f)
-        element = cls.read_element(f)
-        while element:
-            elements.append(element)
+        count = cls.read_header(f)
+        for _ in xrange(count):
             element = cls.read_element(f)
+            elements.append(element)
         return elements
 
     @classmethod
