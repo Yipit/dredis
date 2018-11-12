@@ -20,12 +20,12 @@ class Path(str):
         os.makedirs(self)
 
     def read(self):
-        with open(self, 'r') as f:
+        with open(self, 'rb') as f:
             result = f.read()
         return result
 
     def write(self, content):
-        with open(self, 'w') as f:
+        with open(self, 'wb') as f:
             f.write(content)
 
     def delete(self):
