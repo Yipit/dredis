@@ -27,7 +27,7 @@ def parse_requirements():
             continue
         if 'http:' in req or 'https:' in req:
             links.append(req)
-            name, version = re.findall("\#egg=([^\-]+)-(.+$)", req)[0]
+            name, version = re.findall(r"\#egg=([^\-]+)-(.+$)", req)[0]
             pkgs.append('{0}=={1}'.format(name, version))
         else:
             pkgs.append(req)

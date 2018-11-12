@@ -71,3 +71,7 @@ performance-server:
 
 performance-stats:
 	python -c 'import pstats ; pstats.Stats("$(STATS_FILE)").sort_stats("$(STATS_METRIC)").print_stats()' | less
+
+clean:
+	rm -rf build/ dist/
+	find . -name '*.pyc' -delete
