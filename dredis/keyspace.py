@@ -8,7 +8,7 @@ from dredis.utils import to_float
 
 DEFAULT_REDIS_DB = '0'
 NUMBER_OF_REDIS_DATABASES = 15
-DECIMAL_REGEX = re.compile('(\d+)\.0+$')
+DECIMAL_REGEX = re.compile(r'(\d+)\.0+$')
 
 
 class DiskKeyspace(object):
