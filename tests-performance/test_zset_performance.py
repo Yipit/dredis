@@ -5,13 +5,13 @@ The following results should serve as reference
 Results from 2018-11-12 on @htlbra's Macbook (LARGE_NUMBER == 1000):
 
 $ make performance-server & make test-performance | grep 'zset Z'
-zset ZADD time = 0.45149s
-zset ZADD time = 0.67749s
-zset ZCARD time = 0.00117s
-zset ZRANK time = 0.00437s
-zset ZCOUNT time = 0.00439s
-zset ZRANGE time = 0.02463s
-zset ZREM time = 3.69544s
+zset ZADD time = 0.46967s
+zset ZADD time = 0.69122s
+zset ZCARD time = 0.00120s
+zset ZRANK time = 0.00196s
+zset ZCOUNT time = 0.00030s
+zset ZRANGE time = 0.02062s
+zset ZREM time = 2.52095s
 
 
 $ redis-server --port 6376 & make test-performance | grep time
@@ -55,7 +55,7 @@ def test_zadd_rescore_same_element():
 def test_zcard():
     r = fresh_redis(port=PROFILE_PORT)
     for score in range(LARGE_NUMBER):
-        assert r.zadd('myzset', 0, 'value{}'.format(score)) == 1
+        assert r.zadd('myzset', score, 'value{}'.format(score)) == 1
     before_zcard = time.time()
     assert r.zcard('myzset') == LARGE_NUMBER
     after_zcard = time.time()

@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import pytest
 import redis
 
@@ -24,6 +26,13 @@ def test_set_and_get_bytes():
 
     assert r.set('foo', b'\x05\x02\x03') is True
     assert r.get('foo') == b'\x05\x02\x03'
+
+
+def test_set_and_get_unicode_chars():
+    r = fresh_redis()
+
+    assert r.set(u'foo㐀㐁', u'㐂㐃') is True
+    assert r.get(u'foo㐀㐁') == u'㐂㐃'.encode('utf-8')  # there's unicode conversion in Redis
 
 
 def test_set_and_get_integer():
