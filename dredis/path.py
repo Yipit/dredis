@@ -36,19 +36,19 @@ class Path(str):
 
     def append(self, line):
         try:
-            f = open(self, 'rb+')
+            encoder = ZSetEncoder(open(self, 'rb+'))
         except IOError:
-            f = open(self, 'wb')
+            encoder = ZSetEncoder(open(self, 'wb'))
             old_size = 0
         else:
-            old_size = ZSetEncoder.read_header(f)
+            old_size = encoder.read_header()
 
-        ZSetEncoder.write_header(f, old_size + 1)
-        ZSetEncoder.write_element_to_eof(f, line)
+        encoder.write_header(old_size + 1)
+        encoder.write_element_to_eof(line)
 
     def readlines(self):
         with open(self, 'rb') as f:
-            return ZSetEncoder.read_elements(f)
+            return ZSetEncoder(f).read_elements()
 
     def exists(self):
         return os.path.exists(self)
@@ -77,7 +77,7 @@ class Path(str):
                 os.remove(self)
             else:
                 with open(self, 'wb') as f:
-                    ZSetEncoder.rewrite_content(f, lines)
+                    ZSetEncoder(f).rewrite_content(lines)
 
     def empty_directory(self):
         if self.exists():
@@ -92,7 +92,7 @@ class Path(str):
 
     def read_zset_header(self):
         with open(self, 'rb') as f:
-            return ZSetEncoder.read_header(f)
+            return ZSetEncoder(f).read_header()
 
 
 class ZSetEncoder(object):
@@ -102,51 +102,41 @@ class ZSetEncoder(object):
     ELEMENT_FMT = ">I"
     SIZE_BYTES = 4
 
-    @classmethod
-    def write_header(cls, f, size, seek_to_start=True):
+    def __init__(self, file_):
+        self._file = file_
+
+    def write_header(self, size, seek_to_start=True):
         if seek_to_start:
-            f.seek(0, os.SEEK_SET)
-        f.write(struct.pack(cls.HEADER_FMT, size))
+            self._file.seek(0, os.SEEK_SET)
+        self._file.write(struct.pack(self.HEADER_FMT, size))
 
-    @classmethod
-    def read_header(cls, f):
-        return struct.unpack(cls.HEADER_FMT, f.read(cls.HEADER_BYTES))[0]
+    def read_header(self):
+        return struct.unpack(self.HEADER_FMT, self._file.read(self.HEADER_BYTES))[0]
 
-    @classmethod
-    def write_element(cls, f, element):
-        f.write(struct.pack(cls.ELEMENT_FMT, len(element)))
-        f.write(element)
+    def write_element(self, element):
+        self._file.write(struct.pack(self.ELEMENT_FMT, len(element)))
+        self._file.write(element)
 
-    @classmethod
-    def write_element_to_eof(cls, f, element):
-        cls.move_to_eof(f)
-        cls.write_element(f, element)
+    def write_element_to_eof(self, element):
+        self.move_to_eof()
+        self.write_element(element)
 
-    @classmethod
-    def read_element(cls, f):
-        size_string = f.read(cls.SIZE_BYTES)
-        size = struct.unpack(cls.ELEMENT_FMT, size_string)[0]
-        return f.read(size)
+    def read_element(self):
+        size_string = self._file.read(self.SIZE_BYTES)
+        size = struct.unpack(self.ELEMENT_FMT, size_string)[0]
+        return self._file.read(size)
 
-    @classmethod
-    def rewrite_content(cls, f, lines):
-        cls.write_header(f, len(lines), seek_to_start=False)
+    def rewrite_content(self, lines):
+        self.write_header(len(lines), seek_to_start=False)
         for line in lines:
-            cls.write_element(f, line)
+            self.write_element(line)
 
-    @classmethod
-    def read_elements(cls, f):
-        elements = []
-        count = cls.read_header(f)
-        for _ in xrange(count):
-            element = cls.read_element(f)
-            elements.append(element)
-        return elements
+    def read_elements(self):
+        count = self.read_header()
+        return [self.read_element() for _ in xrange(count)]
 
-    @classmethod
-    def skip_header(cls, f):
-        f.seek(cls.HEADER_BYTES, os.SEEK_SET)
+    def skip_header(self):
+        self._file.seek(self.HEADER_BYTES, os.SEEK_SET)
 
-    @classmethod
-    def move_to_eof(cls, f):
-        f.seek(0, os.SEEK_END)
+    def move_to_eof(self):
+        self._file.seek(0, os.SEEK_END)
