@@ -103,8 +103,9 @@ class ZSetEncoder(object):
     SIZE_BYTES = 4
 
     @classmethod
-    def write_header(cls, f, size):
-        f.seek(0, os.SEEK_SET)
+    def write_header(cls, f, size, seek_to_start=True):
+        if seek_to_start:
+            f.seek(0, os.SEEK_SET)
         f.write(struct.pack(cls.HEADER_FMT, size))
 
     @classmethod
@@ -132,7 +133,7 @@ class ZSetEncoder(object):
 
     @classmethod
     def rewrite_content(cls, f, lines):
-        cls.write_header(f, len(lines))
+        cls.write_header(f, len(lines), seek_to_start=False)
         for line in lines:
             cls.write_element(f, line)
 
