@@ -1,6 +1,5 @@
 import errno
 import fnmatch
-import json
 import os.path
 import shutil
 import struct
@@ -23,11 +22,11 @@ class Path(str):
     def read(self):
         with open(self, 'r') as f:
             result = f.read()
-        return self._deserialize(result)
+        return result
 
     def write(self, content):
         with open(self, 'w') as f:
-            f.write(self._serialize(content))
+            f.write(content)
 
     def delete(self):
         if os.path.isfile(self):
@@ -90,12 +89,6 @@ class Path(str):
                 return False
         else:
             return False
-
-    def _deserialize(self, value):
-        return json.loads(value)
-
-    def _serialize(self, value):
-        return json.dumps(value)
 
     def read_zset_header(self):
         with open(self, 'rb') as f:
