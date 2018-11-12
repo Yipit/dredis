@@ -140,12 +140,16 @@ class ZSetEncoder(object):
     @classmethod
     def read_elements(cls, f):
         elements = []
-        f.seek(cls.HEADER_BYTES)  # skip header
+        cls.skip_header(f)
         element = cls.read_element(f)
         while element:
             elements.append(element)
             element = cls.read_element(f)
         return elements
+
+    @classmethod
+    def skip_header(cls, f):
+        f.seek(cls.HEADER_BYTES, os.SEEK_SET)
 
     @classmethod
     def move_to_eof(cls, f):
