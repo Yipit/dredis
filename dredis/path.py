@@ -45,7 +45,7 @@ class Path(str):
             old_size = ZSetEncoder.read_header(f)
 
         ZSetEncoder.write_header(f, old_size + 1)
-        ZSetEncoder.write_element(f, line)
+        ZSetEncoder.write_element_to_eof(f, line)
 
     def readlines(self):
         with open(self, 'rb') as f:
@@ -120,9 +120,13 @@ class ZSetEncoder(object):
 
     @classmethod
     def write_element(cls, f, element):
-        f.seek(0, os.SEEK_END)
         f.write(struct.pack(cls.ELEMENT_FMT, len(element)))
         f.write(element)
+
+    @classmethod
+    def write_element_to_eof(cls, f, element):
+        cls.move_to_eof(f)
+        cls.write_element(f, element)
 
     @classmethod
     def read_element(cls, f):
@@ -148,3 +152,7 @@ class ZSetEncoder(object):
             elements.append(element)
             element = cls.read_element(f)
         return elements
+
+    @classmethod
+    def move_to_eof(cls, f):
+        f.seek(0, os.SEEK_END)
