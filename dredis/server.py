@@ -50,20 +50,26 @@ def execute_cmd(keyspace, send_fn, cmd, *args):
 
 
 def transmit(send_fn, result):
-    if result is None:
-        send_fn('$-1\r\n')
-    elif isinstance(result, int):
-        send_fn(':{}\r\n'.format(result))
-    elif isinstance(result, SimpleString):
-        send_fn('+{}\r\n'.format(result))
-    elif isinstance(result, basestring):
-        send_fn('${}\r\n{}\r\n'.format(len(result), result))
-    elif isinstance(result, (set, list, tuple)):
-        send_fn('*{}\r\n'.format(len(result)))
-        for element in result:
-            transmit(send_fn, element)
-    else:
-        assert False, 'couldnt catch a response for {} (type {})'.format(repr(result), type(result))
+    to_send = []
+
+    def _transform(elem):
+        if elem is None:
+            to_send.append('$-1\r\n')
+        elif isinstance(elem, int):
+            to_send.append(':{}\r\n'.format(elem))
+        elif isinstance(elem, SimpleString):
+            to_send.append('+{}\r\n'.format(elem))
+        elif isinstance(elem, basestring):
+            to_send.append('${}\r\n{}\r\n'.format(len(elem), elem))
+        elif isinstance(elem, (set, list, tuple)):
+            to_send.append('*{}\r\n'.format(len(elem)))
+            for element in elem:
+                _transform(element)
+        else:
+            assert False, 'couldnt catch a response for {} (type {})'.format(repr(result), type(result))
+
+    _transform(result)
+    send_fn(''.join(to_send))
 
 
 class CommandHandler(asyncore.dispatcher):
