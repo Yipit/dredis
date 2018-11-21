@@ -4,24 +4,26 @@ The following results should serve as reference
 
 Results from 2018-11-12 on @htlbra's Macbook (LARGE_NUMBER == 1000):
 
-$ make performance-server & make test-performance | grep 'zset Z'
-zset ZADD time = 0.46967s
-zset ZADD time = 0.69122s
-zset ZCARD time = 0.00120s
-zset ZRANK time = 0.00196s
-zset ZCOUNT time = 0.00030s
-zset ZRANGE time = 0.02062s
-zset ZREM time = 2.52095s
+$ make performance-server & make test-performance | grep 'zset Z' ; kill %1
+zset ZADD time = 0.47357s
+zset ZADD time = 0.71519s
+zset ZCARD time = 0.00122s
+zset ZRANK time = 0.00200s
+zset ZCOUNT time = 0.00027s
+zset ZRANGE time = 0.00780s
+zset ZRANGEBYSCORE time = 0.00798s
+zset ZREM time = 2.48624s
 
 
-$ redis-server --port 6376 & make test-performance | grep time
-ZADD time = 0.07050s
-ZADD time = 0.06960s
-ZCARD time = 0.00008s
-ZRANK time = 0.00008s
-ZCOUNT time = 0.00009s
-ZRANGE time = 0.00379s
-ZREM time = 0.06466s
+$ redis-server --port 6376 & make test-performance | grep 'zset Z'; kill %1
+zset ZADD time = 0.06761s
+zset ZADD time = 0.06929s
+zset ZCARD time = 0.00008s
+zset ZRANK time = 0.00008s
+zset ZCOUNT time = 0.00009s
+zset ZRANGE time = 0.00378s
+zset ZRANGEBYSCORE time = 0.00375s
+zset ZREM time = 0.06097s
 
 """
 
@@ -93,6 +95,17 @@ def test_zrange():
     after_zrange = time.time()
 
     print '\nzset ZRANGE time = {:.5f}s'.format(after_zrange - before_zrange)
+
+
+def test_zrangebyscore():
+    r = fresh_redis(port=PROFILE_PORT)
+    for score in range(LARGE_NUMBER):
+        assert r.zadd('myzset', 0, 'value{}'.format(score)) == 1
+    before_zrangebyscore = time.time()
+    assert len(r.zrangebyscore('myzset', '-inf', '+inf')) == LARGE_NUMBER
+    after_zrangebyscore = time.time()
+
+    print '\nzset ZRANGEBYSCORE time = {:.5f}s'.format(after_zrangebyscore - before_zrangebyscore)
 
 
 def test_zrem():
