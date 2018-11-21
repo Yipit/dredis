@@ -124,11 +124,11 @@ class DiskKeyspace(object):
         """
         score structure (binary)
         ------
-        /path/to/scores/10 -> 8 bytes + (4 bytes + content)*
+        /path/to/scores/10 -> 8 bytes + (1 byte + 4 bytes + content)*
         example:
-        0x0002   0x05 hello     0x05 world
-         count   size data      size data
-          2       5   "hello"   5    "world"
+        0x0002   0x0    0x05 hello     0x1    0x05 world     0x0    0x03 bye
+         count   active size data      active size data      active size data
+          2       y      5   "hello"   y       5   "world"   n       3   "bye"
 
         value structure
         ------

@@ -70,14 +70,10 @@ class Path(str):
             return list(fnmatch.filter(all_files, pattern))
 
     def remove_line(self, line_to_remove):
-        lines = self.readlines()
-        if line_to_remove in lines:
-            lines.remove(line_to_remove)
-            if len(lines) == 0:
-                os.remove(self)
-            else:
-                with open(self, 'wb') as f:
-                    ZSetEncoder(f).rewrite_content(lines)
+        with open(self, 'rb+') as f:
+            num_elems = ZSetEncoder(f).remove_element(line_to_remove)
+        if num_elems == 0:
+            os.remove(self)
 
     def empty_directory(self):
         if self.exists():
@@ -101,6 +97,10 @@ class ZSetEncoder(object):
     HEADER_BYTES = 8
     ELEMENT_FMT = ">I"
     SIZE_BYTES = 4
+    ACTIVE_FMT = ">c"
+    ACTIVE_BYTES = 1
+    IS_ACTIVE = 'y'
+    IS_INACTIVE = 'n'
 
     def __init__(self, file_):
         self._file = file_
@@ -114,6 +114,7 @@ class ZSetEncoder(object):
         return struct.unpack(self.HEADER_FMT, self._file.read(self.HEADER_BYTES))[0]
 
     def write_element(self, element):
+        self._file.write(struct.pack(self.ACTIVE_FMT, self.IS_ACTIVE))
         self._file.write(struct.pack(self.ELEMENT_FMT, len(element)))
         self._file.write(element)
 
@@ -122,9 +123,11 @@ class ZSetEncoder(object):
         self.write_element(element)
 
     def read_element(self):
+        active_string = self._file.read(self.ACTIVE_BYTES)
+        active = struct.unpack(self.ACTIVE_FMT, active_string)[0]
         size_string = self._file.read(self.SIZE_BYTES)
         size = struct.unpack(self.ELEMENT_FMT, size_string)[0]
-        return self._file.read(size)
+        return active, self._file.read(size)
 
     def rewrite_content(self, lines):
         self.write_header(len(lines), seek_to_start=False)
@@ -133,10 +136,24 @@ class ZSetEncoder(object):
 
     def read_elements(self):
         count = self.read_header()
-        return [self.read_element() for _ in xrange(count)]
+        result = []
+        while len(result) < count:
+            active, element = self.read_element()
+            if active == self.IS_ACTIVE:
+                result.append(element)
+        return result
 
-    def skip_header(self):
-        self._file.seek(self.HEADER_BYTES, os.SEEK_SET)
+    def remove_element(self, element_to_remove):
+        count = self.read_header()
+        for _ in range(count):
+            active, element = self.read_element()
+            if element == element_to_remove:
+                self._file.seek(-(self.ACTIVE_BYTES + self.SIZE_BYTES + len(element)), os.SEEK_CUR)
+                self._file.write(struct.pack(self.ACTIVE_FMT, self.IS_INACTIVE))
+                count -= 1
+                break
+        self.write_header(count)
+        return count
 
     def move_to_eof(self):
         self._file.seek(0, os.SEEK_END)
