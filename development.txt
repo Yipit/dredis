@@ -1,5 +1,5 @@
 -r requirements.txt
 pytest
-redis
+redis==2.10.6
 flake8
 twine
