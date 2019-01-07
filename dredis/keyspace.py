@@ -322,7 +322,7 @@ class DiskKeyspace(object):
         return self.directory.listdir(pattern)
 
     def dbsize(self):
-        return len(self.directory.listdir())
+        return len(self.keys(pattern=None))
 
     def exists(self, *keys):
         result = 0
