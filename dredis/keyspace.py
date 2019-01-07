@@ -39,17 +39,11 @@ class DiskKeyspace(object):
         self._set_db_directory(db)
 
     def incrby(self, key, increment=1):
-        key_path = self._key_path(key)
-        value_path = key_path.join('value')
-        number = 0
-        if self.exists(key):
-            content = value_path.read()
-            number = int(content)
-        else:
-            key_path.makedirs()
-            self.write_type(key, 'string')
-        result = number + increment
-        value_path.write(str(result))
+        number = self.get(key)
+        if number is None:
+            number = '0'
+        result = int(number) + increment
+        self.set(key, str(result))
         return result
 
     def get(self, key):
