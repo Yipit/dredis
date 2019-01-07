@@ -13,7 +13,7 @@ def test_eval_with_error_call():
 
     with pytest.raises(RedisScriptError) as exc:
         k.eval("""return redis.call('cmd_not_found')""", [], [])
-    assert exc.value.message == '@user_script: Unknown Redis command called from Lua script'
+    assert str(exc.value) == '@user_script: Unknown Redis command called from Lua script'
 
 
 def test_eval_with_error_pcall():
