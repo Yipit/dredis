@@ -72,9 +72,9 @@ class DiskKeyspace(object):
 
     def flushdb(self):
         ldb_directory = bytes(self.directory + "-leveldb")
-        LDB_DBS[self._current_db].close()
+        self._ldb.close()
         Path(ldb_directory).reset()
-        LDB_DBS[self._current_db] = plyvel.DB(ldb_directory, create_if_missing=True)
+        self._ldb = plyvel.DB(ldb_directory, create_if_missing=True)
         self.directory.reset()
 
     def select(self, db):
@@ -89,10 +89,10 @@ class DiskKeyspace(object):
         return result
 
     def get(self, key):
-        return LDB_DBS[self._current_db].get(encode_ldb_key_string(key))
+        return self._ldb.get(encode_ldb_key_string(key))
 
     def set(self, key, value):
-        LDB_DBS[self._current_db].put(encode_ldb_key_string(key), value)
+        self._ldb.put(encode_ldb_key_string(key), value)
 
     def getrange(self, key, start, end):
         value = self.get(key)
@@ -146,7 +146,7 @@ class DiskKeyspace(object):
                 key_path.delete()
 
             if self.get(key):
-                LDB_DBS[self._current_db].delete(encode_ldb_key_string(key))
+                self._ldb.delete(encode_ldb_key_string(key))
                 result += 1
         return result
 
@@ -359,7 +359,7 @@ class DiskKeyspace(object):
 
     def keys(self, pattern):
         level_db_keys = []
-        for key, _ in LDB_DBS[self._current_db]:
+        for key, _ in self._ldb:
             key_value = decode_ldb_key(key)
             if pattern is None or fnmatch.fnmatch(key_value, pattern):
                 level_db_keys.append(key_value)
@@ -473,6 +473,14 @@ class DiskKeyspace(object):
 
     def _get_filename_hash(self, value):
         return hashlib.md5(value).hexdigest()
+
+    def _get_ldb(self):
+        return LDB_DBS[self._current_db]
+
+    def _set_ldb(self, value):
+        LDB_DBS[self._current_db] = value
+
+    _ldb = property(_get_ldb, _set_ldb)
 
 
 class ScoreRange(object):
