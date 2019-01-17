@@ -171,6 +171,13 @@ class DiskKeyspace(object):
                 result += 1
             elif self._ldb.get(encode_ldb_key_set(key)) is not None:
                 self._ldb.delete(encode_ldb_key_set(key))
+                for member in self.smembers(key):
+                    self._ldb.delete(encode_ldb_key_set_member(key, member))
+                result += 1
+            elif self._ldb.get(encode_ldb_key_hash(key)) is not None:
+                self._ldb.delete(encode_ldb_key_set(key))
+                for field in self.hkeys(key):
+                    self._ldb.delete(encode_ldb_key_hash_field(key, field))
                 result += 1
 
         return result
@@ -409,28 +416,18 @@ class DiskKeyspace(object):
         return result
 
     def hset(self, key, field, value):
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        if not self.exists(key):
-            fields_path.makedirs()
-        field_path = fields_path.join(field)
-        if field_path.exists():
-            result = 0
-        else:
+        result = 0
+        if self._ldb.get(encode_ldb_key_hash_field(key, field)) is None:
             result = 1
-        field_path.write(value)
-        self.write_type(key, 'hash')
-
-        hash_length = int(self._ldb.get(encode_ldb_key_hash(key)) or '0')
-        self._ldb.put(encode_ldb_key_hash(key), bytes(hash_length + result))
+        hash_length = int(self._ldb.get(encode_ldb_key_hash(key), '0'))
+        self._ldb.put(encode_ldb_key_hash(key), bytes(hash_length + 1))
         self._ldb.put(encode_ldb_key_hash_field(key, field), value)
-
         return result
 
     def hsetnx(self, key, field, value):
         # only set if not set before
         if self._ldb.get(encode_ldb_key_hash_field(key, field)) is None:
-            hash_length = int(self._ldb.get(encode_ldb_key_hash(key)) or '0')
+            hash_length = int(self._ldb.get(encode_ldb_key_hash(key), '0'))
             self._ldb.put(encode_ldb_key_hash(key), bytes(hash_length + 1))
             self._ldb.put(encode_ldb_key_hash_field(key, field), value)
             return 1
@@ -439,45 +436,43 @@ class DiskKeyspace(object):
 
     def hdel(self, key, *fields):
         result = 0
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        hash_length = int(self._ldb.get(encode_ldb_key_hash(key)) or '0')
+        hash_length = int(self._ldb.get(encode_ldb_key_hash(key), '0'))
 
         for field in fields:
-            field_path = fields_path.join(field)
-            if field_path.exists():
-                field_path.delete()
+            if self._ldb.get(encode_ldb_key_hash_field(key, field)) is not None:
                 result += 1
                 hash_length -= 1
                 self._ldb.delete(encode_ldb_key_hash_field(key, field))
 
-        self._ldb.put(encode_ldb_key_hash(key), bytes(hash_length))
-        # remove empty hashes from keyspace
-        if fields_path.empty_directory():
+        if hash_length == 0:
+            # remove empty hashes from keyspace
             self.delete(key)
+        else:
+            self._ldb.put(encode_ldb_key_hash(key), bytes(hash_length))
         return result
 
     def hget(self, key, field):
         return self._ldb.get(encode_ldb_key_hash_field(key, field))
 
     def hkeys(self, key):
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        if fields_path.exists():
-            result = fields_path.listdir()
-        else:
-            result = []
+        result = []
+        if self._ldb.get(encode_ldb_key_hash(key)) is not None:
+            # the empty string marks the beginning of the fields
+            field_start = encode_ldb_key_hash_field(key, bytes(''))
+            for db_key, db_value in self._ldb.iterator(start=field_start, include_start=False):
+                _, length, field_key = decode_ldb_key(db_key)
+                field = field_key[length:]
+                result.append(field)
+
         return result
 
     def hvals(self, key):
         result = []
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        if fields_path.exists():
-            for field in fields_path.listdir():
-                field_path = fields_path.join(field)
-                value = field_path.read()
-                result.append(value)
+        if self._ldb.get(encode_ldb_key_hash(key)) is not None:
+            # the empty string marks the beginning of the fields
+            field_start = encode_ldb_key_hash_field(key, bytes(''))
+            for db_key, db_value in self._ldb.iterator(start=field_start, include_start=False):
+                result.append(db_value)
         return result
 
     def hlen(self, key):
