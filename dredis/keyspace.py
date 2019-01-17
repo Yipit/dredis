@@ -487,12 +487,11 @@ class DiskKeyspace(object):
         return result
 
     def hlen(self, key):
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        result = 0
-        if fields_path.exists():
-            result = len(fields_path.listdir())
-        return result
+        result = self._ldb.get(encode_ldb_key_hash(key))
+        if result is None:
+            return 0
+        else:
+            return int(result)
 
     def hincrby(self, key, field, increment):
         before = self.hget(key, field) or '0'
