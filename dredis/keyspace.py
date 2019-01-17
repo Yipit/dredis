@@ -137,12 +137,13 @@ class DiskKeyspace(object):
 
     def smembers(self, key):
         result = set()
-        if self.exists(key):
-            key_path = self._key_path(key)
-            values_path = key_path.join('values')
-            for fname in values_path.listdir():
-                content = values_path.join(fname).read()
-                result.add(content)
+        if self._ldb.get(encode_ldb_key_set(key)):
+            # the empty string marks the beginning of the members
+            member_start = encode_ldb_key_set_member(key, bytes(''))
+            for db_key, db_value in self._ldb.iterator(start=member_start, include_start=False):
+                _, length, member_key = decode_ldb_key(db_key)
+                member_value = member_key[length:]
+                result.add(member_value)
         return result
 
     def sismember(self, key, value):
