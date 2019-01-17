@@ -22,6 +22,7 @@ LDB_SET_TYPE = 2
 LDB_SET_MEMBER_TYPE = 3
 LDB_HASH_TYPE = 4
 LDB_HASH_FIELD_TYPE = 5
+LDB_ZSET_TYPE = 6
 
 LDB_KEY_TYPES = [LDB_STRING_TYPE, LDB_SET_TYPE]
 
@@ -52,7 +53,11 @@ def encode_ldb_key_hash(key):
 
 
 def encode_ldb_key_hash_field(key, field):
-    return get_ldb_key(key, LDB_HASH_TYPE) + bytes(field)
+    return get_ldb_key(key, LDB_HASH_FIELD_TYPE) + bytes(field)
+
+
+def encode_ldb_key_zset(key):
+    return get_ldb_key(key, LDB_ZSET_TYPE)
 
 
 def decode_ldb_key(key):
@@ -212,6 +217,9 @@ class DiskKeyspace(object):
 
         score_path = scores_path.join(score)
         value_path = values_path.join(self._get_filename_hash(value))
+
+        zset_length = int(self._ldb.get(encode_ldb_key_zset(key), '0'))
+
         if value_path.exists():
             result = 0
             previous_score = value_path.read()
@@ -222,9 +230,13 @@ class DiskKeyspace(object):
                 previous_score_path.remove_line(value)
         else:
             result = 1
+            zset_length += 1
 
         value_path.write(score)
         score_path.append(value)
+
+        self._ldb.put(encode_ldb_key_zset(key), bytes(zset_length))
+
         return result
 
     def write_type(self, key, name):
