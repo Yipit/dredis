@@ -20,6 +20,8 @@ LDB_DBS = {}
 LDB_STRING_TYPE = 1
 LDB_SET_TYPE = 2
 LDB_SET_MEMBER_TYPE = 3
+LDB_HASH_TYPE = 4
+LDB_HASH_FIELD_TYPE = 5
 
 LDB_KEY_TYPES = [LDB_STRING_TYPE, LDB_SET_TYPE]
 
@@ -43,6 +45,14 @@ def encode_ldb_key_set(key):
 
 def encode_ldb_key_set_member(key, value):
     return get_ldb_key(key, LDB_SET_MEMBER_TYPE) + bytes(value)
+
+
+def encode_ldb_key_hash(key):
+    return get_ldb_key(key, LDB_HASH_TYPE)
+
+
+def encode_ldb_key_hash_field(key, field):
+    return get_ldb_key(key, LDB_HASH_TYPE) + bytes(field)
 
 
 def decode_ldb_key(key):
@@ -407,6 +417,11 @@ class DiskKeyspace(object):
             result = 1
         field_path.write(value)
         self.write_type(key, 'hash')
+
+        hash_length = int(self._ldb.get(encode_ldb_key_hash(key)) or '0')
+        self._ldb.put(encode_ldb_key_hash(key), bytes(hash_length + result))
+        self._ldb.put(encode_ldb_key_hash_field(key, field), value)
+
         return result
 
     def hsetnx(self, key, field, value):
@@ -420,6 +435,11 @@ class DiskKeyspace(object):
         if not field_path.exists():
             result = 1
             field_path.write(value)
+
+            hash_length = int(self._ldb.get(encode_ldb_key_hash(key)) or '0')
+            self._ldb.put(encode_ldb_key_hash(key), bytes(hash_length + result))
+            self._ldb.put(encode_ldb_key_hash_field(key, field), value)
+
         self.write_type(key, 'hash')
         return result
 
@@ -427,25 +447,24 @@ class DiskKeyspace(object):
         result = 0
         key_path = self._key_path(key)
         fields_path = key_path.join('fields')
+        hash_length = int(self._ldb.get(encode_ldb_key_hash(key)) or '0')
+
         for field in fields:
             field_path = fields_path.join(field)
             if field_path.exists():
                 field_path.delete()
                 result += 1
+                hash_length -= 1
+                self._ldb.delete(encode_ldb_key_hash_field(key, field))
+
+        self._ldb.put(encode_ldb_key_hash(key), bytes(hash_length))
         # remove empty hashes from keyspace
         if fields_path.empty_directory():
             self.delete(key)
         return result
 
     def hget(self, key, field):
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        field_path = fields_path.join(field)
-        if field_path.exists():
-            result = field_path.read()
-        else:
-            result = None
-        return result
+        return self._ldb.get(encode_ldb_key_hash_field(key, field))
 
     def hkeys(self, key):
         key_path = self._key_path(key)
