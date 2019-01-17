@@ -14,7 +14,7 @@ from dredis.commands import run_command, SimpleString, CommandNotFound
 from dredis.keyspace import DiskKeyspace
 from dredis.lua import RedisScriptError
 from dredis.parser import Parser
-
+from dredis.path import Path
 
 logger = logging.getLogger('dredis')
 
@@ -134,7 +134,9 @@ def main():
 
     global ROOT_DIR
     if args.dir:
-        ROOT_DIR = args.dir
+        ROOT_DIR = Path(args.dir)
+        ROOT_DIR.makedirs(ignore_if_exists=True)
+
     else:
         ROOT_DIR = tempfile.mkdtemp(prefix="redis-test-")
 
