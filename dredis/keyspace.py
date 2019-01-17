@@ -150,7 +150,11 @@ class DiskKeyspace(object):
         return self._ldb.get(encode_ldb_key_set_member(key, value)) is not None
 
     def scard(self, key):
-        return len(self.smembers(key))
+        length = self._ldb.get(encode_ldb_key_set(key))
+        if length is None:
+            return 0
+        else:
+            return int(length)
 
     def delete(self, *keys):
         result = 0
