@@ -147,11 +147,7 @@ class DiskKeyspace(object):
         return result
 
     def sismember(self, key, value):
-        key_path = self._key_path(key)
-        values_path = key_path.join('values')
-        fname = self._get_filename_hash(value)
-        value_path = values_path.join(fname)
-        return value_path.exists()
+        return self._ldb.get(encode_ldb_key_set_member(key, value)) is not None
 
     def scard(self, key):
         return len(self.smembers(key))
