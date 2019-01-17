@@ -2,6 +2,7 @@ import collections
 import fnmatch
 import hashlib
 import re
+import struct
 
 import plyvel
 
@@ -15,6 +16,25 @@ DECIMAL_REGEX = re.compile(r'(\d+)\.0+$')
 
 
 LDB_DBS = {}
+
+LDB_STRING_TYPE = 1
+
+# type_id | key_length
+LDB_KEY_PREFIX_FORMAT = '>BI'
+LDB_KEY_PREFIX_LENGTH = struct.calcsize(LDB_KEY_PREFIX_FORMAT)
+
+
+def get_ldb_key(key, type_id):
+    prefix = struct.pack(LDB_KEY_PREFIX_FORMAT, type_id, len(key))
+    return prefix + bytes(key)
+
+
+def encode_ldb_key_string(key):
+    return get_ldb_key(key, LDB_STRING_TYPE)
+
+
+def decode_ldb_key(key):
+    return key[LDB_KEY_PREFIX_LENGTH:]
 
 
 class DiskKeyspace(object):
@@ -69,10 +89,10 @@ class DiskKeyspace(object):
         return result
 
     def get(self, key):
-        return LDB_DBS[self._current_db].get(key)
+        return LDB_DBS[self._current_db].get(encode_ldb_key_string(key))
 
     def set(self, key, value):
-        LDB_DBS[self._current_db].put(key, value)
+        LDB_DBS[self._current_db].put(encode_ldb_key_string(key), value)
 
     def getrange(self, key, start, end):
         value = self.get(key)
@@ -126,7 +146,7 @@ class DiskKeyspace(object):
                 key_path.delete()
 
             if self.get(key):
-                LDB_DBS[self._current_db].delete(key)
+                LDB_DBS[self._current_db].delete(encode_ldb_key_string(key))
                 result += 1
         return result
 
@@ -340,8 +360,9 @@ class DiskKeyspace(object):
     def keys(self, pattern):
         level_db_keys = []
         for key, _ in LDB_DBS[self._current_db]:
-            if pattern is None or fnmatch.fnmatch(key, pattern):
-                level_db_keys.append(key)
+            key_value = decode_ldb_key(key)
+            if pattern is None or fnmatch.fnmatch(key_value, pattern):
+                level_db_keys.append(key_value)
         return self.directory.listdir(pattern) + level_db_keys
 
     def dbsize(self):
