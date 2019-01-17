@@ -154,10 +154,15 @@ class DiskKeyspace(object):
             key_path = self._key_path(key)
             if key_path.exists():
                 key_path.delete()
+                result += 1
 
-            if self.get(key):
+            if self._ldb.get(encode_ldb_key_string(key)) is not None:
                 self._ldb.delete(encode_ldb_key_string(key))
                 result += 1
+            elif self._ldb.get(encode_ldb_key_set(key)) is not None:
+                self._ldb.delete(encode_ldb_key_set(key))
+                result += 1
+
         return result
 
     def zadd(self, key, score, value):

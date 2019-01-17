@@ -57,3 +57,15 @@ def test_exists():
 
     # redis-py doesn't support multiple args to `r.exists()`
     assert r.execute_command('EXISTS', 'mystr', 'notfound') == 1
+
+
+def test_delete():
+    r = fresh_redis()
+
+    r.set('mystr', 'test')
+    r.sadd('myset', 'elem1')
+    r.zadd('myzset', 0, 'elem1')
+    r.hset('myhash', 'testkey', 'testvalue')
+
+    assert r.delete('mystr', 'myset', 'myzset', 'myhash', 'notfound') == 4
+    assert r.keys('*') == []
