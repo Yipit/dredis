@@ -383,6 +383,9 @@ class DiskKeyspace(object):
         if self._ldb.get(encode_ldb_key_set(key)):
             return 'set'
 
+        if self._ldb.get(encode_ldb_key_hash(key)):
+            return 'hash'
+
         return 'none'
 
     def keys(self, pattern):
@@ -425,23 +428,14 @@ class DiskKeyspace(object):
         return result
 
     def hsetnx(self, key, field, value):
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        if not self.exists(key):
-            fields_path.makedirs()
-        field_path = fields_path.join(field)
-        result = 0
         # only set if not set before
-        if not field_path.exists():
-            result = 1
-            field_path.write(value)
-
+        if self._ldb.get(encode_ldb_key_hash_field(key, field)) is None:
             hash_length = int(self._ldb.get(encode_ldb_key_hash(key)) or '0')
-            self._ldb.put(encode_ldb_key_hash(key), bytes(hash_length + result))
+            self._ldb.put(encode_ldb_key_hash(key), bytes(hash_length + 1))
             self._ldb.put(encode_ldb_key_hash_field(key, field), value)
-
-        self.write_type(key, 'hash')
-        return result
+            return 1
+        else:
+            return 0
 
     def hdel(self, key, *fields):
         result = 0
