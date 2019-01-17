@@ -18,6 +18,10 @@ DECIMAL_REGEX = re.compile(r'(\d+)\.0+$')
 LDB_DBS = {}
 
 LDB_STRING_TYPE = 1
+LDB_SET_TYPE = 2
+LDB_SET_MEMBER_TYPE = 3
+
+LDB_KEY_TYPES = [LDB_STRING_TYPE, LDB_SET_TYPE]
 
 # type_id | key_length
 LDB_KEY_PREFIX_FORMAT = '>BI'
@@ -33,8 +37,18 @@ def encode_ldb_key_string(key):
     return get_ldb_key(key, LDB_STRING_TYPE)
 
 
+def encode_ldb_key_set(key):
+    return get_ldb_key(key, LDB_SET_TYPE)
+
+
+def encode_ldb_key_set_member(key, value):
+    return get_ldb_key(key, LDB_SET_MEMBER_TYPE) + bytes(value)
+
+
 def decode_ldb_key(key):
-    return key[LDB_KEY_PREFIX_LENGTH:]
+    type_id, key_length = struct.unpack(LDB_KEY_PREFIX_FORMAT, key[:LDB_KEY_PREFIX_LENGTH])
+    key_value = key[LDB_KEY_PREFIX_LENGTH:]
+    return type_id, key_length, key_value
 
 
 class DiskKeyspace(object):
@@ -116,6 +130,9 @@ class DiskKeyspace(object):
             return 0
         else:
             value_path.write(value)
+            length = int(self._ldb.get(encode_ldb_key_set(key)) or b'0')
+            self._ldb.put(encode_ldb_key_set(key), bytes(length + 1))
+            self._ldb.put(encode_ldb_key_set_member(key, value), bytes(''))
             return 1
 
     def smembers(self, key):
@@ -360,10 +377,12 @@ class DiskKeyspace(object):
     def keys(self, pattern):
         level_db_keys = []
         for key, _ in self._ldb:
-            key_value = decode_ldb_key(key)
+            key_type, _, key_value = decode_ldb_key(key)
+            if key_type not in LDB_KEY_TYPES:
+                continue
             if pattern is None or fnmatch.fnmatch(key_value, pattern):
                 level_db_keys.append(key_value)
-        return self.directory.listdir(pattern) + level_db_keys
+        return set(self.directory.listdir(pattern) + level_db_keys)
 
     def dbsize(self):
         return len(self.keys(pattern=None))
