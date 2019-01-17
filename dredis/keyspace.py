@@ -119,21 +119,13 @@ class DiskKeyspace(object):
             return value[start:end]
 
     def sadd(self, key, value):
-        key_path = self._key_path(key)
-        values_path = key_path.join('values')
-        if not self.exists(key):
-            values_path.makedirs()
-            self.write_type(key, 'set')
-        fname = self._get_filename_hash(value)
-        value_path = values_path.join(fname)
-        if value_path.exists():
-            return 0
-        else:
-            value_path.write(value)
+        if self._ldb.get(encode_ldb_key_set_member(key, value)) is None:
             length = int(self._ldb.get(encode_ldb_key_set(key)) or b'0')
             self._ldb.put(encode_ldb_key_set(key), bytes(length + 1))
             self._ldb.put(encode_ldb_key_set_member(key, value), bytes(''))
             return 1
+        else:
+            return 0
 
     def smembers(self, key):
         result = set()
@@ -369,11 +361,14 @@ class DiskKeyspace(object):
         if key_path.exists():
             type_path = key_path.join('type')
             return type_path.read()
-        elif self.get(key):
-            # leveldb only supports strings at the moment
+
+        if self._ldb.get(encode_ldb_key_string(key)):
             return 'string'
-        else:
-            return 'none'
+
+        if self._ldb.get(encode_ldb_key_set(key)):
+            return 'set'
+
+        return 'none'
 
     def keys(self, pattern):
         level_db_keys = []
@@ -391,8 +386,7 @@ class DiskKeyspace(object):
     def exists(self, *keys):
         result = 0
         for key in keys:
-            key_path = self._key_path(key)
-            if key_path.exists() or self.get(key):
+            if self.type(key) != 'none':
                 result += 1
         return result
 

@@ -41,9 +41,19 @@ def test_keys():
 def test_exists():
     r = fresh_redis()
 
+    assert r.exists('notfound') == 0
+
     r.set('mystr', 'test')
     assert r.exists('mystr') == 1
-    assert r.exists('notfound') == 0
+
+    r.sadd('myset', 'elem1')
+    assert r.exists('myset') == 1
+
+    r.zadd('myzset', 0, 'elem1')
+    assert r.exists('myzset') == 1
+
+    r.hset('myhash', 'testkey', 'testvalue')
+    assert r.exists('myhash') == 1
 
     # redis-py doesn't support multiple args to `r.exists()`
     assert r.execute_command('EXISTS', 'mystr', 'notfound') == 1
