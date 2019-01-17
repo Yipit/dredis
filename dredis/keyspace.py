@@ -1,6 +1,9 @@
 import collections
+import fnmatch
 import hashlib
 import re
+
+import plyvel
 
 from dredis.lua import LuaRunner
 from dredis.path import Path
@@ -11,15 +14,23 @@ NUMBER_OF_REDIS_DATABASES = 15
 DECIMAL_REGEX = re.compile(r'(\d+)\.0+$')
 
 
+LDB_DBS = {}
+
+
 class DiskKeyspace(object):
 
     def __init__(self, root_dir):
         self._lua_runner = LuaRunner(self)
         self._root_directory = Path(root_dir)
-        self._set_db_directory(DEFAULT_REDIS_DB)
+        self._current_db = DEFAULT_REDIS_DB
+        self._set_db(self._current_db)
 
-    def _set_db_directory(self, db):
+    def _set_db(self, db):
+        db = str(db)
+        self._current_db = db
         self.directory = self._root_directory.join(db)
+        if db not in LDB_DBS:
+            LDB_DBS[db] = plyvel.DB(bytes(self.directory + "-leveldb"), create_if_missing=True)
 
     def _key_path(self, key):
         return self.directory.join(key)
@@ -29,14 +40,25 @@ class DiskKeyspace(object):
             self._root_directory.join(str(db_id)).makedirs(ignore_if_exists=True)
 
     def flushall(self):
-        for db_id in range(NUMBER_OF_REDIS_DATABASES):
-            self._root_directory.join(str(db_id)).reset()
+        for db_id_ in range(NUMBER_OF_REDIS_DATABASES):
+            db_id = str(db_id_)
+            directory = self._root_directory.join(db_id)
+            if db_id in LDB_DBS:
+                ldb_directory = bytes(directory + "-leveldb")
+                LDB_DBS[db_id].close()
+                Path(ldb_directory).reset()
+                LDB_DBS[db_id] = plyvel.DB(ldb_directory, create_if_missing=True)
+            directory.reset()
 
     def flushdb(self):
+        ldb_directory = bytes(self.directory + "-leveldb")
+        LDB_DBS[self._current_db].close()
+        Path(ldb_directory).reset()
+        LDB_DBS[self._current_db] = plyvel.DB(ldb_directory, create_if_missing=True)
         self.directory.reset()
 
     def select(self, db):
-        self._set_db_directory(db)
+        self._set_db(db)
 
     def incrby(self, key, increment=1):
         number = self.get(key)
@@ -47,19 +69,10 @@ class DiskKeyspace(object):
         return result
 
     def get(self, key):
-        key_path = self._key_path(key)
-        value_path = key_path.join('value')
-        if self.exists(key):
-            return value_path.read()
-        else:
-            return None
+        return LDB_DBS[self._current_db].get(key)
 
     def set(self, key, value):
-        key_path = self._key_path(key)
-        if not self.exists(key):
-            key_path.makedirs()
-            self.write_type(key, 'string')
-        key_path.join('value').write(value)
+        LDB_DBS[self._current_db].put(key, value)
 
     def getrange(self, key, start, end):
         value = self.get(key)
@@ -108,9 +121,12 @@ class DiskKeyspace(object):
     def delete(self, *keys):
         result = 0
         for key in keys:
-            if self.exists(key):
-                key_path = self._key_path(key)
+            key_path = self._key_path(key)
+            if key_path.exists():
                 key_path.delete()
+
+            if self.get(key):
+                LDB_DBS[self._current_db].delete(key)
                 result += 1
         return result
 
@@ -315,11 +331,18 @@ class DiskKeyspace(object):
         if key_path.exists():
             type_path = key_path.join('type')
             return type_path.read()
+        elif self.get(key):
+            # leveldb only supports strings at the moment
+            return 'string'
         else:
             return 'none'
 
     def keys(self, pattern):
-        return self.directory.listdir(pattern)
+        level_db_keys = []
+        for key, _ in LDB_DBS[self._current_db]:
+            if pattern is None or fnmatch.fnmatch(key, pattern):
+                level_db_keys.append(key)
+        return self.directory.listdir(pattern) + level_db_keys
 
     def dbsize(self):
         return len(self.keys(pattern=None))
@@ -328,7 +351,7 @@ class DiskKeyspace(object):
         result = 0
         for key in keys:
             key_path = self._key_path(key)
-            if key_path.exists():
+            if key_path.exists() or self.get(key):
                 result += 1
         return result
 
