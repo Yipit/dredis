@@ -148,8 +148,6 @@ def main():
     keyspace = DiskKeyspace(ROOT_DIR)
     if args.flushall:
         keyspace.flushall()
-    else:
-        keyspace.setup_directories()
 
     RedisServer(args.host, args.port)
 

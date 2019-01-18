@@ -94,6 +94,7 @@ class DiskKeyspace(object):
     def __init__(self, root_dir):
         self._lua_runner = LuaRunner(self)
         self._root_directory = Path(root_dir)
+        self._setup_dbs()
         self._current_db = DEFAULT_REDIS_DB
         self._set_db(self._current_db)
 
@@ -101,33 +102,32 @@ class DiskKeyspace(object):
         db = str(db)
         self._current_db = db
         self.directory = self._root_directory.join(db)
-        if db not in LDB_DBS:
-            LDB_DBS[db] = plyvel.DB(bytes(self.directory + "-leveldb"), create_if_missing=True)
 
     def _key_path(self, key):
         return self.directory.join(key)
 
-    def setup_directories(self):
-        for db_id in range(NUMBER_OF_REDIS_DATABASES):
-            self._root_directory.join(str(db_id)).makedirs(ignore_if_exists=True)
+    def _setup_dbs(self):
+        for db_id_ in range(NUMBER_OF_REDIS_DATABASES):
+            db_id = str(db_id_)
+            directory = self._root_directory.join(db_id)
+            ldb_directory = bytes(directory + "-leveldb")
+            if db_id not in LDB_DBS:
+                LDB_DBS[db_id] = plyvel.DB(ldb_directory, create_if_missing=True)
 
     def flushall(self):
         for db_id_ in range(NUMBER_OF_REDIS_DATABASES):
             db_id = str(db_id_)
             directory = self._root_directory.join(db_id)
-            if db_id in LDB_DBS:
-                ldb_directory = bytes(directory + "-leveldb")
-                LDB_DBS[db_id].close()
-                Path(ldb_directory).reset()
-                LDB_DBS[db_id] = plyvel.DB(ldb_directory, create_if_missing=True)
-            directory.reset()
+            ldb_directory = bytes(directory + "-leveldb")
+            LDB_DBS[db_id].close()
+            Path(ldb_directory).reset()
+            LDB_DBS[db_id] = plyvel.DB(ldb_directory, create_if_missing=True)
 
     def flushdb(self):
         ldb_directory = bytes(self.directory + "-leveldb")
         self._ldb.close()
         Path(ldb_directory).reset()
         self._ldb = plyvel.DB(ldb_directory, create_if_missing=True)
-        self.directory.reset()
 
     def select(self, db):
         self._set_db(db)
