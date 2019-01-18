@@ -10,7 +10,7 @@ DEFAULT_REDIS_DB = '0'
 NUMBER_OF_REDIS_DATABASES = 16
 
 
-class DiskKeyspace(object):
+class Keyspace(object):
 
     def __init__(self, root_dir):
         self._lua_runner = LuaRunner(self)

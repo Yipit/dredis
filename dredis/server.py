@@ -11,7 +11,7 @@ import sys
 
 from dredis import __version__
 from dredis.commands import run_command, SimpleString, CommandNotFound
-from dredis.keyspace import DiskKeyspace
+from dredis.keyspace import Keyspace
 from dredis.lua import RedisScriptError
 from dredis.parser import Parser
 from dredis.path import Path
@@ -93,7 +93,7 @@ class CommandHandler(asyncore.dispatcher):
     @property
     def keyspace(self):
         if self.addr not in KEYSPACES:
-            KEYSPACES[self.addr] = DiskKeyspace(ROOT_DIR)
+            KEYSPACES[self.addr] = Keyspace(ROOT_DIR)
         return KEYSPACES[self.addr]
 
 
@@ -145,7 +145,7 @@ def main():
     else:
         setup_logging(logging.INFO)
 
-    keyspace = DiskKeyspace(ROOT_DIR)
+    keyspace = Keyspace(ROOT_DIR)
     if args.flushall:
         keyspace.flushall()
 
