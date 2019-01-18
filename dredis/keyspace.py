@@ -1,7 +1,5 @@
 import collections
 import fnmatch
-import hashlib
-import re
 import struct
 
 import plyvel
@@ -12,7 +10,6 @@ from dredis.utils import to_float
 
 DEFAULT_REDIS_DB = '0'
 NUMBER_OF_REDIS_DATABASES = 15
-DECIMAL_REGEX = re.compile(r'(\d+)\.0+$')
 
 
 LDB_DBS = {}
@@ -192,11 +189,6 @@ class DiskKeyspace(object):
     def delete(self, *keys):
         result = 0
         for key in keys:
-            key_path = self._key_path(key)
-            if key_path.exists():
-                key_path.delete()
-                result += 1
-
             if self._ldb.get(encode_ldb_key_string(key)) is not None:
                 self._ldb.delete(encode_ldb_key_string(key))
                 result += 1
@@ -235,19 +227,13 @@ class DiskKeyspace(object):
         zset_6_myzset_7_value_world = 10
         zset_6_myzset_8_world = ''
         """
-
-        # if `score` has 0 as the decimal point, trim it: 10.00 -> 10
-        match = DECIMAL_REGEX.match(score)
-        if match:
-            score = match.group(1)
-
         zset_length = int(self._ldb.get(encode_ldb_key_zset(key), '0'))
 
         db_score = self._ldb.get(encode_ldb_key_zset_value(key, value))
         if db_score is not None:
             result = 0
             previous_score = db_score
-            if previous_score == score:
+            if float(previous_score) == float(score):
                 return result
             else:
                 self._ldb.delete(encode_ldb_key_zset_score(key, value, previous_score))
@@ -260,11 +246,6 @@ class DiskKeyspace(object):
         self._ldb.put(encode_ldb_key_zset_score(key, value, score), bytes(''))
 
         return result
-
-    def write_type(self, key, name):
-        key_path = self._key_path(key)
-        type_path = key_path.join('type')
-        type_path.write(name)
 
     def zrange(self, key, start, stop, with_scores):
         result = []
@@ -403,24 +384,14 @@ class DiskKeyspace(object):
         return result
 
     def type(self, key):
-        key_path = self._key_path(key)
-        if key_path.exists():
-            type_path = key_path.join('type')
-            return type_path.read()
-
         if self._ldb.get(encode_ldb_key_string(key)):
             return 'string'
-
         if self._ldb.get(encode_ldb_key_set(key)):
             return 'set'
-
         if self._ldb.get(encode_ldb_key_hash(key)):
             return 'hash'
-
         if self._ldb.get(encode_ldb_key_zset(key)):
             return 'zset'
-
-
         return 'none'
 
     def keys(self, pattern):
@@ -524,9 +495,6 @@ class DiskKeyspace(object):
             result.append(k)
             result.append(v)
         return result
-
-    def _get_filename_hash(self, value):
-        return hashlib.md5(value).hexdigest()
 
     def _get_ldb(self):
         return LDB_DBS[self._current_db]
