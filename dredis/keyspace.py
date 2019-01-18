@@ -1,7 +1,7 @@
 import collections
 import fnmatch
 
-from dredis.ldb import LDB_DBS, LDB_KEY_TYPES, LDB_MIN_ZSET_SCORE, KEY_CODEC, get_ldb
+from dredis.ldb import LDB_DBS, LDB_KEY_TYPES, KEY_CODEC, get_ldb
 from dredis.lua import LuaRunner
 from dredis.path import Path
 from dredis.utils import to_float
@@ -122,7 +122,7 @@ class DiskKeyspace(object):
                 result += 1
             elif self._ldb.get(KEY_CODEC.encode_zset(key)) is not None:
                 self._ldb.delete(KEY_CODEC.encode_zset(key))
-                min_key = KEY_CODEC.encode_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+                min_key = KEY_CODEC.get_min_zset_score(key)
                 for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
                     self._ldb.delete(db_key)
                 result += 1
@@ -178,7 +178,7 @@ class DiskKeyspace(object):
             begin = max(0, zset_length + start)
         else:
             begin = start
-        min_key = KEY_CODEC.encode_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+        min_key = KEY_CODEC.get_min_zset_score(key)
         for i, (db_key, _) in enumerate(self._ldb.iterator(start=min_key, include_start=True)):
             if i < begin:
                 continue
@@ -232,7 +232,7 @@ class DiskKeyspace(object):
             num_elems_per_entry = 1
 
         score_range = ScoreRange(min_score, max_score)
-        min_key = KEY_CODEC.encode_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+        min_key = KEY_CODEC.get_min_zset_score(key)
         for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
             db_score = KEY_CODEC.decode_zset_score(db_key)
             db_value = KEY_CODEC.decode_zset_value(db_key)
@@ -257,7 +257,7 @@ class DiskKeyspace(object):
         #     zset_6_myzset_10 = 2
 
         score_range = ScoreRange(min_score, max_score)
-        min_key = KEY_CODEC.encode_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+        min_key = KEY_CODEC.get_min_zset_score(key)
         count = 0
         for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
             db_score = KEY_CODEC.decode_zset_score(db_key)
@@ -272,7 +272,7 @@ class DiskKeyspace(object):
         if score is None:
             return None
 
-        min_key = KEY_CODEC.encode_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+        min_key = KEY_CODEC.get_min_zset_score(key)
         rank = 0
         for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
             db_score = KEY_CODEC.decode_zset_score(db_key)

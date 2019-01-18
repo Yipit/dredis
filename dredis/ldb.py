@@ -67,6 +67,9 @@ class LDBKeyCodec(object):
         _, length, key_name = self.decode_key(ldb_key)
         return key_name[length + struct.calcsize(LDB_ZSET_SCORE_FORMAT):]
 
+    def get_min_zset_score(self, key):
+        return self.encode_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+
 
 KEY_CODEC = LDBKeyCodec()
 
