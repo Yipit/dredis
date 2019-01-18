@@ -395,14 +395,14 @@ class DiskKeyspace(object):
         return 'none'
 
     def keys(self, pattern):
-        level_db_keys = []
+        level_db_keys = set()
         for key, _ in self._ldb:
             key_type, _, key_value = decode_ldb_key(key)
             if key_type not in LDB_KEY_TYPES:
                 continue
             if pattern is None or fnmatch.fnmatch(key_value, pattern):
-                level_db_keys.append(key_value)
-        return set(self.directory.listdir(pattern) + level_db_keys)
+                level_db_keys.add(key_value)
+        return level_db_keys
 
     def dbsize(self):
         return len(self.keys(pattern=None))
