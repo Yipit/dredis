@@ -23,12 +23,20 @@ LDB_SET_MEMBER_TYPE = 3
 LDB_HASH_TYPE = 4
 LDB_HASH_FIELD_TYPE = 5
 LDB_ZSET_TYPE = 6
+LDB_ZSET_VALUE_TYPE = 7
+LDB_ZSET_SCORE_TYPE = 8
 
-LDB_KEY_TYPES = [LDB_STRING_TYPE, LDB_SET_TYPE]
+LDB_KEY_TYPES = [LDB_STRING_TYPE, LDB_SET_TYPE, LDB_HASH_TYPE, LDB_ZSET_TYPE]
 
 # type_id | key_length
 LDB_KEY_PREFIX_FORMAT = '>BI'
 LDB_KEY_PREFIX_LENGTH = struct.calcsize(LDB_KEY_PREFIX_FORMAT)
+
+LDB_ZSET_SCORE_FORMAT = '>d'
+# ldb sorts elements lexicographically and negative numbers
+# when converted to binary are "bigger" than positives.
+# zero is the lowest byte combination.
+LDB_MIN_ZSET_SCORE = 0
 
 
 def get_ldb_key(key, type_id):
@@ -60,10 +68,28 @@ def encode_ldb_key_zset(key):
     return get_ldb_key(key, LDB_ZSET_TYPE)
 
 
+def encode_ldb_key_zset_value(key, value):
+    return get_ldb_key(key, LDB_ZSET_VALUE_TYPE) + bytes(value)
+
+
+def encode_ldb_key_zset_score(key, value, score):
+    return get_ldb_key(key, LDB_ZSET_SCORE_TYPE) + struct.pack('>d', float(score)) + bytes(value)
+
+
 def decode_ldb_key(key):
     type_id, key_length = struct.unpack(LDB_KEY_PREFIX_FORMAT, key[:LDB_KEY_PREFIX_LENGTH])
     key_value = key[LDB_KEY_PREFIX_LENGTH:]
     return type_id, key_length, key_value
+
+
+def decode_ldb_key_zset_score(ldb_key):
+    _, length, key_name = decode_ldb_key(ldb_key)
+    return struct.unpack(LDB_ZSET_SCORE_FORMAT, key_name[length:length + struct.calcsize(LDB_ZSET_SCORE_FORMAT)])[0]
+
+
+def decode_ldb_key_zset_value(ldb_key):
+    _, length, key_name = decode_ldb_key(ldb_key)
+    return key_name[length + struct.calcsize(LDB_ZSET_SCORE_FORMAT):]
 
 
 class DiskKeyspace(object):
@@ -180,26 +206,34 @@ class DiskKeyspace(object):
                     self._ldb.delete(encode_ldb_key_set_member(key, member))
                 result += 1
             elif self._ldb.get(encode_ldb_key_hash(key)) is not None:
-                self._ldb.delete(encode_ldb_key_set(key))
+                self._ldb.delete(encode_ldb_key_hash(key))
                 for field in self.hkeys(key):
                     self._ldb.delete(encode_ldb_key_hash_field(key, field))
+                result += 1
+            elif self._ldb.get(encode_ldb_key_zset(key)) is not None:
+                self._ldb.delete(encode_ldb_key_zset(key))
+                min_key = encode_ldb_key_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+                for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
+                    self._ldb.delete(db_key)
                 result += 1
 
         return result
 
     def zadd(self, key, score, value):
         """
-        score structure (binary)
-        ------
-        /path/to/scores/10 -> 8 bytes + (4 bytes + content)*
-        example:
-        0x0002   0x05 hello     0x05 world
-         count   size data      size data
-          2       5   "hello"   5    "world"
+        This is an example of how sorted sets are stored on leveldb
 
-        value structure
-        ------
-        /path/values/hash("x1") -> "10"
+        zadd myzset 10 "hello"
+        zadd myzset 10 "world"
+        zadd myzset 11 "hello"
+
+        zset_6_myzset = 2
+
+        zset_6_myzset_7_hello = 10
+        zset_6_myzset_8_10_hello = ''
+
+        zset_6_myzset_7_value_world = 10
+        zset_6_myzset_8_world = ''
         """
 
         # if `score` has 0 as the decimal point, trim it: 10.00 -> 10
@@ -207,35 +241,23 @@ class DiskKeyspace(object):
         if match:
             score = match.group(1)
 
-        key_path = self._key_path(key)
-        scores_path = key_path.join('scores')
-        values_path = key_path.join('values')
-        if not key_path.exists():
-            scores_path.makedirs()
-            values_path.makedirs()
-            self.write_type(key, 'zset')
-
-        score_path = scores_path.join(score)
-        value_path = values_path.join(self._get_filename_hash(value))
-
         zset_length = int(self._ldb.get(encode_ldb_key_zset(key), '0'))
 
-        if value_path.exists():
+        db_score = self._ldb.get(encode_ldb_key_zset_value(key, value))
+        if db_score is not None:
             result = 0
-            previous_score = value_path.read()
+            previous_score = db_score
             if previous_score == score:
                 return result
             else:
-                previous_score_path = scores_path.join(previous_score)
-                previous_score_path.remove_line(value)
+                self._ldb.delete(encode_ldb_key_zset_score(key, value, previous_score))
         else:
             result = 1
             zset_length += 1
 
-        value_path.write(score)
-        score_path.append(value)
-
         self._ldb.put(encode_ldb_key_zset(key), bytes(zset_length))
+        self._ldb.put(encode_ldb_key_zset_value(key, value), bytes(score))
+        self._ldb.put(encode_ldb_key_zset_score(key, value, score), bytes(''))
 
         return result
 
@@ -245,48 +267,37 @@ class DiskKeyspace(object):
         type_path.write(name)
 
     def zrange(self, key, start, stop, with_scores):
-        key_path = self._key_path(key)
-        lines = []
-        if with_scores:
-            n_elems = 2
-        else:
-            n_elems = 1
-        scores_path = key_path.join('scores')
-        if scores_path.exists():
-            scores = sorted(scores_path.listdir(), key=float)
-            for score in scores:
-                sublist = sorted(scores_path.join(score).readlines())
-                for line in sublist:
-                    lines.append(line)
-                    if with_scores:
-                        lines.append(score)
+        result = []
+
+        zset_length = int(self._ldb.get(encode_ldb_key_zset(key), '0'))
         if stop < 0:
-            end = len(lines) + stop * n_elems + n_elems
+            end = zset_length + stop
         else:
-            end = (stop + 1) * n_elems
+            end = stop
 
         if start < 0:
-            begin = max(0, len(lines) + start * n_elems)
+            begin = max(0, zset_length + start)
         else:
-            begin = start * n_elems
+            begin = start
+        min_key = encode_ldb_key_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+        for i, (db_key, _) in enumerate(self._ldb.iterator(start=min_key, include_start=True)):
+            if i < begin:
+                continue
+            if i > end:
+                break
+            db_score = decode_ldb_key_zset_score(db_key)
+            db_value = decode_ldb_key_zset_value(db_key)
+            result.append(db_value)
+            if with_scores:
+                result.append(str(db_score))
 
-        return lines[begin:end]
+        return result
 
     def zcard(self, key):
-        key_path = self._key_path(key)
-        values_path = key_path.join('values')
-        if values_path.exists():
-            return len(values_path.listdir())
-        else:
-            return 0
+        return int(self._ldb.get(encode_ldb_key_zset(key), '0'))
 
     def zscore(self, key, member):
-        key_path = self._key_path(key)
-        value_path = key_path.join('values').join(self._get_filename_hash(member))
-        if value_path.exists():
-            return value_path.read().strip()
-        else:
-            return None
+        return self._ldb.get(encode_ldb_key_zset_value(key, member))
 
     def eval(self, script, keys, argv):
         return self._lua_runner.run(script, keys, argv)
@@ -295,22 +306,22 @@ class DiskKeyspace(object):
         """
         see zadd() for information about score and value structures
         """
-        key_path = self._key_path(key)
-        scores_path = key_path.join('scores')
-        values_path = key_path.join('values')
         result = 0
+        zset_length = int(self._ldb.get(encode_ldb_key_zset(key), '0'))
         for member in members:
-            value_path = values_path.join(self._get_filename_hash(member))
-            if not value_path.exists():
+            score = self._ldb.get(encode_ldb_key_zset_value(key, member))
+            if score is None:
                 continue
             result += 1
-            score = value_path.read().strip()
-            score_path = scores_path.join(score)
-            score_path.remove_line(member)
-            value_path.delete()
+            zset_length -= 1
+            self._ldb.delete(encode_ldb_key_zset_value(key, member))
+            self._ldb.delete(encode_ldb_key_zset_score(key, member, score))
+
         # empty zset should be removed from keyspace
-        if scores_path.empty_directory():
+        if zset_length == 0:
             self.delete(key)
+        else:
+            self._ldb.put(encode_ldb_key_zset(key), bytes(zset_length))
         return result
 
     def zrangebyscore(self, key, min_score, max_score, withscores=False, offset=0, count=float('+inf')):
@@ -320,59 +331,60 @@ class DiskKeyspace(object):
             num_elems_per_entry = 2
         else:
             num_elems_per_entry = 1
-        key_path = self._key_path(key)
-        scores_path = key_path.join('scores')
-        if scores_path.exists():
-            scores = sorted(scores_path.listdir(), key=float)
-            score_range = ScoreRange(min_score, max_score)
-            scores = [score for score in scores if score_range.check(float(score))]
-            for score in scores:
-                lines = sorted(scores_path.join(score).readlines())
-                for line in lines:
-                    num_elems_read += 1
-                    if len(result) / num_elems_per_entry >= count:
-                        return result
-                    if num_elems_read > offset:
-                        result.append(line)
-                        if withscores:
-                            result.append(str(score))
+
+        score_range = ScoreRange(min_score, max_score)
+        min_key = encode_ldb_key_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+        for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
+            db_score = decode_ldb_key_zset_score(db_key)
+            db_value = decode_ldb_key_zset_value(db_key)
+            if score_range.above_max(db_score):
+                break
+            if score_range.check(db_score):
+                num_elems_read += 1
+                if len(result) / num_elems_per_entry >= count:
+                    return result
+                if num_elems_read > offset:
+                    result.append(db_value)
+                    if withscores:
+                        result.append(str(db_score))
         return result
 
     def zcount(self, key, min_score, max_score):
-        key_path = self._key_path(key)
-        scores_path = key_path.join('scores')
+        # TODO: optimize for performance. it's probably possible to create a new entry only for scores
+        # like:
+        #     zadd myzset 10 a
+        #     zset_6_myzset_10 = 1
+        #     zadd myzset 10 b
+        #     zset_6_myzset_10 = 2
+
+        score_range = ScoreRange(min_score, max_score)
+        min_key = encode_ldb_key_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
         count = 0
-        if scores_path.exists():
-            scores = sorted(scores_path.listdir(), key=float)
-            score_range = ScoreRange(min_score, max_score)
-            scores = [score for score in scores if score_range.check(float(score))]
-            for score in scores:
-                count += scores_path.join(score).read_zset_header()
+        for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
+            db_score = decode_ldb_key_zset_score(db_key)
+            if score_range.check(db_score):
+                count += 1
+            if score_range.above_max(db_score):
+                break
         return count
 
     def zrank(self, key, member):
-        key_path = self._key_path(key)
-        value_path = key_path.join('values').join(self._get_filename_hash(member))
-        if value_path.exists():
-            scores_path = key_path.join('scores')
-            scores = sorted(scores_path.listdir(), key=float)
-            member_score = value_path.read().strip()
-            rank = 0
-            for score in scores:
-                score_path = scores_path.join(str(score))
-                lines = score_path.readlines()  # FIXME: move this to be inside the `if` block
-                if score == member_score:
-                    for line in lines:
-                        if line == member:
-                            return rank
-                        else:
-                            rank += 1
-                else:
-                    rank += len(lines)
-
-            return rank
-        else:
+        score = self._ldb.get(encode_ldb_key_zset_value(key, member))
+        if score is None:
             return None
+
+        min_key = encode_ldb_key_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+        rank = 0
+        for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
+            db_score = decode_ldb_key_zset_score(db_key)
+            db_value = decode_ldb_key_zset_value(db_key)
+            if db_score < float(score):
+                rank += 1
+            elif db_score == float(score) and db_value < member:
+                rank += 1
+            else:
+                break
+        return rank
 
     def zunionstore(self, destination, keys, weights):
         union = collections.defaultdict(list)
@@ -404,6 +416,10 @@ class DiskKeyspace(object):
 
         if self._ldb.get(encode_ldb_key_hash(key)):
             return 'hash'
+
+        if self._ldb.get(encode_ldb_key_zset(key)):
+            return 'zset'
+
 
         return 'none'
 
@@ -541,3 +557,7 @@ class ScoreRange(object):
             return False
 
         return True
+
+    def above_max(self, value):
+        max_value = self._max_value[1:] if self._max_value.startswith('(') else self._max_value
+        return value > to_float(max_value)

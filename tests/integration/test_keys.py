@@ -27,13 +27,14 @@ def test_keys():
     r.incr('myint')
     r.sadd('myset', 'test')
     r.zadd('myzset', 0, 'test')
+    r.hset('myhash', 'test', 'testvalue')
 
     assert r.keys('myi*') == ['myint']
 
     # order isn't guaranteed
     all_keys = r.keys('*')
-    assert len(all_keys) == 4
-    assert sorted(all_keys) == sorted(['mystr', 'myint', 'myset', 'myzset'])
+    assert len(all_keys) == 5
+    assert sorted(all_keys) == sorted(['mystr', 'myint', 'myset', 'myzset', 'myhash'])
     assert sorted(r.keys('my*set')) == sorted(['myset', 'myzset'])
     assert r.keys('my?et') == ['myset']
 

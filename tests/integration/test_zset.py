@@ -104,6 +104,7 @@ def test_zrem():
     assert r.zrem('myzset', 'notfound') == 0
 
     assert r.zrange('myzset', 0, -1) == ['myvalue0', 'myvalue3', 'myvalue2']
+    assert r.zcard('myzset') == 3
 
 
 def test_zscore():
