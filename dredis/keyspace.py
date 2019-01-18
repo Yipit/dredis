@@ -24,9 +24,6 @@ class DiskKeyspace(object):
         self._current_db = db
         self.directory = self._root_directory.join(db)
 
-    def _key_path(self, key):
-        return self.directory.join(key)
-
     def _setup_dbs(self):
         for db_id_ in range(NUMBER_OF_REDIS_DATABASES):
             db_id = str(db_id_)
