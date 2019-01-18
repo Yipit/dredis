@@ -73,27 +73,32 @@ class LDBKeyCodec(object):
         return self.encode_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
 
 
+
+class LevelDB(object):
+
+    def setup_dbs(self, root_dir):
+        for db_id_ in range(16):
+            db_id = str(db_id_)
+            directory = Path(root_dir).join(db_id)
+            LDB_DBS[db_id] = (self.open_db(directory), directory)
+
+    def open_db(self, path):
+        return plyvel.DB(bytes(path), create_if_missing=True)
+
+    def get_db(self, db_id):
+        return LDB_DBS[str(db_id)][0]
+
+    def delete_dbs(self):
+        for db_id in LDB_DBS:
+            self.delete_db(db_id)
+
+    def delete_db(self, db_id):
+        db_id = str(db_id)
+        db, directory = LDB_DBS[db_id]
+        db.close()
+        directory.reset()
+        LDB_DBS[db_id] = (self.open_db(directory), directory)
+
+
 KEY_CODEC = LDBKeyCodec()
-
-
-def setup_ldb(root_dir):
-    for db_id_ in range(16):
-        db_id = str(db_id_)
-        directory = Path(root_dir).join(db_id)
-        LDB_DBS[db_id] = (open_ldb(directory), directory)
-
-
-def open_ldb(path):
-    return plyvel.DB(bytes(path), create_if_missing=True)
-
-
-def get_ldb(db_id):
-    return LDB_DBS[str(db_id)][0]
-
-
-def flush_ldb(db_id_):
-    db_id = str(db_id_)
-    db, directory = LDB_DBS[db_id]
-    db.close()
-    directory.reset()
-    LDB_DBS[db_id] = (open_ldb(directory), directory)
+LEVELDB = LevelDB()

@@ -1,7 +1,7 @@
 import collections
 import fnmatch
 
-from dredis.ldb import LDB_DBS, LDB_KEY_TYPES, KEY_CODEC, flush_ldb, get_ldb
+from dredis.ldb import LEVELDB, LDB_KEY_TYPES, KEY_CODEC
 from dredis.lua import LuaRunner
 from dredis.utils import to_float
 
@@ -21,11 +21,10 @@ class Keyspace(object):
         self._current_db = db
 
     def flushall(self):
-        for db_id in LDB_DBS:
-            flush_ldb(db_id)
+        LEVELDB.delete_dbs()
 
     def flushdb(self):
-        flush_ldb(self._current_db)
+        LEVELDB.delete_db(self._current_db)
 
     def select(self, db):
         self._set_db(db)
@@ -396,7 +395,7 @@ class Keyspace(object):
 
     @property
     def _ldb(self):
-        return get_ldb(self._current_db)
+        return LEVELDB.get_db(self._current_db)
 
 
 class ScoreRange(object):
