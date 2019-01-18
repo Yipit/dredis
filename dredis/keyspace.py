@@ -1,9 +1,8 @@
 import collections
 import fnmatch
 
-from dredis.ldb import LDB_DBS, LDB_KEY_TYPES, KEY_CODEC, open_ldb
+from dredis.ldb import LDB_DBS, LDB_KEY_TYPES, KEY_CODEC, flush_ldb, get_ldb
 from dredis.lua import LuaRunner
-from dredis.path import Path
 from dredis.utils import to_float
 
 DEFAULT_REDIS_DB = '0'
@@ -12,37 +11,21 @@ NUMBER_OF_REDIS_DATABASES = 16
 
 class Keyspace(object):
 
-    def __init__(self, root_dir):
+    def __init__(self):
         self._lua_runner = LuaRunner(self)
-        self._root_directory = Path(root_dir)
-        self._setup_dbs()
         self._current_db = DEFAULT_REDIS_DB
         self._set_db(self._current_db)
 
     def _set_db(self, db):
         db = str(db)
         self._current_db = db
-        self.directory = self._root_directory.join(db)
-
-    def _setup_dbs(self):
-        for db_id_ in range(NUMBER_OF_REDIS_DATABASES):
-            db_id = str(db_id_)
-            if db_id not in LDB_DBS:
-                directory = self._root_directory.join(db_id)
-                LDB_DBS[db_id] = open_ldb(directory)
 
     def flushall(self):
-        for db_id_ in range(NUMBER_OF_REDIS_DATABASES):
-            db_id = str(db_id_)
-            directory = self._root_directory.join(db_id)
-            LDB_DBS[db_id].close()
-            directory.reset()
-            LDB_DBS[db_id] = open_ldb(directory)
+        for db_id in LDB_DBS:
+            flush_ldb(db_id)
 
     def flushdb(self):
-        self._ldb.close()
-        self.directory.reset()
-        self._ldb = open_ldb(self.directory)
+        flush_ldb(self._current_db)
 
     def select(self, db):
         self._set_db(db)
@@ -411,13 +394,9 @@ class Keyspace(object):
             result.append(v)
         return result
 
-    def _get_ldb(self):
-        return LDB_DBS[self._current_db]
-
-    def _set_ldb(self, value):
-        LDB_DBS[self._current_db] = value
-
-    _ldb = property(_get_ldb, _set_ldb)
+    @property
+    def _ldb(self):
+        return get_ldb(self._current_db)
 
 
 class ScoreRange(object):
