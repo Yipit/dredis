@@ -263,7 +263,7 @@ def test_zadd_should_only_accept_pairs():
 
     with pytest.raises(redis.ResponseError) as exc:
         r.execute_command('ZADD', 'mykey', 0, 'myvalue1', 1)
-    assert exc.value.message == "syntax error"
+    assert str(exc.value) == "syntax error"
 
 
 def test_zrange_should_only_accept_withscores_as_extra_argument():
@@ -271,7 +271,7 @@ def test_zrange_should_only_accept_withscores_as_extra_argument():
 
     with pytest.raises(redis.ResponseError) as exc:
         r.execute_command('ZRANGE', 'mykey', 0, 1, 'bleh')
-    assert exc.value.message == "syntax error"
+    assert str(exc.value) == "syntax error"
     assert r.execute_command('ZRANGE', 'mykey', 0, 1, 'WITHSCORES') == []
 
 
@@ -280,11 +280,11 @@ def test_zrangebyscore_should_validate_withscores_and_limit_extra_arguments():
 
     with pytest.raises(redis.ResponseError) as exc1:
         r.execute_command('ZRANGEBYSCORE', 'mykey', 0, 1, 'bleh', 'WITHSCORES', 'LIMIT', 0)  # missing count
-    assert exc1.value.message == "syntax error"
+    assert str(exc1.value) == "syntax error"
 
     with pytest.raises(redis.ResponseError) as exc2:
         r.execute_command('ZRANGEBYSCORE', 'mykey', 0, 1, 'bleh', 'extraword')  # unknown parameter
-    assert exc2.value.message == "syntax error"
+    assert str(exc2.value) == "syntax error"
 
 
 def test_zrangebyscore_should_validate_limit_values_as_integers():
@@ -292,11 +292,11 @@ def test_zrangebyscore_should_validate_limit_values_as_integers():
 
     with pytest.raises(redis.ResponseError) as exc1:
         r.execute_command('ZRANGEBYSCORE', 'mykey', 0, 1, 'bleh',  'LIMIT', 0, 's')
-    assert exc1.value.message == "syntax error"
+    assert str(exc1.value) == "syntax error"
 
     with pytest.raises(redis.ResponseError) as exc2:
         r.execute_command('ZRANGEBYSCORE', 'mykey', 0, 1, 'bleh',  'LIMIT', 's', 1)
-    assert exc2.value.message == "syntax error"
+    assert str(exc2.value) == "syntax error"
 
 
 def test_zrangebyscore_with_limit_from_official_redis_tests():
@@ -318,19 +318,19 @@ def test_invalid_floats():
 
     with pytest.raises(redis.ResponseError) as exc1:
         r.zrangebyscore('myzset', 'invalid', 0)
-    assert exc1.value.message == 'min or max is not a float'
+    assert str(exc1.value) == 'min or max is not a float'
 
     with pytest.raises(redis.ResponseError) as exc2:
         r.zrangebyscore('myzset', 0, 'invalid')
-    assert exc2.value.message == 'min or max is not a float'
+    assert str(exc2.value) == 'min or max is not a float'
 
     with pytest.raises(redis.ResponseError) as exc3:
         r.zrangebyscore('myzset', 0, 'NaN')
-    assert exc3.value.message == 'min or max is not a float'
+    assert str(exc3.value) == 'min or max is not a float'
 
     with pytest.raises(redis.ResponseError) as exc4:
         r.zrangebyscore('myzset', 'NaN', 0)
-    assert exc4.value.message == 'min or max is not a float'
+    assert str(exc4.value) == 'min or max is not a float'
 
 
 def test_zadd_with_newlines():
