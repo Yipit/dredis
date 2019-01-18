@@ -73,7 +73,6 @@ class LDBKeyCodec(object):
         return self.encode_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
 
 
-
 class LevelDB(object):
 
     def setup_dbs(self, root_dir):
