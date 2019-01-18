@@ -7,7 +7,7 @@ from dredis.path import Path
 from dredis.utils import to_float
 
 DEFAULT_REDIS_DB = '0'
-NUMBER_OF_REDIS_DATABASES = 15
+NUMBER_OF_REDIS_DATABASES = 16
 
 
 class DiskKeyspace(object):
