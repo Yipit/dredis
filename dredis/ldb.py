@@ -74,5 +74,5 @@ class LDBKeyCodec(object):
 KEY_CODEC = LDBKeyCodec()
 
 
-def get_ldb(path):
+def open_ldb(path):
     return plyvel.DB(bytes(path), create_if_missing=True)

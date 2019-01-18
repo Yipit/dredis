@@ -1,7 +1,7 @@
 import collections
 import fnmatch
 
-from dredis.ldb import LDB_DBS, LDB_KEY_TYPES, KEY_CODEC, get_ldb
+from dredis.ldb import LDB_DBS, LDB_KEY_TYPES, KEY_CODEC, open_ldb
 from dredis.lua import LuaRunner
 from dredis.path import Path
 from dredis.utils import to_float
@@ -32,7 +32,7 @@ class DiskKeyspace(object):
             db_id = str(db_id_)
             if db_id not in LDB_DBS:
                 directory = self._root_directory.join(db_id)
-                LDB_DBS[db_id] = get_ldb(directory)
+                LDB_DBS[db_id] = open_ldb(directory)
 
     def flushall(self):
         for db_id_ in range(NUMBER_OF_REDIS_DATABASES):
@@ -40,12 +40,12 @@ class DiskKeyspace(object):
             directory = self._root_directory.join(db_id)
             LDB_DBS[db_id].close()
             directory.reset()
-            LDB_DBS[db_id] = get_ldb(directory)
+            LDB_DBS[db_id] = open_ldb(directory)
 
     def flushdb(self):
         self._ldb.close()
         self.directory.reset()
-        self._ldb = get_ldb(self.directory)
+        self._ldb = open_ldb(self.directory)
 
     def select(self, db):
         self._set_db(db)
