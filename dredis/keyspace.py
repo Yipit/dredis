@@ -9,6 +9,12 @@ DEFAULT_REDIS_DB = '0'
 NUMBER_OF_REDIS_DATABASES = 16
 
 
+def to_float_string(f):
+    # copied from the redis source:
+    # https://github.com/antirez/redis/blob/c8391388c221b9255a7b6536c3f43438f36b8e2b/src/networking.c#L500-L524
+    return "{:.17g}".format(float(f))
+
+
 class Keyspace(object):
 
     def __init__(self):
@@ -167,7 +173,7 @@ class Keyspace(object):
             db_value = KEY_CODEC.decode_zset_value(db_key)
             result.append(db_value)
             if with_scores:
-                result.append(str(db_score))
+                result.append(to_float_string(db_score))
 
         return result
 
@@ -175,7 +181,11 @@ class Keyspace(object):
         return int(self._ldb.get(KEY_CODEC.encode_zset(key), '0'))
 
     def zscore(self, key, member):
-        return self._ldb.get(KEY_CODEC.encode_zset_value(key, member))
+        result = self._ldb.get(KEY_CODEC.encode_zset_value(key, member))
+        if result is None:
+            return result
+        else:
+            return to_float_string(result)
 
     def eval(self, script, keys, argv):
         return self._lua_runner.run(script, keys, argv)
@@ -224,7 +234,7 @@ class Keyspace(object):
                 if num_elems_read > offset:
                     result.append(db_value)
                     if withscores:
-                        result.append(str(db_score))
+                        result.append(to_float_string(db_score))
         return result
 
     def zcount(self, key, min_score, max_score):

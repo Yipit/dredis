@@ -112,10 +112,18 @@ def test_zscore():
 
     r.zadd('myzset', 0, 'myvalue1')
     r.zadd('myzset', 1, 'myvalue2')
+    r.zadd('myzset', 2.0, 'decimal1')
+    r.zadd('myzset', 2.3, 'decimal2')
 
     assert r.zscore('myzset', 'myvalue1') == 0
     assert r.zscore('myzset', 'myvalue2') == 1
+    assert r.zscore('myzset', 'decimal1') == 2.0
+    assert r.zscore('myzset', 'decimal2') == 2.3
+
     assert r.zscore('myzset', 'notfound') is None
+    # the `redis-py` library converts `zscore` results to float automatically,
+    # and the following tests want to confirm the raw response from Redis
+    assert r.eval("return redis.call('zscore', 'myzset', 'decimal1')", 0) == '2'
 
 
 def test_zrangebyscore():
