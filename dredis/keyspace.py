@@ -109,22 +109,20 @@ class DiskKeyspace(object):
     def _setup_dbs(self):
         for db_id_ in range(NUMBER_OF_REDIS_DATABASES):
             db_id = str(db_id_)
-            directory = self._root_directory.join(db_id)
-            ldb_directory = bytes(directory + "-leveldb")
+            ldb_directory = bytes(self._root_directory.join(db_id))
             if db_id not in LDB_DBS:
                 LDB_DBS[db_id] = plyvel.DB(ldb_directory, create_if_missing=True)
 
     def flushall(self):
         for db_id_ in range(NUMBER_OF_REDIS_DATABASES):
             db_id = str(db_id_)
-            directory = self._root_directory.join(db_id)
-            ldb_directory = bytes(directory + "-leveldb")
+            ldb_directory = bytes(self._root_directory.join(db_id))
             LDB_DBS[db_id].close()
             Path(ldb_directory).reset()
             LDB_DBS[db_id] = plyvel.DB(ldb_directory, create_if_missing=True)
 
     def flushdb(self):
-        ldb_directory = bytes(self.directory + "-leveldb")
+        ldb_directory = bytes(self.directory)
         self._ldb.close()
         Path(ldb_directory).reset()
         self._ldb = plyvel.DB(ldb_directory, create_if_missing=True)
