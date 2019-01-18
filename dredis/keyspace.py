@@ -62,8 +62,9 @@ class Keyspace(object):
     def sadd(self, key, value):
         if self._ldb.get(KEY_CODEC.encode_set_member(key, value)) is None:
             length = int(self._ldb.get(KEY_CODEC.encode_set(key)) or b'0')
-            self._ldb.put(KEY_CODEC.encode_set(key), bytes(length + 1))
-            self._ldb.put(KEY_CODEC.encode_set_member(key, value), bytes(''))
+            with self._ldb.write_batch() as batch:
+                batch.put(KEY_CODEC.encode_set(key), bytes(length + 1))
+                batch.put(KEY_CODEC.encode_set_member(key, value), bytes(''))
             return 1
         else:
             return 0
@@ -144,9 +145,10 @@ class Keyspace(object):
             result = 1
             zset_length += 1
 
-        self._ldb.put(KEY_CODEC.encode_zset(key), bytes(zset_length))
-        self._ldb.put(KEY_CODEC.encode_zset_value(key, value), bytes(score))
-        self._ldb.put(KEY_CODEC.encode_zset_score(key, value, score), bytes(''))
+        with self._ldb.write_batch() as batch:
+            batch.put(KEY_CODEC.encode_zset(key), bytes(zset_length))
+            batch.put(KEY_CODEC.encode_zset_value(key, value), bytes(score))
+            batch.put(KEY_CODEC.encode_zset_score(key, value, score), bytes(''))
 
         return result
 
@@ -326,16 +328,18 @@ class Keyspace(object):
         if self._ldb.get(KEY_CODEC.encode_hash_field(key, field)) is None:
             result = 1
         hash_length = int(self._ldb.get(KEY_CODEC.encode_hash(key), '0'))
-        self._ldb.put(KEY_CODEC.encode_hash(key), bytes(hash_length + 1))
-        self._ldb.put(KEY_CODEC.encode_hash_field(key, field), value)
+        with self._ldb.write_batch() as batch:
+            batch.put(KEY_CODEC.encode_hash(key), bytes(hash_length + 1))
+            batch.put(KEY_CODEC.encode_hash_field(key, field), value)
         return result
 
     def hsetnx(self, key, field, value):
         # only set if not set before
         if self._ldb.get(KEY_CODEC.encode_hash_field(key, field)) is None:
             hash_length = int(self._ldb.get(KEY_CODEC.encode_hash(key), '0'))
-            self._ldb.put(KEY_CODEC.encode_hash(key), bytes(hash_length + 1))
-            self._ldb.put(KEY_CODEC.encode_hash_field(key, field), value)
+            with self._ldb.write_batch() as batch:
+                batch.put(KEY_CODEC.encode_hash(key), bytes(hash_length + 1))
+                batch.put(KEY_CODEC.encode_hash_field(key, field), value)
             return 1
         else:
             return 0
