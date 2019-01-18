@@ -36,57 +36,52 @@ LDB_ZSET_SCORE_FORMAT = '>d'
 LDB_MIN_ZSET_SCORE = 0
 
 
-def get_ldb_key(key, type_id):
-    prefix = struct.pack(LDB_KEY_PREFIX_FORMAT, type_id, len(key))
-    return prefix + bytes(key)
+class LDBKeyCodec(object):
+
+    def get_ldb_key(self, key, type_id):
+        prefix = struct.pack(LDB_KEY_PREFIX_FORMAT, type_id, len(key))
+        return prefix + bytes(key)
+
+    def encode_ldb_key_string(self, key):
+        return self.get_ldb_key(key, LDB_STRING_TYPE)
+
+    def encode_ldb_key_set(self, key):
+        return self.get_ldb_key(key, LDB_SET_TYPE)
+
+    def encode_ldb_key_set_member(self, key, value):
+        return self.get_ldb_key(key, LDB_SET_MEMBER_TYPE) + bytes(value)
+
+    def encode_ldb_key_hash(self, key):
+        return self.get_ldb_key(key, LDB_HASH_TYPE)
+
+    def encode_ldb_key_hash_field(self, key, field):
+        return self.get_ldb_key(key, LDB_HASH_FIELD_TYPE) + bytes(field)
+
+    def encode_ldb_key_zset(self, key):
+        return self.get_ldb_key(key, LDB_ZSET_TYPE)
+
+    def encode_ldb_key_zset_value(self, key, value):
+        return self.get_ldb_key(key, LDB_ZSET_VALUE_TYPE) + bytes(value)
+
+    def encode_ldb_key_zset_score(self, key, value, score):
+        return self.get_ldb_key(key, LDB_ZSET_SCORE_TYPE) + struct.pack('>d', float(score)) + bytes(value)
+
+    def decode_ldb_key(self, key):
+        type_id, key_length = struct.unpack(LDB_KEY_PREFIX_FORMAT, key[:LDB_KEY_PREFIX_LENGTH])
+        key_value = key[LDB_KEY_PREFIX_LENGTH:]
+        return type_id, key_length, key_value
+
+    def decode_ldb_key_zset_score(self, ldb_key):
+        _, length, key_name = self.decode_ldb_key(ldb_key)
+        return struct.unpack(LDB_ZSET_SCORE_FORMAT, key_name[length:length + struct.calcsize(LDB_ZSET_SCORE_FORMAT)])[0]
+
+    def decode_ldb_key_zset_value(self, ldb_key):
+        _, length, key_name = self.decode_ldb_key(ldb_key)
+        return key_name[length + struct.calcsize(LDB_ZSET_SCORE_FORMAT):]
 
 
-def encode_ldb_key_string(key):
-    return get_ldb_key(key, LDB_STRING_TYPE)
+KEY_CODEC = LDBKeyCodec()
 
-
-def encode_ldb_key_set(key):
-    return get_ldb_key(key, LDB_SET_TYPE)
-
-
-def encode_ldb_key_set_member(key, value):
-    return get_ldb_key(key, LDB_SET_MEMBER_TYPE) + bytes(value)
-
-
-def encode_ldb_key_hash(key):
-    return get_ldb_key(key, LDB_HASH_TYPE)
-
-
-def encode_ldb_key_hash_field(key, field):
-    return get_ldb_key(key, LDB_HASH_FIELD_TYPE) + bytes(field)
-
-
-def encode_ldb_key_zset(key):
-    return get_ldb_key(key, LDB_ZSET_TYPE)
-
-
-def encode_ldb_key_zset_value(key, value):
-    return get_ldb_key(key, LDB_ZSET_VALUE_TYPE) + bytes(value)
-
-
-def encode_ldb_key_zset_score(key, value, score):
-    return get_ldb_key(key, LDB_ZSET_SCORE_TYPE) + struct.pack('>d', float(score)) + bytes(value)
-
-
-def decode_ldb_key(key):
-    type_id, key_length = struct.unpack(LDB_KEY_PREFIX_FORMAT, key[:LDB_KEY_PREFIX_LENGTH])
-    key_value = key[LDB_KEY_PREFIX_LENGTH:]
-    return type_id, key_length, key_value
-
-
-def decode_ldb_key_zset_score(ldb_key):
-    _, length, key_name = decode_ldb_key(ldb_key)
-    return struct.unpack(LDB_ZSET_SCORE_FORMAT, key_name[length:length + struct.calcsize(LDB_ZSET_SCORE_FORMAT)])[0]
-
-
-def decode_ldb_key_zset_value(ldb_key):
-    _, length, key_name = decode_ldb_key(ldb_key)
-    return key_name[length + struct.calcsize(LDB_ZSET_SCORE_FORMAT):]
 
 
 class DiskKeyspace(object):
@@ -139,10 +134,10 @@ class DiskKeyspace(object):
         return result
 
     def get(self, key):
-        return self._ldb.get(encode_ldb_key_string(key))
+        return self._ldb.get(KEY_CODEC.encode_ldb_key_string(key))
 
     def set(self, key, value):
-        self._ldb.put(encode_ldb_key_string(key), value)
+        self._ldb.put(KEY_CODEC.encode_ldb_key_string(key), value)
 
     def getrange(self, key, start, end):
         value = self.get(key)
@@ -155,30 +150,30 @@ class DiskKeyspace(object):
             return value[start:end]
 
     def sadd(self, key, value):
-        if self._ldb.get(encode_ldb_key_set_member(key, value)) is None:
-            length = int(self._ldb.get(encode_ldb_key_set(key)) or b'0')
-            self._ldb.put(encode_ldb_key_set(key), bytes(length + 1))
-            self._ldb.put(encode_ldb_key_set_member(key, value), bytes(''))
+        if self._ldb.get(KEY_CODEC.encode_ldb_key_set_member(key, value)) is None:
+            length = int(self._ldb.get(KEY_CODEC.encode_ldb_key_set(key)) or b'0')
+            self._ldb.put(KEY_CODEC.encode_ldb_key_set(key), bytes(length + 1))
+            self._ldb.put(KEY_CODEC.encode_ldb_key_set_member(key, value), bytes(''))
             return 1
         else:
             return 0
 
     def smembers(self, key):
         result = set()
-        if self._ldb.get(encode_ldb_key_set(key)):
+        if self._ldb.get(KEY_CODEC.encode_ldb_key_set(key)):
             # the empty string marks the beginning of the members
-            member_start = encode_ldb_key_set_member(key, bytes(''))
+            member_start = KEY_CODEC.encode_ldb_key_set_member(key, bytes(''))
             for db_key, db_value in self._ldb.iterator(start=member_start, include_start=False):
-                _, length, member_key = decode_ldb_key(db_key)
+                _, length, member_key = KEY_CODEC.decode_ldb_key(db_key)
                 member_value = member_key[length:]
                 result.add(member_value)
         return result
 
     def sismember(self, key, value):
-        return self._ldb.get(encode_ldb_key_set_member(key, value)) is not None
+        return self._ldb.get(KEY_CODEC.encode_ldb_key_set_member(key, value)) is not None
 
     def scard(self, key):
-        length = self._ldb.get(encode_ldb_key_set(key))
+        length = self._ldb.get(KEY_CODEC.encode_ldb_key_set(key))
         if length is None:
             return 0
         else:
@@ -187,22 +182,22 @@ class DiskKeyspace(object):
     def delete(self, *keys):
         result = 0
         for key in keys:
-            if self._ldb.get(encode_ldb_key_string(key)) is not None:
-                self._ldb.delete(encode_ldb_key_string(key))
+            if self._ldb.get(KEY_CODEC.encode_ldb_key_string(key)) is not None:
+                self._ldb.delete(KEY_CODEC.encode_ldb_key_string(key))
                 result += 1
-            elif self._ldb.get(encode_ldb_key_set(key)) is not None:
-                self._ldb.delete(encode_ldb_key_set(key))
+            elif self._ldb.get(KEY_CODEC.encode_ldb_key_set(key)) is not None:
+                self._ldb.delete(KEY_CODEC.encode_ldb_key_set(key))
                 for member in self.smembers(key):
-                    self._ldb.delete(encode_ldb_key_set_member(key, member))
+                    self._ldb.delete(KEY_CODEC.encode_ldb_key_set_member(key, member))
                 result += 1
-            elif self._ldb.get(encode_ldb_key_hash(key)) is not None:
-                self._ldb.delete(encode_ldb_key_hash(key))
+            elif self._ldb.get(KEY_CODEC.encode_ldb_key_hash(key)) is not None:
+                self._ldb.delete(KEY_CODEC.encode_ldb_key_hash(key))
                 for field in self.hkeys(key):
-                    self._ldb.delete(encode_ldb_key_hash_field(key, field))
+                    self._ldb.delete(KEY_CODEC.encode_ldb_key_hash_field(key, field))
                 result += 1
-            elif self._ldb.get(encode_ldb_key_zset(key)) is not None:
-                self._ldb.delete(encode_ldb_key_zset(key))
-                min_key = encode_ldb_key_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+            elif self._ldb.get(KEY_CODEC.encode_ldb_key_zset(key)) is not None:
+                self._ldb.delete(KEY_CODEC.encode_ldb_key_zset(key))
+                min_key = KEY_CODEC.encode_ldb_key_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
                 for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
                     self._ldb.delete(db_key)
                 result += 1
@@ -225,30 +220,30 @@ class DiskKeyspace(object):
         zset_6_myzset_7_value_world = 10
         zset_6_myzset_8_world = ''
         """
-        zset_length = int(self._ldb.get(encode_ldb_key_zset(key), '0'))
+        zset_length = int(self._ldb.get(KEY_CODEC.encode_ldb_key_zset(key), '0'))
 
-        db_score = self._ldb.get(encode_ldb_key_zset_value(key, value))
+        db_score = self._ldb.get(KEY_CODEC.encode_ldb_key_zset_value(key, value))
         if db_score is not None:
             result = 0
             previous_score = db_score
             if float(previous_score) == float(score):
                 return result
             else:
-                self._ldb.delete(encode_ldb_key_zset_score(key, value, previous_score))
+                self._ldb.delete(KEY_CODEC.encode_ldb_key_zset_score(key, value, previous_score))
         else:
             result = 1
             zset_length += 1
 
-        self._ldb.put(encode_ldb_key_zset(key), bytes(zset_length))
-        self._ldb.put(encode_ldb_key_zset_value(key, value), bytes(score))
-        self._ldb.put(encode_ldb_key_zset_score(key, value, score), bytes(''))
+        self._ldb.put(KEY_CODEC.encode_ldb_key_zset(key), bytes(zset_length))
+        self._ldb.put(KEY_CODEC.encode_ldb_key_zset_value(key, value), bytes(score))
+        self._ldb.put(KEY_CODEC.encode_ldb_key_zset_score(key, value, score), bytes(''))
 
         return result
 
     def zrange(self, key, start, stop, with_scores):
         result = []
 
-        zset_length = int(self._ldb.get(encode_ldb_key_zset(key), '0'))
+        zset_length = int(self._ldb.get(KEY_CODEC.encode_ldb_key_zset(key), '0'))
         if stop < 0:
             end = zset_length + stop
         else:
@@ -258,14 +253,14 @@ class DiskKeyspace(object):
             begin = max(0, zset_length + start)
         else:
             begin = start
-        min_key = encode_ldb_key_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+        min_key = KEY_CODEC.encode_ldb_key_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
         for i, (db_key, _) in enumerate(self._ldb.iterator(start=min_key, include_start=True)):
             if i < begin:
                 continue
             if i > end:
                 break
-            db_score = decode_ldb_key_zset_score(db_key)
-            db_value = decode_ldb_key_zset_value(db_key)
+            db_score = KEY_CODEC.decode_ldb_key_zset_score(db_key)
+            db_value = KEY_CODEC.decode_ldb_key_zset_value(db_key)
             result.append(db_value)
             if with_scores:
                 result.append(str(db_score))
@@ -273,10 +268,10 @@ class DiskKeyspace(object):
         return result
 
     def zcard(self, key):
-        return int(self._ldb.get(encode_ldb_key_zset(key), '0'))
+        return int(self._ldb.get(KEY_CODEC.encode_ldb_key_zset(key), '0'))
 
     def zscore(self, key, member):
-        return self._ldb.get(encode_ldb_key_zset_value(key, member))
+        return self._ldb.get(KEY_CODEC.encode_ldb_key_zset_value(key, member))
 
     def eval(self, script, keys, argv):
         return self._lua_runner.run(script, keys, argv)
@@ -286,21 +281,21 @@ class DiskKeyspace(object):
         see zadd() for information about score and value structures
         """
         result = 0
-        zset_length = int(self._ldb.get(encode_ldb_key_zset(key), '0'))
+        zset_length = int(self._ldb.get(KEY_CODEC.encode_ldb_key_zset(key), '0'))
         for member in members:
-            score = self._ldb.get(encode_ldb_key_zset_value(key, member))
+            score = self._ldb.get(KEY_CODEC.encode_ldb_key_zset_value(key, member))
             if score is None:
                 continue
             result += 1
             zset_length -= 1
-            self._ldb.delete(encode_ldb_key_zset_value(key, member))
-            self._ldb.delete(encode_ldb_key_zset_score(key, member, score))
+            self._ldb.delete(KEY_CODEC.encode_ldb_key_zset_value(key, member))
+            self._ldb.delete(KEY_CODEC.encode_ldb_key_zset_score(key, member, score))
 
         # empty zset should be removed from keyspace
         if zset_length == 0:
             self.delete(key)
         else:
-            self._ldb.put(encode_ldb_key_zset(key), bytes(zset_length))
+            self._ldb.put(KEY_CODEC.encode_ldb_key_zset(key), bytes(zset_length))
         return result
 
     def zrangebyscore(self, key, min_score, max_score, withscores=False, offset=0, count=float('+inf')):
@@ -312,10 +307,10 @@ class DiskKeyspace(object):
             num_elems_per_entry = 1
 
         score_range = ScoreRange(min_score, max_score)
-        min_key = encode_ldb_key_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+        min_key = KEY_CODEC.encode_ldb_key_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
         for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
-            db_score = decode_ldb_key_zset_score(db_key)
-            db_value = decode_ldb_key_zset_value(db_key)
+            db_score = KEY_CODEC.decode_ldb_key_zset_score(db_key)
+            db_value = KEY_CODEC.decode_ldb_key_zset_value(db_key)
             if score_range.above_max(db_score):
                 break
             if score_range.check(db_score):
@@ -337,10 +332,10 @@ class DiskKeyspace(object):
         #     zset_6_myzset_10 = 2
 
         score_range = ScoreRange(min_score, max_score)
-        min_key = encode_ldb_key_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+        min_key = KEY_CODEC.encode_ldb_key_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
         count = 0
         for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
-            db_score = decode_ldb_key_zset_score(db_key)
+            db_score = KEY_CODEC.decode_ldb_key_zset_score(db_key)
             if score_range.check(db_score):
                 count += 1
             if score_range.above_max(db_score):
@@ -348,15 +343,15 @@ class DiskKeyspace(object):
         return count
 
     def zrank(self, key, member):
-        score = self._ldb.get(encode_ldb_key_zset_value(key, member))
+        score = self._ldb.get(KEY_CODEC.encode_ldb_key_zset_value(key, member))
         if score is None:
             return None
 
-        min_key = encode_ldb_key_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+        min_key = KEY_CODEC.encode_ldb_key_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
         rank = 0
         for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
-            db_score = decode_ldb_key_zset_score(db_key)
-            db_value = decode_ldb_key_zset_value(db_key)
+            db_score = KEY_CODEC.decode_ldb_key_zset_score(db_key)
+            db_value = KEY_CODEC.decode_ldb_key_zset_value(db_key)
             if db_score < float(score):
                 rank += 1
             elif db_score == float(score) and db_value < member:
@@ -382,20 +377,20 @@ class DiskKeyspace(object):
         return result
 
     def type(self, key):
-        if self._ldb.get(encode_ldb_key_string(key)):
+        if self._ldb.get(KEY_CODEC.encode_ldb_key_string(key)):
             return 'string'
-        if self._ldb.get(encode_ldb_key_set(key)):
+        if self._ldb.get(KEY_CODEC.encode_ldb_key_set(key)):
             return 'set'
-        if self._ldb.get(encode_ldb_key_hash(key)):
+        if self._ldb.get(KEY_CODEC.encode_ldb_key_hash(key)):
             return 'hash'
-        if self._ldb.get(encode_ldb_key_zset(key)):
+        if self._ldb.get(KEY_CODEC.encode_ldb_key_zset(key)):
             return 'zset'
         return 'none'
 
     def keys(self, pattern):
         level_db_keys = set()
         for key, _ in self._ldb:
-            key_type, _, key_value = decode_ldb_key(key)
+            key_type, _, key_value = KEY_CODEC.decode_ldb_key(key)
             if key_type not in LDB_KEY_TYPES:
                 continue
             if pattern is None or fnmatch.fnmatch(key_value, pattern):
@@ -414,50 +409,50 @@ class DiskKeyspace(object):
 
     def hset(self, key, field, value):
         result = 0
-        if self._ldb.get(encode_ldb_key_hash_field(key, field)) is None:
+        if self._ldb.get(KEY_CODEC.encode_ldb_key_hash_field(key, field)) is None:
             result = 1
-        hash_length = int(self._ldb.get(encode_ldb_key_hash(key), '0'))
-        self._ldb.put(encode_ldb_key_hash(key), bytes(hash_length + 1))
-        self._ldb.put(encode_ldb_key_hash_field(key, field), value)
+        hash_length = int(self._ldb.get(KEY_CODEC.encode_ldb_key_hash(key), '0'))
+        self._ldb.put(KEY_CODEC.encode_ldb_key_hash(key), bytes(hash_length + 1))
+        self._ldb.put(KEY_CODEC.encode_ldb_key_hash_field(key, field), value)
         return result
 
     def hsetnx(self, key, field, value):
         # only set if not set before
-        if self._ldb.get(encode_ldb_key_hash_field(key, field)) is None:
-            hash_length = int(self._ldb.get(encode_ldb_key_hash(key), '0'))
-            self._ldb.put(encode_ldb_key_hash(key), bytes(hash_length + 1))
-            self._ldb.put(encode_ldb_key_hash_field(key, field), value)
+        if self._ldb.get(KEY_CODEC.encode_ldb_key_hash_field(key, field)) is None:
+            hash_length = int(self._ldb.get(KEY_CODEC.encode_ldb_key_hash(key), '0'))
+            self._ldb.put(KEY_CODEC.encode_ldb_key_hash(key), bytes(hash_length + 1))
+            self._ldb.put(KEY_CODEC.encode_ldb_key_hash_field(key, field), value)
             return 1
         else:
             return 0
 
     def hdel(self, key, *fields):
         result = 0
-        hash_length = int(self._ldb.get(encode_ldb_key_hash(key), '0'))
+        hash_length = int(self._ldb.get(KEY_CODEC.encode_ldb_key_hash(key), '0'))
 
         for field in fields:
-            if self._ldb.get(encode_ldb_key_hash_field(key, field)) is not None:
+            if self._ldb.get(KEY_CODEC.encode_ldb_key_hash_field(key, field)) is not None:
                 result += 1
                 hash_length -= 1
-                self._ldb.delete(encode_ldb_key_hash_field(key, field))
+                self._ldb.delete(KEY_CODEC.encode_ldb_key_hash_field(key, field))
 
         if hash_length == 0:
             # remove empty hashes from keyspace
             self.delete(key)
         else:
-            self._ldb.put(encode_ldb_key_hash(key), bytes(hash_length))
+            self._ldb.put(KEY_CODEC.encode_ldb_key_hash(key), bytes(hash_length))
         return result
 
     def hget(self, key, field):
-        return self._ldb.get(encode_ldb_key_hash_field(key, field))
+        return self._ldb.get(KEY_CODEC.encode_ldb_key_hash_field(key, field))
 
     def hkeys(self, key):
         result = []
-        if self._ldb.get(encode_ldb_key_hash(key)) is not None:
+        if self._ldb.get(KEY_CODEC.encode_ldb_key_hash(key)) is not None:
             # the empty string marks the beginning of the fields
-            field_start = encode_ldb_key_hash_field(key, bytes(''))
+            field_start = KEY_CODEC.encode_ldb_key_hash_field(key, bytes(''))
             for db_key, db_value in self._ldb.iterator(start=field_start, include_start=False):
-                _, length, field_key = decode_ldb_key(db_key)
+                _, length, field_key = KEY_CODEC.decode_ldb_key(db_key)
                 field = field_key[length:]
                 result.append(field)
 
@@ -465,15 +460,15 @@ class DiskKeyspace(object):
 
     def hvals(self, key):
         result = []
-        if self._ldb.get(encode_ldb_key_hash(key)) is not None:
+        if self._ldb.get(KEY_CODEC.encode_ldb_key_hash(key)) is not None:
             # the empty string marks the beginning of the fields
-            field_start = encode_ldb_key_hash_field(key, bytes(''))
+            field_start = KEY_CODEC.encode_ldb_key_hash_field(key, bytes(''))
             for db_key, db_value in self._ldb.iterator(start=field_start, include_start=False):
                 result.append(db_value)
         return result
 
     def hlen(self, key):
-        result = self._ldb.get(encode_ldb_key_hash(key))
+        result = self._ldb.get(KEY_CODEC.encode_ldb_key_hash(key))
         if result is None:
             return 0
         else:
