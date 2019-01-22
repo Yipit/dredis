@@ -120,9 +120,10 @@ class Keyspace(object):
         # example:
         #     <key prefix>|<key length>|<key>
         #     <set member prefix>|<key length>|<key>|<member>
-        self._ldb.delete(KEY_CODEC.encode_set(key))
-        for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_set_member(key)):
-            self._ldb.delete(db_key)
+        with self._ldb.write_batch() as batch:
+            batch.delete(KEY_CODEC.encode_set(key))
+            for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_set_member(key)):
+                batch.delete(db_key)
 
     def _delete_ldb_hash(self, key):
         # there are two sets of ldb keys for hashes:
@@ -131,9 +132,10 @@ class Keyspace(object):
         # example:
         #     <key prefix>|<key length>|<key>
         #     <hash field prefix>|<key length>|<key>|<field>
-        self._ldb.delete(KEY_CODEC.encode_hash(key))
-        for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_hash_field(key)):
-            self._ldb.delete(db_key)
+        with self._ldb.write_batch() as batch:
+            batch.delete(KEY_CODEC.encode_hash(key))
+            for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_hash_field(key)):
+                batch.delete(db_key)
 
     def _delete_ldb_zset(self, key):
         # there are three sets of ldb keys for zsets:
@@ -144,11 +146,12 @@ class Keyspace(object):
         #     <key prefix>|<key length>|<key>
         #     <zset value prefix>|<key length>|<key>|<value>
         #     <zset score prefix>|<key length>|<key>|<score><value>
-        self._ldb.delete(KEY_CODEC.encode_zset(key))
-        for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
-            self._ldb.delete(db_key)
-        for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_value(key)):
-            self._ldb.delete(db_key)
+        with self._ldb.write_batch() as batch:
+            batch.delete(KEY_CODEC.encode_zset(key))
+            for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
+                batch.delete(db_key)
+            for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_value(key)):
+                batch.delete(db_key)
 
     def _get_ldb_prefix_iterator(self, key_prefix):
         for db_key, _ in self._ldb.iterator(start=key_prefix, include_start=True):
@@ -240,14 +243,15 @@ class Keyspace(object):
         """
         result = 0
         zset_length = int(self._ldb.get(KEY_CODEC.encode_zset(key), '0'))
-        for member in members:
-            score = self._ldb.get(KEY_CODEC.encode_zset_value(key, member))
-            if score is None:
-                continue
-            result += 1
-            zset_length -= 1
-            self._ldb.delete(KEY_CODEC.encode_zset_value(key, member))
-            self._ldb.delete(KEY_CODEC.encode_zset_score(key, member, score))
+        with self._ldb.write_batch() as batch:
+            for member in members:
+                score = self._ldb.get(KEY_CODEC.encode_zset_value(key, member))
+                if score is None:
+                    continue
+                result += 1
+                zset_length -= 1
+                batch.delete(KEY_CODEC.encode_zset_value(key, member))
+                batch.delete(KEY_CODEC.encode_zset_score(key, member, score))
 
         # empty zset should be removed from keyspace
         if zset_length == 0:
@@ -390,11 +394,12 @@ class Keyspace(object):
         result = 0
         hash_length = int(self._ldb.get(KEY_CODEC.encode_hash(key), '0'))
 
-        for field in fields:
-            if self._ldb.get(KEY_CODEC.encode_hash_field(key, field)) is not None:
-                result += 1
-                hash_length -= 1
-                self._ldb.delete(KEY_CODEC.encode_hash_field(key, field))
+        with self._ldb.write_batch() as batch:
+            for field in fields:
+                if self._ldb.get(KEY_CODEC.encode_hash_field(key, field)) is not None:
+                    result += 1
+                    hash_length -= 1
+                    batch.delete(KEY_CODEC.encode_hash_field(key, field))
 
         if hash_length == 0:
             # remove empty hashes from keyspace
