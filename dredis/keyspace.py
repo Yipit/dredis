@@ -71,9 +71,7 @@ class Keyspace(object):
     def smembers(self, key):
         result = set()
         if self._ldb.get(KEY_CODEC.encode_set(key)):
-            # the empty string marks the beginning of the members
-            member_start = KEY_CODEC.encode_set_member(key, bytes(''))
-            for db_key, db_value in self._ldb.iterator(start=member_start, include_start=False):
+            for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_set_member(key)):
                 _, length, member_key = KEY_CODEC.decode_key(db_key)
                 member_value = member_key[length:]
                 result.add(member_value)
@@ -153,10 +151,13 @@ class Keyspace(object):
             for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_value(key)):
                 batch.delete(db_key)
 
-    def _get_ldb_prefix_iterator(self, key_prefix):
-        for db_key, _ in self._ldb.iterator(start=key_prefix, include_start=True):
+    def _get_ldb_prefix_iterator(self, key_prefix, add_value=False):
+        for db_key, db_value in self._ldb.iterator(start=key_prefix, include_start=True):
             if db_key.startswith(key_prefix):
-                yield db_key
+                if add_value:
+                    yield db_key, db_value
+                else:
+                    yield db_key
             else:
                 break
 
@@ -210,8 +211,7 @@ class Keyspace(object):
             begin = max(0, zset_length + start)
         else:
             begin = start
-        min_key = KEY_CODEC.get_min_zset_score(key)
-        for i, (db_key, _) in enumerate(self._ldb.iterator(start=min_key, include_start=True)):
+        for i, db_key in enumerate(self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key))):
             if i < begin:
                 continue
             if i > end:
@@ -269,8 +269,7 @@ class Keyspace(object):
             num_elems_per_entry = 1
 
         score_range = ScoreRange(min_score, max_score)
-        min_key = KEY_CODEC.get_min_zset_score(key)
-        for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
+        for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
             db_score = KEY_CODEC.decode_zset_score(db_key)
             db_value = KEY_CODEC.decode_zset_value(db_key)
             if score_range.above_max(db_score):
@@ -294,9 +293,8 @@ class Keyspace(object):
         #     zset_6_myzset_10 = 2
 
         score_range = ScoreRange(min_score, max_score)
-        min_key = KEY_CODEC.get_min_zset_score(key)
         count = 0
-        for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
+        for db_key in self._ldb.iself._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
             db_score = KEY_CODEC.decode_zset_score(db_key)
             if score_range.check(db_score):
                 count += 1
@@ -309,9 +307,8 @@ class Keyspace(object):
         if score is None:
             return None
 
-        min_key = KEY_CODEC.get_min_zset_score(key)
         rank = 0
-        for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
+        for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
             db_score = KEY_CODEC.decode_zset_score(db_key)
             db_value = KEY_CODEC.decode_zset_value(db_key)
             if db_score < float(score):
@@ -414,9 +411,7 @@ class Keyspace(object):
     def hkeys(self, key):
         result = []
         if self._ldb.get(KEY_CODEC.encode_hash(key)) is not None:
-            # the empty string marks the beginning of the fields
-            field_start = KEY_CODEC.encode_hash_field(key, bytes(''))
-            for db_key, db_value in self._ldb.iterator(start=field_start, include_start=False):
+            for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_hash_field(key)):
                 _, length, field_key = KEY_CODEC.decode_key(db_key)
                 field = field_key[length:]
                 result.append(field)
@@ -426,9 +421,7 @@ class Keyspace(object):
     def hvals(self, key):
         result = []
         if self._ldb.get(KEY_CODEC.encode_hash(key)) is not None:
-            # the empty string marks the beginning of the fields
-            field_start = KEY_CODEC.encode_hash_field(key, bytes(''))
-            for db_key, db_value in self._ldb.iterator(start=field_start, include_start=False):
+            for db_key, db_value in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_hash_field(key), True):
                 result.append(db_value)
         return result
 
