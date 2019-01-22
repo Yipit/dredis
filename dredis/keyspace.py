@@ -23,8 +23,7 @@ class Keyspace(object):
         self._set_db(self._current_db)
 
     def _set_db(self, db):
-        db = str(db)
-        self._current_db = db
+        self._current_db = str(db)
 
     def flushall(self):
         LEVELDB.delete_dbs()
