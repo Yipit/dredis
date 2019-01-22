@@ -71,7 +71,7 @@ class Keyspace(object):
     def smembers(self, key):
         result = set()
         if self._ldb.get(KEY_CODEC.encode_set(key)):
-            for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_set_member(key)):
+            for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_set_member(key)):
                 _, length, member_key = KEY_CODEC.decode_key(db_key)
                 member_value = member_key[length:]
                 result.add(member_value)
@@ -120,7 +120,7 @@ class Keyspace(object):
         #     <set member prefix>|<key length>|<key>|<member>
         with self._ldb.write_batch() as batch:
             batch.delete(KEY_CODEC.encode_set(key))
-            for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_set_member(key)):
+            for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_set_member(key)):
                 batch.delete(db_key)
 
     def _delete_ldb_hash(self, key):
@@ -132,7 +132,7 @@ class Keyspace(object):
         #     <hash field prefix>|<key length>|<key>|<field>
         with self._ldb.write_batch() as batch:
             batch.delete(KEY_CODEC.encode_hash(key))
-            for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_hash_field(key)):
+            for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_hash_field(key)):
                 batch.delete(db_key)
 
     def _delete_ldb_zset(self, key):
@@ -146,18 +146,15 @@ class Keyspace(object):
         #     <zset score prefix>|<key length>|<key>|<score><value>
         with self._ldb.write_batch() as batch:
             batch.delete(KEY_CODEC.encode_zset(key))
-            for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
+            for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
                 batch.delete(db_key)
-            for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_value(key)):
+            for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_value(key)):
                 batch.delete(db_key)
 
-    def _get_ldb_prefix_iterator(self, key_prefix, add_value=False):
+    def _get_ldb_prefix_iterator(self, key_prefix):
         for db_key, db_value in self._ldb.iterator(start=key_prefix, include_start=True):
             if db_key.startswith(key_prefix):
-                if add_value:
-                    yield db_key, db_value
-                else:
-                    yield db_key
+                yield db_key, db_value
             else:
                 break
 
@@ -211,7 +208,7 @@ class Keyspace(object):
             begin = max(0, zset_length + start)
         else:
             begin = start
-        for i, db_key in enumerate(self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key))):
+        for i, (db_key, _) in enumerate(self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key))):
             if i < begin:
                 continue
             if i > end:
@@ -269,7 +266,7 @@ class Keyspace(object):
             num_elems_per_entry = 1
 
         score_range = ScoreRange(min_score, max_score)
-        for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
+        for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
             db_score = KEY_CODEC.decode_zset_score(db_key)
             db_value = KEY_CODEC.decode_zset_value(db_key)
             if score_range.above_max(db_score):
@@ -294,7 +291,7 @@ class Keyspace(object):
 
         score_range = ScoreRange(min_score, max_score)
         count = 0
-        for db_key in self._ldb.iself._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
+        for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
             db_score = KEY_CODEC.decode_zset_score(db_key)
             if score_range.check(db_score):
                 count += 1
@@ -308,7 +305,7 @@ class Keyspace(object):
             return None
 
         rank = 0
-        for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
+        for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
             db_score = KEY_CODEC.decode_zset_score(db_key)
             db_value = KEY_CODEC.decode_zset_value(db_key)
             if db_score < float(score):
@@ -411,7 +408,7 @@ class Keyspace(object):
     def hkeys(self, key):
         result = []
         if self._ldb.get(KEY_CODEC.encode_hash(key)) is not None:
-            for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_hash_field(key)):
+            for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_hash_field(key)):
                 _, length, field_key = KEY_CODEC.decode_key(db_key)
                 field = field_key[length:]
                 result.append(field)
@@ -421,7 +418,7 @@ class Keyspace(object):
     def hvals(self, key):
         result = []
         if self._ldb.get(KEY_CODEC.encode_hash(key)) is not None:
-            for db_key, db_value in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_hash_field(key), True):
+            for db_key, db_value in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_hash_field(key)):
                 result.append(db_value)
         return result
 
