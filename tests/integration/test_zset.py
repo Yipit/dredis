@@ -340,3 +340,15 @@ def test_zadd_with_newlines():
 
     assert r.zcard('myzset') == 2
     assert r.zrange('myzset', 0, 1) == ['my\nsecond\nstring', 'my\ntest\nstring']
+
+
+def test_deleting_a_zset_should_not_impact_other_zsets():
+    # this is a regression test
+    r = fresh_redis()
+    r.zadd('myzset1', 0, 'test1')
+    r.zadd('myzset2', 0, 'test2')
+
+    r.delete('myzset1')
+
+    assert r.keys('*') == ['myzset2']
+    assert r.zrange('myzset2', 0, 10) == ['test2']

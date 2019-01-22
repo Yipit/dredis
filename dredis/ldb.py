@@ -41,11 +41,17 @@ class LDBKeyCodec(object):
     def encode_set_member(self, key, value):
         return self.get_key(key, LDB_SET_MEMBER_TYPE) + bytes(value)
 
+    def get_min_set_member(self, key):
+        return self.get_key(key, LDB_SET_MEMBER_TYPE)
+
     def encode_hash(self, key):
         return self.get_key(key, LDB_HASH_TYPE)
 
     def encode_hash_field(self, key, field):
         return self.get_key(key, LDB_HASH_FIELD_TYPE) + bytes(field)
+
+    def get_min_hash_field(self, key):
+        return self.get_key(key, LDB_HASH_FIELD_TYPE)
 
     def encode_zset(self, key):
         return self.get_key(key, LDB_ZSET_TYPE)
@@ -70,7 +76,10 @@ class LDBKeyCodec(object):
         return key_name[length + struct.calcsize(LDB_ZSET_SCORE_FORMAT):]
 
     def get_min_zset_score(self, key):
-        return self.encode_zset_score(key, bytes(''), LDB_MIN_ZSET_SCORE)
+        return self.get_key(key, LDB_ZSET_SCORE_TYPE)
+
+    def get_min_zset_value(self, key):
+        return self.get_key(key, LDB_ZSET_VALUE_TYPE)
 
 
 class LevelDB(object):
@@ -102,6 +111,7 @@ class LevelDB(object):
             'db': self.open_db(directory),
             'directory': directory,
         }
+
 
 KEY_CODEC = LDBKeyCodec()
 LEVELDB = LevelDB()

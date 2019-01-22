@@ -93,26 +93,69 @@ class Keyspace(object):
         result = 0
         for key in keys:
             if self._ldb.get(KEY_CODEC.encode_string(key)) is not None:
-                self._ldb.delete(KEY_CODEC.encode_string(key))
+                self._delete_ldb_string(key)
                 result += 1
             elif self._ldb.get(KEY_CODEC.encode_set(key)) is not None:
-                self._ldb.delete(KEY_CODEC.encode_set(key))
-                for member in self.smembers(key):
-                    self._ldb.delete(KEY_CODEC.encode_set_member(key, member))
+                self._delete_ldb_set(key)
                 result += 1
             elif self._ldb.get(KEY_CODEC.encode_hash(key)) is not None:
-                self._ldb.delete(KEY_CODEC.encode_hash(key))
-                for field in self.hkeys(key):
-                    self._ldb.delete(KEY_CODEC.encode_hash_field(key, field))
+                self._delete_ldb_hash(key)
                 result += 1
             elif self._ldb.get(KEY_CODEC.encode_zset(key)) is not None:
-                self._ldb.delete(KEY_CODEC.encode_zset(key))
-                min_key = KEY_CODEC.get_min_zset_score(key)
-                for db_key, _ in self._ldb.iterator(start=min_key, include_start=True):
-                    self._ldb.delete(db_key)
+                self._delete_ldb_zset(key)
                 result += 1
-
         return result
+
+    def _delete_ldb_string(self, key):
+        # there is one set of ldb keys for strings:
+        # * string
+        # example:
+        #     <key prefix>|<key length>|<key>
+        self._ldb.delete(KEY_CODEC.encode_string(key))
+
+    def _delete_ldb_set(self, key):
+        # there are two sets of ldb keys for sets:
+        # * set
+        # * set members
+        # example:
+        #     <key prefix>|<key length>|<key>
+        #     <set member prefix>|<key length>|<key>|<member>
+        self._ldb.delete(KEY_CODEC.encode_set(key))
+        for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_set_member(key)):
+            self._ldb.delete(db_key)
+
+    def _delete_ldb_hash(self, key):
+        # there are two sets of ldb keys for hashes:
+        # * hash
+        # * hash fields
+        # example:
+        #     <key prefix>|<key length>|<key>
+        #     <hash field prefix>|<key length>|<key>|<field>
+        self._ldb.delete(KEY_CODEC.encode_hash(key))
+        for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_hash_field(key)):
+            self._ldb.delete(db_key)
+
+    def _delete_ldb_zset(self, key):
+        # there are three sets of ldb keys for zsets:
+        # * zset
+        # * zset scores
+        # * zset values
+        # example:
+        #     <key prefix>|<key length>|<key>
+        #     <zset value prefix>|<key length>|<key>|<value>
+        #     <zset score prefix>|<key length>|<key>|<score><value>
+        self._ldb.delete(KEY_CODEC.encode_zset(key))
+        for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
+            self._ldb.delete(db_key)
+        for db_key in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_value(key)):
+            self._ldb.delete(db_key)
+
+    def _get_ldb_prefix_iterator(self, key_prefix):
+        for db_key, _ in self._ldb.iterator(start=key_prefix, include_start=True):
+            if db_key.startswith(key_prefix):
+                yield db_key
+            else:
+                break
 
     def zadd(self, key, score, value):
         """
@@ -122,13 +165,13 @@ class Keyspace(object):
         zadd myzset 10 "world"
         zadd myzset 11 "hello"
 
-        zset_6_myzset = 2
+        KEY_zset_6_myzset = 2
 
-        zset_6_myzset_7_hello = 10
-        zset_6_myzset_8_10_hello = ''
+        ZSETVALUE_zset_6_myzset_7_hello = 10
+        ZSETSCORE_zset_6_myzset_8_10_hello = ''
 
-        zset_6_myzset_7_value_world = 10
-        zset_6_myzset_8_world = ''
+        ZSETVALUE_zset_6_myzset_7_value_world = 10
+        ZSETSCORE_zset_6_myzset_8_world = ''
         """
         zset_length = int(self._ldb.get(KEY_CODEC.encode_zset(key), '0'))
 
