@@ -257,10 +257,13 @@ class Keyspace(object):
     def zcount(self, key, min_score, max_score):
         # TODO: optimize for performance. it's probably possible to create a new entry only for scores
         # like:
-        #     zadd myzset 10 a
-        #     zset_6_myzset_10 = 1
-        #     zadd myzset 10 b
-        #     zset_6_myzset_10 = 2
+        #     <prefix>myzset<score> = number of elements with that score
+        #
+        #     ZADD myzset 10 a
+        #     <prefix>_myzset_10 = 1  ; one element with score 10
+        #
+        #     ZADD myzset 10 b
+        #     <prefix>_myzset_10 = 2  ; two elements with score 10
 
         score_range = ScoreRange(min_score, max_score)
         count = 0
