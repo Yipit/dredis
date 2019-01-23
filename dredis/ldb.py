@@ -28,6 +28,12 @@ LDB_MIN_ZSET_SCORE = 0
 
 class LDBKeyCodec(object):
 
+    # the key format using <key length + key> was inspired by the `blackwidow` project:
+    # https://github.com/KernelMaker/blackwidow/blob/5abe9a3e3f035dd0d81f514e598f29c1db679a28/src/zsets_data_key_format.h#L44-L53
+    # https://github.com/KernelMaker/blackwidow/blob/5abe9a3e3f035dd0d81f514e598f29c1db679a28/src/base_data_key_format.h#L37-L43
+    #
+    # LevelDB doesn't have column families like RocksDB, so the binary prefixes were created to distinguish object types
+
     def get_key(self, key, type_id):
         prefix = struct.pack(LDB_KEY_PREFIX_FORMAT, type_id, len(key))
         return prefix + bytes(key)
