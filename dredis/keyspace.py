@@ -159,21 +159,6 @@ class Keyspace(object):
                 break
 
     def zadd(self, key, score, value):
-        """
-        This is an example of how sorted sets are stored on leveldb
-
-        zadd myzset 10 "hello"
-        zadd myzset 10 "world"
-        zadd myzset 11 "hello"
-
-        KEY_zset_6_myzset = 2
-
-        ZSETVALUE_zset_6_myzset_7_hello = 10
-        ZSETSCORE_zset_6_myzset_8_10_hello = ''
-
-        ZSETVALUE_zset_6_myzset_7_value_world = 10
-        ZSETSCORE_zset_6_myzset_8_world = ''
-        """
         zset_length = int(self._ldb.get(KEY_CODEC.encode_zset(key), '0'))
 
         db_score = self._ldb.get(KEY_CODEC.encode_zset_value(key, value))
