@@ -107,17 +107,12 @@ class Keyspace(object):
     def _delete_ldb_string(self, key):
         # there is one set of ldb keys for strings:
         # * string
-        # example:
-        #     <key prefix>|<key length>|<key>
         self._ldb.delete(KEY_CODEC.encode_string(key))
 
     def _delete_ldb_set(self, key):
         # there are two sets of ldb keys for sets:
         # * set
         # * set members
-        # example:
-        #     <key prefix>|<key length>|<key>
-        #     <set member prefix>|<key length>|<key>|<member>
         with self._ldb.write_batch() as batch:
             batch.delete(KEY_CODEC.encode_set(key))
             for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_set_member(key)):
@@ -127,9 +122,6 @@ class Keyspace(object):
         # there are two sets of ldb keys for hashes:
         # * hash
         # * hash fields
-        # example:
-        #     <key prefix>|<key length>|<key>
-        #     <hash field prefix>|<key length>|<key>|<field>
         with self._ldb.write_batch() as batch:
             batch.delete(KEY_CODEC.encode_hash(key))
             for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_hash_field(key)):
@@ -140,10 +132,6 @@ class Keyspace(object):
         # * zset
         # * zset scores
         # * zset values
-        # example:
-        #     <key prefix>|<key length>|<key>
-        #     <zset value prefix>|<key length>|<key>|<value>
-        #     <zset score prefix>|<key length>|<key>|<score><value>
         with self._ldb.write_batch() as batch:
             batch.delete(KEY_CODEC.encode_zset(key))
             for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
