@@ -20,11 +20,6 @@ LDB_KEY_PREFIX_FORMAT = '>BI'
 LDB_KEY_PREFIX_LENGTH = struct.calcsize(LDB_KEY_PREFIX_FORMAT)
 LDB_ZSET_SCORE_FORMAT = '>d'
 
-# ldb sorts elements lexicographically and negative numbers
-# when converted to binary are "bigger" than positives.
-# zero is the lowest byte combination.
-LDB_MIN_ZSET_SCORE = 0
-
 
 class LDBKeyCodec(object):
 
