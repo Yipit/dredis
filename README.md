@@ -89,7 +89,7 @@ HGETALL key                                  | Hashes
 ## How is DRedis implemented
 
 Initially DRedis had its own filesystem structure, but then it was converted to use [LevelDB](https://github.com/google/leveldb), which is a lot more reliable and faster.
-Other projects implement similar features to what's available with DRedis, but they aren't what Yipit needed when the project started.
+Other projects implement similar features to what's available on DRedis, but they aren't what Yipit needed when the project started.
 Some similar projects follow:
 
 * https://github.com/Qihoo360/pika
