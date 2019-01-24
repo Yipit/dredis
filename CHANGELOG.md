@@ -1,3 +1,8 @@
+## 1.0.0
+
+* Change storage to use LevelDB instead of our own directory structure and file formats (https://github.com/Yipit/dredis/pull/12)
+
+
 ## 0.1.1
 
 * Minimize send() calls
@@ -5,8 +10,8 @@
 
 ## 0.1.0
 
-* New binary file format
-* Faster directory checks
+* New binary file format (https://github.com/Yipit/dredis/pull/6)
+* Faster directory checks (https://github.com/Yipit/dredis/pull/5)
 
 
 ## 0.0.7
