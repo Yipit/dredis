@@ -104,6 +104,7 @@ def test_zrem():
     assert r.zrem('myzset', 'notfound') == 0
 
     assert r.zrange('myzset', 0, -1) == ['myvalue0', 'myvalue3', 'myvalue2']
+    assert r.zcard('myzset') == 3
 
 
 def test_zscore():
@@ -111,10 +112,18 @@ def test_zscore():
 
     r.zadd('myzset', 0, 'myvalue1')
     r.zadd('myzset', 1, 'myvalue2')
+    r.zadd('myzset', 2.0, 'decimal1')
+    r.zadd('myzset', 2.3, 'decimal2')
 
     assert r.zscore('myzset', 'myvalue1') == 0
     assert r.zscore('myzset', 'myvalue2') == 1
+    assert r.zscore('myzset', 'decimal1') == 2.0
+    assert r.zscore('myzset', 'decimal2') == 2.3
+
     assert r.zscore('myzset', 'notfound') is None
+    # the `redis-py` library converts `zscore` results to float automatically,
+    # and the following tests want to confirm the raw response from Redis
+    assert r.eval("return redis.call('zscore', 'myzset', 'decimal1')", 0) == '2'
 
 
 def test_zrangebyscore():
@@ -254,7 +263,7 @@ def test_zadd_should_only_accept_pairs():
 
     with pytest.raises(redis.ResponseError) as exc:
         r.execute_command('ZADD', 'mykey', 0, 'myvalue1', 1)
-    assert exc.value.message == "syntax error"
+    assert str(exc.value) == "syntax error"
 
 
 def test_zrange_should_only_accept_withscores_as_extra_argument():
@@ -262,7 +271,7 @@ def test_zrange_should_only_accept_withscores_as_extra_argument():
 
     with pytest.raises(redis.ResponseError) as exc:
         r.execute_command('ZRANGE', 'mykey', 0, 1, 'bleh')
-    assert exc.value.message == "syntax error"
+    assert str(exc.value) == "syntax error"
     assert r.execute_command('ZRANGE', 'mykey', 0, 1, 'WITHSCORES') == []
 
 
@@ -271,11 +280,11 @@ def test_zrangebyscore_should_validate_withscores_and_limit_extra_arguments():
 
     with pytest.raises(redis.ResponseError) as exc1:
         r.execute_command('ZRANGEBYSCORE', 'mykey', 0, 1, 'bleh', 'WITHSCORES', 'LIMIT', 0)  # missing count
-    assert exc1.value.message == "syntax error"
+    assert str(exc1.value) == "syntax error"
 
     with pytest.raises(redis.ResponseError) as exc2:
         r.execute_command('ZRANGEBYSCORE', 'mykey', 0, 1, 'bleh', 'extraword')  # unknown parameter
-    assert exc2.value.message == "syntax error"
+    assert str(exc2.value) == "syntax error"
 
 
 def test_zrangebyscore_should_validate_limit_values_as_integers():
@@ -283,11 +292,11 @@ def test_zrangebyscore_should_validate_limit_values_as_integers():
 
     with pytest.raises(redis.ResponseError) as exc1:
         r.execute_command('ZRANGEBYSCORE', 'mykey', 0, 1, 'bleh',  'LIMIT', 0, 's')
-    assert exc1.value.message == "syntax error"
+    assert str(exc1.value) == "syntax error"
 
     with pytest.raises(redis.ResponseError) as exc2:
         r.execute_command('ZRANGEBYSCORE', 'mykey', 0, 1, 'bleh',  'LIMIT', 's', 1)
-    assert exc2.value.message == "syntax error"
+    assert str(exc2.value) == "syntax error"
 
 
 def test_zrangebyscore_with_limit_from_official_redis_tests():
@@ -309,19 +318,19 @@ def test_invalid_floats():
 
     with pytest.raises(redis.ResponseError) as exc1:
         r.zrangebyscore('myzset', 'invalid', 0)
-    assert exc1.value.message == 'min or max is not a float'
+    assert str(exc1.value) == 'min or max is not a float'
 
     with pytest.raises(redis.ResponseError) as exc2:
         r.zrangebyscore('myzset', 0, 'invalid')
-    assert exc2.value.message == 'min or max is not a float'
+    assert str(exc2.value) == 'min or max is not a float'
 
     with pytest.raises(redis.ResponseError) as exc3:
         r.zrangebyscore('myzset', 0, 'NaN')
-    assert exc3.value.message == 'min or max is not a float'
+    assert str(exc3.value) == 'min or max is not a float'
 
     with pytest.raises(redis.ResponseError) as exc4:
         r.zrangebyscore('myzset', 'NaN', 0)
-    assert exc4.value.message == 'min or max is not a float'
+    assert str(exc4.value) == 'min or max is not a float'
 
 
 def test_zadd_with_newlines():
@@ -331,3 +340,15 @@ def test_zadd_with_newlines():
 
     assert r.zcard('myzset') == 2
     assert r.zrange('myzset', 0, 1) == ['my\nsecond\nstring', 'my\ntest\nstring']
+
+
+def test_deleting_a_zset_should_not_impact_other_zsets():
+    # this is a regression test
+    r = fresh_redis()
+    r.zadd('myzset1', 0, 'test1')
+    r.zadd('myzset2', 0, 'test2')
+
+    r.delete('myzset1')
+
+    assert r.keys('*') == ['myzset2']
+    assert r.zrange('myzset2', 0, 10) == ['test2']

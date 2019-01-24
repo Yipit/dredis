@@ -11,10 +11,11 @@ import sys
 
 from dredis import __version__
 from dredis.commands import run_command, SimpleString, CommandNotFound
-from dredis.keyspace import DiskKeyspace
+from dredis.keyspace import Keyspace
+from dredis.ldb import LEVELDB
 from dredis.lua import RedisScriptError
 from dredis.parser import Parser
-
+from dredis.path import Path
 
 logger = logging.getLogger('dredis')
 
@@ -93,7 +94,7 @@ class CommandHandler(asyncore.dispatcher):
     @property
     def keyspace(self):
         if self.addr not in KEYSPACES:
-            KEYSPACES[self.addr] = DiskKeyspace(ROOT_DIR)
+            KEYSPACES[self.addr] = Keyspace()
         return KEYSPACES[self.addr]
 
 
@@ -134,7 +135,9 @@ def main():
 
     global ROOT_DIR
     if args.dir:
-        ROOT_DIR = args.dir
+        ROOT_DIR = Path(args.dir)
+        ROOT_DIR.makedirs(ignore_if_exists=True)
+
     else:
         ROOT_DIR = tempfile.mkdtemp(prefix="redis-test-")
 
@@ -143,11 +146,10 @@ def main():
     else:
         setup_logging(logging.INFO)
 
-    keyspace = DiskKeyspace(ROOT_DIR)
+    LEVELDB.setup_dbs(ROOT_DIR)
+    keyspace = Keyspace()
     if args.flushall:
         keyspace.flushall()
-    else:
-        keyspace.setup_directories()
 
     RedisServer(args.host, args.port)
 

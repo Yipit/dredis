@@ -107,4 +107,4 @@ def test_hset_should_accept_multiple_key_value_pairs():
 
     with pytest.raises(redis.ResponseError) as exc:
         r.execute_command('HSET', 'myhash', 'k1', 'v1', 'k2')
-    assert exc.value.message == 'wrong number of arguments for HMSET'
+    assert str(exc.value) == 'wrong number of arguments for HMSET'

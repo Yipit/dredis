@@ -2,16 +2,16 @@
 The following results should serve as reference
 ------
 
-Results from 2018-11-12 on @htlbra's Macbook (LARGE_NUMBER == 1000):
+Results from 2019-01-23 on @htlbra's Macbook (LARGE_NUMBER == 1000):
 
 $ make performance-server & make test-performance | grep 'zset Z'
-zset ZADD time = 0.46967s
-zset ZADD time = 0.69122s
-zset ZCARD time = 0.00120s
-zset ZRANK time = 0.00196s
-zset ZCOUNT time = 0.00030s
-zset ZRANGE time = 0.02062s
-zset ZREM time = 2.52095s
+zset ZADD time = 0.16834s
+zset ZADD time = 0.16564s
+zset ZCARD time = 0.00011s
+zset ZRANK time = 0.00379s
+zset ZCOUNT time = 0.00536s
+zset ZRANGE time = 0.00872s
+zset ZREM time = 0.14646s
 
 
 $ redis-server --port 6376 & make test-performance | grep time

@@ -1,71 +1,52 @@
 import collections
-import hashlib
-import re
+import fnmatch
 
+from dredis.ldb import LEVELDB, LDB_KEY_TYPES, KEY_CODEC
 from dredis.lua import LuaRunner
-from dredis.path import Path
 from dredis.utils import to_float
 
 DEFAULT_REDIS_DB = '0'
-NUMBER_OF_REDIS_DATABASES = 15
-DECIMAL_REGEX = re.compile(r'(\d+)\.0+$')
+NUMBER_OF_REDIS_DATABASES = 16
 
 
-class DiskKeyspace(object):
+def to_float_string(f):
+    # copied from the redis source:
+    # https://github.com/antirez/redis/blob/c8391388c221b9255a7b6536c3f43438f36b8e2b/src/networking.c#L500-L524
+    return "{:.17g}".format(float(f))
 
-    def __init__(self, root_dir):
+
+class Keyspace(object):
+
+    def __init__(self):
         self._lua_runner = LuaRunner(self)
-        self._root_directory = Path(root_dir)
-        self._set_db_directory(DEFAULT_REDIS_DB)
+        self._current_db = DEFAULT_REDIS_DB
+        self._set_db(self._current_db)
 
-    def _set_db_directory(self, db):
-        self.directory = self._root_directory.join(db)
-
-    def _key_path(self, key):
-        return self.directory.join(key)
-
-    def setup_directories(self):
-        for db_id in range(NUMBER_OF_REDIS_DATABASES):
-            self._root_directory.join(str(db_id)).makedirs(ignore_if_exists=True)
+    def _set_db(self, db):
+        self._current_db = str(db)
 
     def flushall(self):
-        for db_id in range(NUMBER_OF_REDIS_DATABASES):
-            self._root_directory.join(str(db_id)).reset()
+        LEVELDB.delete_dbs()
 
     def flushdb(self):
-        self.directory.reset()
+        LEVELDB.delete_db(self._current_db)
 
     def select(self, db):
-        self._set_db_directory(db)
+        self._set_db(db)
 
     def incrby(self, key, increment=1):
-        key_path = self._key_path(key)
-        value_path = key_path.join('value')
-        number = 0
-        if self.exists(key):
-            content = value_path.read()
-            number = int(content)
-        else:
-            key_path.makedirs()
-            self.write_type(key, 'string')
-        result = number + increment
-        value_path.write(str(result))
+        number = self.get(key)
+        if number is None:
+            number = '0'
+        result = int(number) + increment
+        self.set(key, str(result))
         return result
 
     def get(self, key):
-        key_path = self._key_path(key)
-        value_path = key_path.join('value')
-        if self.exists(key):
-            return value_path.read()
-        else:
-            return None
+        return self._ldb.get(KEY_CODEC.encode_string(key))
 
     def set(self, key, value):
-        key_path = self._key_path(key)
-        if not self.exists(key):
-            key_path.makedirs()
-            self.write_type(key, 'string')
-        key_path.join('value').write(value)
+        self._ldb.put(KEY_CODEC.encode_string(key), value)
 
     def getrange(self, key, start, end):
         value = self.get(key)
@@ -78,141 +59,150 @@ class DiskKeyspace(object):
             return value[start:end]
 
     def sadd(self, key, value):
-        key_path = self._key_path(key)
-        values_path = key_path.join('values')
-        if not self.exists(key):
-            values_path.makedirs()
-            self.write_type(key, 'set')
-        fname = self._get_filename_hash(value)
-        value_path = values_path.join(fname)
-        if value_path.exists():
-            return 0
-        else:
-            value_path.write(value)
+        if self._ldb.get(KEY_CODEC.encode_set_member(key, value)) is None:
+            length = int(self._ldb.get(KEY_CODEC.encode_set(key)) or b'0')
+            with self._ldb.write_batch() as batch:
+                batch.put(KEY_CODEC.encode_set(key), bytes(length + 1))
+                batch.put(KEY_CODEC.encode_set_member(key, value), bytes(''))
             return 1
+        else:
+            return 0
 
     def smembers(self, key):
         result = set()
-        if self.exists(key):
-            key_path = self._key_path(key)
-            values_path = key_path.join('values')
-            for fname in values_path.listdir():
-                content = values_path.join(fname).read()
-                result.add(content)
+        if self._ldb.get(KEY_CODEC.encode_set(key)):
+            for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_set_member(key)):
+                _, length, member_key = KEY_CODEC.decode_key(db_key)
+                member_value = member_key[length:]
+                result.add(member_value)
         return result
 
     def sismember(self, key, value):
-        key_path = self._key_path(key)
-        values_path = key_path.join('values')
-        fname = self._get_filename_hash(value)
-        value_path = values_path.join(fname)
-        return value_path.exists()
+        return self._ldb.get(KEY_CODEC.encode_set_member(key, value)) is not None
 
     def scard(self, key):
-        return len(self.smembers(key))
+        length = self._ldb.get(KEY_CODEC.encode_set(key))
+        if length is None:
+            return 0
+        else:
+            return int(length)
 
     def delete(self, *keys):
         result = 0
         for key in keys:
-            if self.exists(key):
-                key_path = self._key_path(key)
-                key_path.delete()
+            if self._ldb.get(KEY_CODEC.encode_string(key)) is not None:
+                self._delete_ldb_string(key)
+                result += 1
+            elif self._ldb.get(KEY_CODEC.encode_set(key)) is not None:
+                self._delete_ldb_set(key)
+                result += 1
+            elif self._ldb.get(KEY_CODEC.encode_hash(key)) is not None:
+                self._delete_ldb_hash(key)
+                result += 1
+            elif self._ldb.get(KEY_CODEC.encode_zset(key)) is not None:
+                self._delete_ldb_zset(key)
                 result += 1
         return result
 
+    def _delete_ldb_string(self, key):
+        # there is one set of ldb keys for strings:
+        # * string
+        self._ldb.delete(KEY_CODEC.encode_string(key))
+
+    def _delete_ldb_set(self, key):
+        # there are two sets of ldb keys for sets:
+        # * set
+        # * set members
+        with self._ldb.write_batch() as batch:
+            batch.delete(KEY_CODEC.encode_set(key))
+            for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_set_member(key)):
+                batch.delete(db_key)
+
+    def _delete_ldb_hash(self, key):
+        # there are two sets of ldb keys for hashes:
+        # * hash
+        # * hash fields
+        with self._ldb.write_batch() as batch:
+            batch.delete(KEY_CODEC.encode_hash(key))
+            for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_hash_field(key)):
+                batch.delete(db_key)
+
+    def _delete_ldb_zset(self, key):
+        # there are three sets of ldb keys for zsets:
+        # * zset
+        # * zset scores
+        # * zset values
+        with self._ldb.write_batch() as batch:
+            batch.delete(KEY_CODEC.encode_zset(key))
+            for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
+                batch.delete(db_key)
+            for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_value(key)):
+                batch.delete(db_key)
+
+    def _get_ldb_prefix_iterator(self, key_prefix):
+        for db_key, db_value in self._ldb.iterator(start=key_prefix, include_start=True):
+            if db_key.startswith(key_prefix):
+                yield db_key, db_value
+            else:
+                break
+
     def zadd(self, key, score, value):
-        """
-        score structure (binary)
-        ------
-        /path/to/scores/10 -> 8 bytes + (4 bytes + content)*
-        example:
-        0x0002   0x05 hello     0x05 world
-         count   size data      size data
-          2       5   "hello"   5    "world"
+        zset_length = int(self._ldb.get(KEY_CODEC.encode_zset(key), '0'))
 
-        value structure
-        ------
-        /path/values/hash("x1") -> "10"
-        """
-
-        # if `score` has 0 as the decimal point, trim it: 10.00 -> 10
-        match = DECIMAL_REGEX.match(score)
-        if match:
-            score = match.group(1)
-
-        key_path = self._key_path(key)
-        scores_path = key_path.join('scores')
-        values_path = key_path.join('values')
-        if not key_path.exists():
-            scores_path.makedirs()
-            values_path.makedirs()
-            self.write_type(key, 'zset')
-
-        score_path = scores_path.join(score)
-        value_path = values_path.join(self._get_filename_hash(value))
-        if value_path.exists():
+        db_score = self._ldb.get(KEY_CODEC.encode_zset_value(key, value))
+        if db_score is not None:
             result = 0
-            previous_score = value_path.read()
-            if previous_score == score:
+            previous_score = db_score
+            if float(previous_score) == float(score):
                 return result
             else:
-                previous_score_path = scores_path.join(previous_score)
-                previous_score_path.remove_line(value)
+                self._ldb.delete(KEY_CODEC.encode_zset_score(key, value, previous_score))
         else:
             result = 1
+            zset_length += 1
 
-        value_path.write(score)
-        score_path.append(value)
+        with self._ldb.write_batch() as batch:
+            batch.put(KEY_CODEC.encode_zset(key), bytes(zset_length))
+            batch.put(KEY_CODEC.encode_zset_value(key, value), bytes(score))
+            batch.put(KEY_CODEC.encode_zset_score(key, value, score), bytes(''))
+
         return result
 
-    def write_type(self, key, name):
-        key_path = self._key_path(key)
-        type_path = key_path.join('type')
-        type_path.write(name)
-
     def zrange(self, key, start, stop, with_scores):
-        key_path = self._key_path(key)
-        lines = []
-        if with_scores:
-            n_elems = 2
-        else:
-            n_elems = 1
-        scores_path = key_path.join('scores')
-        if scores_path.exists():
-            scores = sorted(scores_path.listdir(), key=float)
-            for score in scores:
-                sublist = sorted(scores_path.join(score).readlines())
-                for line in sublist:
-                    lines.append(line)
-                    if with_scores:
-                        lines.append(score)
+        result = []
+
+        zset_length = int(self._ldb.get(KEY_CODEC.encode_zset(key), '0'))
         if stop < 0:
-            end = len(lines) + stop * n_elems + n_elems
+            end = zset_length + stop
         else:
-            end = (stop + 1) * n_elems
+            end = stop
 
         if start < 0:
-            begin = max(0, len(lines) + start * n_elems)
+            begin = max(0, zset_length + start)
         else:
-            begin = start * n_elems
+            begin = start
+        for i, (db_key, _) in enumerate(self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key))):
+            if i < begin:
+                continue
+            if i > end:
+                break
+            db_score = KEY_CODEC.decode_zset_score(db_key)
+            db_value = KEY_CODEC.decode_zset_value(db_key)
+            result.append(db_value)
+            if with_scores:
+                result.append(to_float_string(db_score))
 
-        return lines[begin:end]
+        return result
 
     def zcard(self, key):
-        key_path = self._key_path(key)
-        values_path = key_path.join('values')
-        if values_path.exists():
-            return len(values_path.listdir())
-        else:
-            return 0
+        return int(self._ldb.get(KEY_CODEC.encode_zset(key), '0'))
 
     def zscore(self, key, member):
-        key_path = self._key_path(key)
-        value_path = key_path.join('values').join(self._get_filename_hash(member))
-        if value_path.exists():
-            return value_path.read().strip()
+        result = self._ldb.get(KEY_CODEC.encode_zset_value(key, member))
+        if result is None:
+            return result
         else:
-            return None
+            return to_float_string(result)
 
     def eval(self, script, keys, argv):
         return self._lua_runner.run(script, keys, argv)
@@ -221,22 +211,23 @@ class DiskKeyspace(object):
         """
         see zadd() for information about score and value structures
         """
-        key_path = self._key_path(key)
-        scores_path = key_path.join('scores')
-        values_path = key_path.join('values')
         result = 0
-        for member in members:
-            value_path = values_path.join(self._get_filename_hash(member))
-            if not value_path.exists():
-                continue
-            result += 1
-            score = value_path.read().strip()
-            score_path = scores_path.join(score)
-            score_path.remove_line(member)
-            value_path.delete()
+        zset_length = int(self._ldb.get(KEY_CODEC.encode_zset(key), '0'))
+        with self._ldb.write_batch() as batch:
+            for member in members:
+                score = self._ldb.get(KEY_CODEC.encode_zset_value(key, member))
+                if score is None:
+                    continue
+                result += 1
+                zset_length -= 1
+                batch.delete(KEY_CODEC.encode_zset_value(key, member))
+                batch.delete(KEY_CODEC.encode_zset_score(key, member, score))
+
         # empty zset should be removed from keyspace
-        if scores_path.empty_directory():
+        if zset_length == 0:
             self.delete(key)
+        else:
+            self._ldb.put(KEY_CODEC.encode_zset(key), bytes(zset_length))
         return result
 
     def zrangebyscore(self, key, min_score, max_score, withscores=False, offset=0, count=float('+inf')):
@@ -246,59 +237,60 @@ class DiskKeyspace(object):
             num_elems_per_entry = 2
         else:
             num_elems_per_entry = 1
-        key_path = self._key_path(key)
-        scores_path = key_path.join('scores')
-        if scores_path.exists():
-            scores = sorted(scores_path.listdir(), key=float)
-            score_range = ScoreRange(min_score, max_score)
-            scores = [score for score in scores if score_range.check(float(score))]
-            for score in scores:
-                lines = sorted(scores_path.join(score).readlines())
-                for line in lines:
-                    num_elems_read += 1
-                    if len(result) / num_elems_per_entry >= count:
-                        return result
-                    if num_elems_read > offset:
-                        result.append(line)
-                        if withscores:
-                            result.append(str(score))
+
+        score_range = ScoreRange(min_score, max_score)
+        for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
+            db_score = KEY_CODEC.decode_zset_score(db_key)
+            db_value = KEY_CODEC.decode_zset_value(db_key)
+            if score_range.above_max(db_score):
+                break
+            if score_range.check(db_score):
+                num_elems_read += 1
+                if len(result) / num_elems_per_entry >= count:
+                    return result
+                if num_elems_read > offset:
+                    result.append(db_value)
+                    if withscores:
+                        result.append(to_float_string(db_score))
         return result
 
     def zcount(self, key, min_score, max_score):
-        key_path = self._key_path(key)
-        scores_path = key_path.join('scores')
+        # TODO: optimize for performance. it's probably possible to create a new entry only for scores
+        # like:
+        #     <prefix>myzset<score> = number of elements with that score
+        #
+        #     ZADD myzset 10 a
+        #     <prefix>_myzset_10 = 1  ; one element with score 10
+        #
+        #     ZADD myzset 10 b
+        #     <prefix>_myzset_10 = 2  ; two elements with score 10
+
+        score_range = ScoreRange(min_score, max_score)
         count = 0
-        if scores_path.exists():
-            scores = sorted(scores_path.listdir(), key=float)
-            score_range = ScoreRange(min_score, max_score)
-            scores = [score for score in scores if score_range.check(float(score))]
-            for score in scores:
-                count += scores_path.join(score).read_zset_header()
+        for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
+            db_score = KEY_CODEC.decode_zset_score(db_key)
+            if score_range.check(db_score):
+                count += 1
+            if score_range.above_max(db_score):
+                break
         return count
 
     def zrank(self, key, member):
-        key_path = self._key_path(key)
-        value_path = key_path.join('values').join(self._get_filename_hash(member))
-        if value_path.exists():
-            scores_path = key_path.join('scores')
-            scores = sorted(scores_path.listdir(), key=float)
-            member_score = value_path.read().strip()
-            rank = 0
-            for score in scores:
-                score_path = scores_path.join(str(score))
-                lines = score_path.readlines()  # FIXME: move this to be inside the `if` block
-                if score == member_score:
-                    for line in lines:
-                        if line == member:
-                            return rank
-                        else:
-                            rank += 1
-                else:
-                    rank += len(lines)
-
-            return rank
-        else:
+        score = self._ldb.get(KEY_CODEC.encode_zset_value(key, member))
+        if score is None:
             return None
+
+        rank = 0
+        for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
+            db_score = KEY_CODEC.decode_zset_score(db_key)
+            db_value = KEY_CODEC.decode_zset_value(db_key)
+            if db_score < float(score):
+                rank += 1
+            elif db_score == float(score) and db_value < member:
+                rank += 1
+            else:
+                break
+        return rank
 
     def zunionstore(self, destination, keys, weights):
         union = collections.defaultdict(list)
@@ -317,106 +309,101 @@ class DiskKeyspace(object):
         return result
 
     def type(self, key):
-        key_path = self._key_path(key)
-        if key_path.exists():
-            type_path = key_path.join('type')
-            return type_path.read()
-        else:
-            return 'none'
+        if self._ldb.get(KEY_CODEC.encode_string(key)):
+            return 'string'
+        if self._ldb.get(KEY_CODEC.encode_set(key)):
+            return 'set'
+        if self._ldb.get(KEY_CODEC.encode_hash(key)):
+            return 'hash'
+        if self._ldb.get(KEY_CODEC.encode_zset(key)):
+            return 'zset'
+        return 'none'
 
     def keys(self, pattern):
-        return self.directory.listdir(pattern)
+        level_db_keys = set()
+        for key, _ in self._ldb:
+            key_type, _, key_value = KEY_CODEC.decode_key(key)
+            if key_type not in LDB_KEY_TYPES:
+                continue
+            if pattern is None or fnmatch.fnmatch(key_value, pattern):
+                level_db_keys.add(key_value)
+        return level_db_keys
 
     def dbsize(self):
-        return len(self.directory.listdir())
+        return len(self.keys(pattern=None))
 
     def exists(self, *keys):
         result = 0
         for key in keys:
-            key_path = self._key_path(key)
-            if key_path.exists():
+            if self.type(key) != 'none':
                 result += 1
         return result
 
     def hset(self, key, field, value):
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        if not self.exists(key):
-            fields_path.makedirs()
-        field_path = fields_path.join(field)
-        if field_path.exists():
-            result = 0
-        else:
+        result = 0
+        if self._ldb.get(KEY_CODEC.encode_hash_field(key, field)) is None:
             result = 1
-        field_path.write(value)
-        self.write_type(key, 'hash')
+        hash_length = int(self._ldb.get(KEY_CODEC.encode_hash(key), '0'))
+        with self._ldb.write_batch() as batch:
+            batch.put(KEY_CODEC.encode_hash(key), bytes(hash_length + 1))
+            batch.put(KEY_CODEC.encode_hash_field(key, field), value)
         return result
 
     def hsetnx(self, key, field, value):
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        if not self.exists(key):
-            fields_path.makedirs()
-        field_path = fields_path.join(field)
-        result = 0
         # only set if not set before
-        if not field_path.exists():
-            result = 1
-            field_path.write(value)
-        self.write_type(key, 'hash')
-        return result
+        if self._ldb.get(KEY_CODEC.encode_hash_field(key, field)) is None:
+            hash_length = int(self._ldb.get(KEY_CODEC.encode_hash(key), '0'))
+            with self._ldb.write_batch() as batch:
+                batch.put(KEY_CODEC.encode_hash(key), bytes(hash_length + 1))
+                batch.put(KEY_CODEC.encode_hash_field(key, field), value)
+            return 1
+        else:
+            return 0
 
     def hdel(self, key, *fields):
         result = 0
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        for field in fields:
-            field_path = fields_path.join(field)
-            if field_path.exists():
-                field_path.delete()
-                result += 1
-        # remove empty hashes from keyspace
-        if fields_path.empty_directory():
+        hash_length = int(self._ldb.get(KEY_CODEC.encode_hash(key), '0'))
+
+        with self._ldb.write_batch() as batch:
+            for field in fields:
+                if self._ldb.get(KEY_CODEC.encode_hash_field(key, field)) is not None:
+                    result += 1
+                    hash_length -= 1
+                    batch.delete(KEY_CODEC.encode_hash_field(key, field))
+
+        if hash_length == 0:
+            # remove empty hashes from keyspace
             self.delete(key)
+        else:
+            self._ldb.put(KEY_CODEC.encode_hash(key), bytes(hash_length))
         return result
 
     def hget(self, key, field):
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        field_path = fields_path.join(field)
-        if field_path.exists():
-            result = field_path.read()
-        else:
-            result = None
-        return result
+        return self._ldb.get(KEY_CODEC.encode_hash_field(key, field))
 
     def hkeys(self, key):
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        if fields_path.exists():
-            result = fields_path.listdir()
-        else:
-            result = []
+        result = []
+        if self._ldb.get(KEY_CODEC.encode_hash(key)) is not None:
+            for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_hash_field(key)):
+                _, length, field_key = KEY_CODEC.decode_key(db_key)
+                field = field_key[length:]
+                result.append(field)
+
         return result
 
     def hvals(self, key):
         result = []
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        if fields_path.exists():
-            for field in fields_path.listdir():
-                field_path = fields_path.join(field)
-                value = field_path.read()
-                result.append(value)
+        if self._ldb.get(KEY_CODEC.encode_hash(key)) is not None:
+            for db_key, db_value in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_hash_field(key)):
+                result.append(db_value)
         return result
 
     def hlen(self, key):
-        key_path = self._key_path(key)
-        fields_path = key_path.join('fields')
-        result = 0
-        if fields_path.exists():
-            result = len(fields_path.listdir())
-        return result
+        result = self._ldb.get(KEY_CODEC.encode_hash(key))
+        if result is None:
+            return 0
+        else:
+            return int(result)
 
     def hincrby(self, key, field, increment):
         before = self.hget(key, field) or '0'
@@ -433,8 +420,9 @@ class DiskKeyspace(object):
             result.append(v)
         return result
 
-    def _get_filename_hash(self, value):
-        return hashlib.md5(value).hexdigest()
+    @property
+    def _ldb(self):
+        return LEVELDB.get_db(self._current_db)
 
 
 class ScoreRange(object):
@@ -457,3 +445,7 @@ class ScoreRange(object):
             return False
 
         return True
+
+    def above_max(self, value):
+        max_value = self._max_value[1:] if self._max_value.startswith('(') else self._max_value
+        return value > to_float(max_value)

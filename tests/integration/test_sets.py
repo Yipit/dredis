@@ -32,3 +32,4 @@ def test_scard():
     r.sadd('myset', 'myvalue2')
 
     assert r.scard('myset') == 2
+    assert r.scard('notfound') == 0

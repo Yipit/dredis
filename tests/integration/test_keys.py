@@ -27,13 +27,14 @@ def test_keys():
     r.incr('myint')
     r.sadd('myset', 'test')
     r.zadd('myzset', 0, 'test')
+    r.hset('myhash', 'test', 'testvalue')
 
     assert r.keys('myi*') == ['myint']
 
     # order isn't guaranteed
     all_keys = r.keys('*')
-    assert len(all_keys) == 4
-    assert sorted(all_keys) == sorted(['mystr', 'myint', 'myset', 'myzset'])
+    assert len(all_keys) == 5
+    assert sorted(all_keys) == sorted(['mystr', 'myint', 'myset', 'myzset', 'myhash'])
     assert sorted(r.keys('my*set')) == sorted(['myset', 'myzset'])
     assert r.keys('my?et') == ['myset']
 
@@ -41,9 +42,31 @@ def test_keys():
 def test_exists():
     r = fresh_redis()
 
+    assert r.exists('notfound') == 0
+
     r.set('mystr', 'test')
     assert r.exists('mystr') == 1
-    assert r.exists('notfound') == 0
+
+    r.sadd('myset', 'elem1')
+    assert r.exists('myset') == 1
+
+    r.zadd('myzset', 0, 'elem1')
+    assert r.exists('myzset') == 1
+
+    r.hset('myhash', 'testkey', 'testvalue')
+    assert r.exists('myhash') == 1
 
     # redis-py doesn't support multiple args to `r.exists()`
     assert r.execute_command('EXISTS', 'mystr', 'notfound') == 1
+
+
+def test_delete():
+    r = fresh_redis()
+
+    r.set('mystr', 'test')
+    r.sadd('myset', 'elem1')
+    r.zadd('myzset', 0, 'elem1')
+    r.hset('myhash', 'testkey', 'testvalue')
+
+    assert r.delete('mystr', 'myset', 'myzset', 'myhash', 'notfound') == 4
+    assert r.keys('*') == []

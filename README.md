@@ -10,6 +10,8 @@ that can afford slower performance and want unlimited storage, DRedis may be an 
 
 ## Installing
 
+Make sure to install the [LevelDB](https://github.com/google/leveldb) C++ library (`apt-get install libleveldb-dev` or `brew install leveldb`) and then run:
+
 ```shell
 $ pip install dredis
 ```
@@ -86,42 +88,17 @@ HGETALL key                                  | Hashes
 
 ## How is DRedis implemented
 
-DRedis is created on top of the filesystem and relies on hierarchy (directories and files).
-There's a *root directory* to store all keys. Every database is a directory inside of the root directory.
-Every key is a directory inside of the database directory. Every key has a `type` file containing its type name (e.g., string, set, hash, zset).
+Initially DRedis had its own filesystem structure, but then it was converted to use [LevelDB](https://github.com/google/leveldb), which is a lot more reliable and faster.
+Other projects implement similar features to what's available on DRedis, but they aren't what Yipit needed when the project started.
+Some similar projects follow:
 
-Each supported key type has its own directory structure:
-* `String` keys have a `value` file and its content is the value of the key
-* `Set` keys have a `values` directory and each member of the set has a corresponding file (the content is the member value)
-* `Hash` keys have a `fields` directory and each field has a corresponding file (the content is the field value)
-* `Sorted set` key have a `scores` directory and a `values` directory.
-Each file in `scores` represents a score and its content contains all values of that score.
-Each file in `values` represents a value and its content is its score (constant time to access the score).
+* https://github.com/Qihoo360/pika
+* https://github.com/KernelMaker/blackwidow
+* https://github.com/siddontang/ledisdb
+* https://github.com/reborndb/qdb
+* https://github.com/alash3al/redix
+* https://github.com/meitu/titan
 
-After running `SET msg "Hello World"` the root directory will look like this:
-
-```
-$ tree /path/to/root-dir
-├── 0
-│   └── msg
-│       ├── type
-│       └── value
-├── 1
-├── 10
-├── 11
-├── 12
-├── 13
-├── 14
-├── 2
-├── 3
-├── 4
-├── 5
-├── 6
-├── 7
-├── 8
-└── 9
-
-```
 
 ## Lua support
 
@@ -132,19 +109,20 @@ Lua is supported through the [lupa](https://github.com/scoder/lupa) library.
 
 ### Data Consistency
 
-Some commands may have to write to multiple files and if the disk fails in-between those writes, there may be consistency issues.
-This project relies on the filesystem implementation (retry logic, etc). No hard-drive stress tests were performed. 
+We are relying on LevelDB's consistency, no stress tests were performed.
 
 ### Cluster mode & Replication
 
 Replication, key distribution, and cluster mode isn't supported.
-If you want higher availability you can create multiple servers that share or replicates a disk (consistency may suffer when replicating).
+If you want higher availability you can create multiple servers that share or replicate a disk (consistency may suffer when replicating).
 Use DNS routing or a network load balancer to route requests properly.
 
 ### Backups
 
 There are many solutions to back up files. DRedis will have no impact when backups are performed because it's done from the outside (different from Redis, which uses `fork()` to snapshot the data).
 A straightforward approach is to have period backups to an object storage such as Amazon S3.
+
+The commands SAVE or BGSAVE will be supported in the future to guarantee consistency when generating backups.
 
 This project includes a snapshot utility (`dredis-snapshot`) to make it easier to back up data locally or to AWS S3.
 Be aware that there may be consistency issues during the snapshot (`dredis` won't pause during the temporary copy of the data directory).
