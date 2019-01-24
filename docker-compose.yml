@@ -1,0 +1,8 @@
+version: '3'
+services:
+  dredis:
+    build: .
+    ports:
+    - "6377:6377"
+    volumes:
+    - .:/app

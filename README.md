@@ -40,6 +40,14 @@ optional arguments:
   --flushall     run FLUSHALL on startup
 ```
 
+
+If you want to try it with docker locally (port 6377 on the host):
+
+```shell
+$ docker-compose up
+```
+
+
 ## Supported Commands
 
 Command signature                            | Type
