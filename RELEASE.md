@@ -10,4 +10,5 @@
     * changelog entry 2
     ...
     ```
+1. Push the changes to Github (`git push`)
 1. Create a git tag, push it to Github, upload new version to PyPI (`git tag NEW_VERSION && git push --tags && make release`)
