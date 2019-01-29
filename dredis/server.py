@@ -16,6 +16,9 @@ from dredis import db, rdb
 from dredis.commands import run_command, SimpleString
 from dredis.exceptions import DredisError
 from dredis.keyspace import Keyspace, to_float_string
+
+from dredis import state
+
 from dredis.parser import Parser
 from dredis.path import Path
 
@@ -79,7 +82,6 @@ class CommandHandler(asyncore.dispatcher):
     def __init__(self, *args, **kwargs):
         asyncore.dispatcher.__init__(self, *args, **kwargs)
         self._parser = Parser(self.recv)  # contains client message buffer
-        self.keyspace = Keyspace(password=REQUIREPASS)
 
     def handle_read(self):
         try:
@@ -100,6 +102,14 @@ class CommandHandler(asyncore.dispatcher):
     def handle_close(self):
         logger.debug("closing {}".format(self.addr))
         self.close()
+        if self.addr in state.KEYSPACES:
+            del state.KEYSPACES[self.addr]
+
+    @property
+    def keyspace(self):
+        if self.addr not in state.KEYSPACES:
+            state.KEYSPACES[self.addr] = Keyspace(password=REQUIREPASS)
+        return state.KEYSPACES[self.addr]
 
 
 class RedisServer(asyncore.dispatcher):
