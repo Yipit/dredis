@@ -1,3 +1,5 @@
+import pytest
+
 from dredis.parser import Parser
 
 
@@ -51,14 +53,33 @@ def test_multiple_arrays():
     assert list(p.get_instructions()) == [['PING'], ['PING']]
 
 
-def test_parser_should_request_more_data_if_needed():
-    responses = [
-        "*1\r\n$4\r\n",
-        "PING\r\n"
-    ]
+@pytest.mark.parametrize("line", ("*", "*1", "*1\r\n$4\r\n"))
+def test_parser_should_ignore_half_sent_commands(line):
+    def read(bufsize):
+        return line
+
+    p = Parser(read)
+    assert list(p.get_instructions()) == []
+
+
+def test_parser_should_work_with_chunks_sent_separately():
+    responses = ["*1"]
 
     def read(bufsize):
         return responses.pop(0)
 
     p = Parser(read)
-    assert list(p.get_instructions()) == [['PING']]
+
+    with pytest.raises(StopIteration):
+        next(p.get_instructions())
+
+    responses.append("\r\n$4\r")
+    with pytest.raises(StopIteration):
+        next(p.get_instructions())
+
+    responses.append("\nPIN")
+    with pytest.raises(StopIteration):
+        next(p.get_instructions())
+
+    responses.append("G\r\n")
+    assert next(p.get_instructions()) == ['PING']

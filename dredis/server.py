@@ -75,9 +75,12 @@ def transmit(send_fn, result):
 
 class CommandHandler(asyncore.dispatcher):
 
+    def __init__(self, *args, **kwargs):
+        asyncore.dispatcher.__init__(self, *args, **kwargs)
+        self._parser = Parser(self.recv)  # contains client message buffer
+
     def handle_read(self):
-        parser = Parser(self.recv)
-        for cmd in parser.get_instructions():
+        for cmd in self._parser.get_instructions():
             logger.debug('{} data = {}'.format(self.addr, repr(cmd)))
             execute_cmd(self.keyspace, self.debug_send, *cmd)
 

@@ -5,53 +5,53 @@ class Parser(object):
 
     def __init__(self, read_fn):
         self._buffer = ""
+        self._buffer_pos = 0
         self._read_fn = read_fn
 
     def _readline(self):
-        if '\n' not in self._buffer:
-            self._read_into_buffer()
-        crlf_position = self._buffer.find(self.CRLF)
-        result = self._buffer[:crlf_position]
-        self._buffer = self._buffer[crlf_position + len(self.CRLF):]
+        if self.CRLF not in self._buffer[self._buffer_pos:]:
+            raise StopIteration()
+        crlf_position = self._buffer[self._buffer_pos:].find(self.CRLF)
+        result = self._buffer[self._buffer_pos:][:crlf_position]
+        self._buffer_pos += crlf_position + len(self.CRLF)
         return result
 
-    def _read_into_buffer(self, min_bytes=0):
+    def _read_into_buffer(self):
+        # FIXME: implement a maximum size for the buffer to prevent a crash due to bad clients
         data = self._read_fn(self.MAX_BUFSIZE)
         self._buffer += data
-        while data and len(self._buffer) < min_bytes:
-            data = self._read_fn(self.MAX_BUFSIZE)
-            self._buffer += data
 
     def _read(self, n_bytes):
-        if len(self._buffer) < n_bytes:
-            self._read_into_buffer(min_bytes=n_bytes)
-        result = self._buffer[:n_bytes]
-        self._buffer = self._buffer[n_bytes + 2:]
+        if len(self._buffer[self._buffer_pos:]) < n_bytes:
+            raise StopIteration()
+        result = self._buffer[self._buffer_pos:][:n_bytes]
+        # FIXME: ensure self.CRLF is next
+        self._buffer_pos += n_bytes + len(self.CRLF)
         return result
 
     def get_instructions(self):
-        if not self._buffer:
-            self._read_into_buffer()
+        self._read_into_buffer()
         while self._buffer:
+            self._buffer_pos = 0
             instructions = self._readline()
-            if not instructions:
-                raise StopIteration()
-
             # the Redis protocol says that all commands are arrays, however,
             # Redis's own tests have commands like PING being sent as a Simple String
             if instructions.startswith('+'):
+                self._buffer = self._buffer[self._buffer_pos:]
                 yield instructions[1:].strip().split()
-            # if instructions.startswith('*'):
             elif instructions.startswith('*'):
                 # array of instructions
                 array_length = int(instructions[1:])  # skip '*' char
                 instruction_set = []
                 for _ in range(array_length):
-                    str_len = int(self._readline()[1:])  # skip '$' char
+                    line = self._readline()
+                    str_len = int(line[1:])  # skip '$' char
                     instruction = self._read(str_len)
                     instruction_set.append(instruction)
+                self._buffer = self._buffer[self._buffer_pos:]
                 yield instruction_set
             else:
                 # inline instructions, saw them in the Redis tests
-                for line in instructions.split('\r\n'):
+                for line in instructions.split(self.CRLF):
+                    self._buffer = self._buffer[self._buffer_pos:]
                     yield line.strip().split()
