@@ -1,5 +1,6 @@
 import argparse
 import asyncore
+import errno
 import json
 import logging
 import os.path
@@ -75,11 +76,21 @@ def transmit(send_fn, result):
 
 class CommandHandler(asyncore.dispatcher):
 
+    def __init__(self, *args, **kwargs):
+        asyncore.dispatcher.__init__(self, *args, **kwargs)
+        self._parser = Parser(self.recv)  # contains client message buffer
+
     def handle_read(self):
-        parser = Parser(self.recv)
-        for cmd in parser.get_instructions():
-            logger.debug('{} data = {}'.format(self.addr, repr(cmd)))
-            execute_cmd(self.keyspace, self.debug_send, *cmd)
+        try:
+            for cmd in self._parser.get_instructions():
+                logger.debug('{} data = {}'.format(self.addr, repr(cmd)))
+                execute_cmd(self.keyspace, self.debug_send, *cmd)
+        except socket.error as exc:
+            # try again later if no data is available
+            if exc.errno == errno.EAGAIN:
+                return
+            else:
+                raise
 
     def debug_send(self, *args):
         logger.debug("out={}".format(repr(args)))
