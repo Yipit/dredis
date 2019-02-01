@@ -1,3 +1,7 @@
+## 1.0.1
+
+* Improve TCP communication (https://github.com/Yipit/dredis/pull/15)
+
 ## 1.0.0
 
 * Change storage to use LevelDB instead of our own directory structure and file formats (https://github.com/Yipit/dredis/pull/12)
