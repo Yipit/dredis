@@ -1,5 +1,3 @@
-import json
-
 from lupa._lupa import LuaRuntime
 
 from dredis.commands import run_command, SimpleString, CommandNotFound
@@ -64,17 +62,28 @@ class RedisLua(object):
 
 
 class LuaRunner(object):
+
+    _RUNTIME = LuaRuntime(unpack_returned_tuples=True)
+    _FUNCTIONS = {}
+
     def __init__(self, keyspace):
-        self._runtime = LuaRuntime(unpack_returned_tuples=True)
+        self._runtime = self._RUNTIME
         self._lua_table_type = type(self._runtime.table())
         self._redis_obj = RedisLua(keyspace, self._runtime)
 
     def run(self, script, keys, argv):
-        self._runtime.execute('KEYS = {%s}' % ', '.join(map(json.dumps, keys)))
-        self._runtime.execute('ARGV = {%s}' % ', '.join(map(json.dumps, argv)))
-        script_function = self._runtime.eval('function(redis) {} end'.format(script))
-        result = script_function(self._redis_obj)
-        return self._convert_lua_types_to_redis_types(result)
+        script_function = self._get_script_function(script)
+        keys_arg = self._runtime.table(*keys)
+        argv_arg = self._runtime.table(*argv)
+        script_result = script_function(self._redis_obj, keys_arg, argv_arg)
+        return self._convert_lua_types_to_redis_types(script_result)
+
+    def _get_script_function(self, script):
+        code = 'function(redis, KEYS, ARGV) {} end'.format(script)
+        code_hash = hash(code)
+        if code_hash not in self._FUNCTIONS:
+            self._FUNCTIONS[code_hash] = self._runtime.eval(code)
+        return self._FUNCTIONS[code_hash]
 
     def _convert_lua_types_to_redis_types(self, result):
         def convert(value):

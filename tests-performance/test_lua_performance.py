@@ -2,8 +2,8 @@
 The following results should serve as reference
 ------
 
-Results from 2018-10-15 on @htlbra's Macbook (LARGE_NUMBER == 1000):
-Lua EVAL time = 0.14542s
+Results from 2019-02-04 on @htlbra's Macbook (LARGE_NUMBER == 1000):
+Lua EVAL time = 0.12649s
 """
 
 import time
