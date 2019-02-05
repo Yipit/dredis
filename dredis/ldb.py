@@ -1,6 +1,8 @@
 import struct
+from contextlib import contextmanager
 
 import plyvel
+import rocksdb
 
 from dredis.path import Path
 
@@ -83,6 +85,54 @@ class LDBKeyCodec(object):
         return self.get_key(key, LDB_ZSET_VALUE_TYPE)
 
 
+@contextmanager
+def rocksdb_batch(db):
+    batch = rocksdb.WriteBatch()
+    try:
+        yield batch
+    finally:
+        db.write(batch)
+
+
+class RocksDBWrapper(object):
+
+    def __init__(self, path, create_if_missing):
+        self._db = rocksdb.DB(path, rocksdb.Options(create_if_missing=create_if_missing))
+
+    def get(self, key, default=None):
+        result = self._db.get(key)
+        if result is None:
+            return default
+        else:
+            return result
+
+    def put(self, key, value):
+        return self._db.put(key, value)
+
+    def delete(self, key):
+        return self._db.delete(key)
+
+    def write_batch(self):
+        return rocksdb_batch(self._db)
+
+    def iterator(self, start=None, include_start=True):
+        it = self._db.iteritems()
+        if start is None:
+            it.seek_to_first()
+        else:
+            it.seek(start)
+        return it
+
+    def __iter__(self):
+        it = self._db.iteritems()
+        it.seek_to_first()
+        return it
+
+    def close(self):
+        del self._db
+        self._db = None
+
+
 class LevelDB(object):
 
     def setup_dbs(self, root_dir):
@@ -92,7 +142,7 @@ class LevelDB(object):
             self._assign_db(db_id, directory)
 
     def open_db(self, path):
-        return plyvel.DB(bytes(path), create_if_missing=True)
+        return RocksDBWrapper(bytes(path), create_if_missing=True)
 
     def get_db(self, db_id):
         return LDB_DBS[str(db_id)]['db']
