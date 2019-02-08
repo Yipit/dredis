@@ -1,13 +1,12 @@
 import argparse
-import asyncore
-import errno
 import logging
 import os.path
-import socket
 import tempfile
 import traceback
 
 import sys
+
+from twisted.internet import protocol, reactor
 
 from dredis import __version__
 from dredis.commands import run_command, SimpleString, CommandNotFound
@@ -65,61 +64,41 @@ def transmit(send_fn, result):
     send_fn(transform(result))
 
 
-class CommandHandler(asyncore.dispatcher):
+class RedisProtocol(protocol.Protocol):
 
-    def __init__(self, *args, **kwargs):
-        asyncore.dispatcher.__init__(self, *args, **kwargs)
-        self._parser = Parser(self.recv)  # contains client message buffer
+    def __init__(self):
+        self._data = ''
+        self._parser = Parser(self.read_data)  # contains client message buffer
 
-    def handle_read(self):
-        try:
-            for cmd in self._parser.get_instructions():
-                logger.debug('{} data = {}'.format(self.addr, repr(cmd)))
-                execute_cmd(self.keyspace, self.debug_send, *cmd)
-        except socket.error as exc:
-            # try again later if no data is available
-            if exc.errno == errno.EAGAIN:
-                return
-            else:
-                raise
+    def connectionMade(self):
+        protocol.Protocol.connectionMade(self)
+        self.transport.setTcpNoDelay(True)
 
-    def debug_send(self, *args):
-        logger.debug("out={}".format(repr(args)))
-        return self.send(*args)
+    def dataReceived(self, data):
+        self._data = data
+        for cmd in self._parser.get_instructions():
+            logger.debug('{} data = {}'.format(self.transport.client, repr(cmd)))
+            execute_cmd(self.keyspace, self.debug_send, *cmd)
 
-    def handle_close(self):
-        logger.debug("closing {}".format(self.addr))
-        self.close()
-        if self.addr in KEYSPACES:
-            del KEYSPACES[self.addr]
+    def read_data(self, bytes):
+        data = self._data
+        self._data = ''
+        return data
+
+    def debug_send(self, data):
+        logger.debug("out={}".format(repr(data)))
+        return self.transport.write(data)
+
+    def connectionLost(self, *args):
+        logger.debug("closing {}".format(repr(self.transport.client)))
+        if self.transport.client in KEYSPACES:
+            del KEYSPACES[self.transport.client]
 
     @property
     def keyspace(self):
-        if self.addr not in KEYSPACES:
-            KEYSPACES[self.addr] = Keyspace()
-        return KEYSPACES[self.addr]
-
-
-class RedisServer(asyncore.dispatcher):
-
-    def __init__(self, host, port):
-        asyncore.dispatcher.__init__(self)
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.set_reuse_addr()
-        self.bind((host, port))
-        self.listen(1024)
-
-    def handle_accept(self):
-        pair = self.accept()
-        if pair is not None:
-            sock, addr = pair
-            # disable tcp delay (Nagle's algorithm):
-            # https://en.wikipedia.org/wiki/Nagle%27s_algorithm#Interactions_with_real-time_systems
-            # Redis does the same thing, it seems to be a common practice to send data as soon as possible.
-            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-
-            logger.debug('Incoming connection from %s' % repr(addr))
-            CommandHandler(sock)
+        if self.transport.client not in KEYSPACES:
+            KEYSPACES[self.transport.client] = Keyspace()
+        return KEYSPACES[self.transport.client]
 
 
 def setup_logging(level):
@@ -158,7 +137,10 @@ def main():
     if args.flushall:
         keyspace.flushall()
 
-    RedisServer(args.host, args.port)
+    # RedisServer(args.host, args.port)
+    factory = protocol.ServerFactory()
+    factory.protocol = RedisProtocol
+    reactor.listenTCP(args.port, factory)
 
     logger.info("Port: {}".format(args.port))
     logger.info("Root directory: {}".format(ROOT_DIR))
@@ -166,7 +148,7 @@ def main():
     logger.info('Ready to accept connections')
 
     try:
-        asyncore.loop(use_poll=True)
+        reactor.run()
     except KeyboardInterrupt:
         logger.info("Shutting down...")
 
