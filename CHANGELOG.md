@@ -1,3 +1,7 @@
+## 1.0.2
+
+* Set TCP_NODELAY flag to client sockets (https://github.com/Yipit/dredis/pull/16)
+
 ## 1.0.1
 
 * Improve TCP communication (https://github.com/Yipit/dredis/pull/15)
