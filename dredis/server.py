@@ -122,6 +122,11 @@ class RedisServer(asyncore.dispatcher):
         pair = self.accept()
         if pair is not None:
             sock, addr = pair
+            # disable tcp delay (Nagle's algorithm):
+            # https://en.wikipedia.org/wiki/Nagle%27s_algorithm#Interactions_with_real-time_systems
+            # Redis does the same thing, it seems to be a common practice to send data as soon as possible.
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
             logger.debug('Incoming connection from %s' % repr(addr))
             CommandHandler(sock)
 
