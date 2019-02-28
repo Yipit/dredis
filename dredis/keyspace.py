@@ -308,6 +308,19 @@ class Keyspace(object):
             result += self.zadd(destination, str(score), member)
         return result
 
+    def zscan(self, key, cursor, pattern='*', count=float('+inf')):
+        # cursor and count aren't used in ZSCAN (checked Redis 5.0.3)
+        filtered_elems = []
+        zrange_result = self.zrange(key, 0, -1, with_scores=True)
+        values = zrange_result[0::2]
+        scores = zrange_result[1::2]
+        for value, score in zip(values, scores):
+            if fnmatch.fnmatch(value, pattern):
+                filtered_elems.append(value)
+                filtered_elems.append(score)
+        cursor = "0"  # this is always the case in Redis 5.0.3
+        return [cursor, filtered_elems]
+
     def type(self, key):
         if self._ldb.get(KEY_CODEC.encode_string(key)):
             return 'string'

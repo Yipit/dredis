@@ -352,3 +352,58 @@ def test_deleting_a_zset_should_not_impact_other_zsets():
 
     assert r.keys('*') == ['myzset2']
     assert r.zrange('myzset2', 0, 10) == ['test2']
+
+
+def test_zscan():
+    r = fresh_redis()
+    r.zadd('myzset', 1, 'test1', 2, 'test2', 3, 'value3')
+
+    # zscan doesn't care about the value of `cursor`, it always returns
+    # all matching elements (O(n) operation).
+    assert r.zscan('myzset') == (0, [('test1', 1.0), ('test2', 2.0), ('value3', 3.0)])
+    assert r.zscan('myzset', match='test*') == (0, [('test1', 1.0), ('test2', 2.0)])
+    assert r.zscan('myzset', match='val*') == (0, [('value3', 3.0)])
+    assert r.zscan('myzset', match='notfound*') == (0, [])
+
+    # order shouldn't matter
+    assert (
+        r.execute_command('zscan', 'myzset', 0, 'match', '*', 'count', 100) ==
+        r.execute_command('zscan', 'myzset', 0, 'count', 100, 'match', '*')
+    )
+
+
+def test_zscan_syntax_errors():
+    r = fresh_redis()
+
+    # redis has an early return when the key doesn't exist
+    assert r.execute_command('zscan', 'z', 0, 'invalid syntax') == ['0', []]
+
+    r.zadd('z', 0, 'a')
+
+    with pytest.raises(redis.ResponseError) as exc:
+        r.execute_command('zscan', 'z', 0, '100')
+    assert str(exc.value) == "syntax error"
+
+    with pytest.raises(redis.ResponseError) as exc:
+        r.execute_command('zscan', 'z', 0, 'count')
+    assert str(exc.value) == "syntax error"
+
+    with pytest.raises(redis.ResponseError) as exc:
+        r.execute_command('zscan', 'z', 0, 'match')
+    assert str(exc.value) == "syntax error"
+
+    with pytest.raises(redis.ResponseError) as exc:
+        r.execute_command('zscan', 'z', 0, 'notfoundoption')
+    assert str(exc.value) == "syntax error"
+
+    with pytest.raises(redis.ResponseError) as exc:
+        assert r.zscan('z', cursor="a")
+    assert str(exc.value) == "invalid cursor"
+
+    with pytest.raises(redis.ResponseError) as exc:
+        assert r.zscan('z', count="a")
+    assert str(exc.value) == "value is not an integer or out of range"
+
+    with pytest.raises(redis.ResponseError) as exc:
+        assert r.zscan('z', count=-1)
+    assert str(exc.value) == "syntax error"

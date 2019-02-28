@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 REDIS_COMMANDS = {}
 SYNTAXERR = SyntaxError('syntax error')
+EMPTY_SCAN = ["0", []]
 
 
 def _check_arity(expected_arity, passed_arity, cmd_name):
@@ -280,6 +281,41 @@ def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
     members = keyspace.zrangebyscore(
         key, min_score, max_score, withscores=withscores, offset=offset, count=count)
     return members
+
+
+@command('ZSCAN', arity=-2)
+def cmd_zscan(keyspace, key, *args):
+    """
+    ZSCAN key cursor [MATCH pattern] [COUNT count]
+    """
+    if not keyspace.exists(key):
+        return EMPTY_SCAN
+
+    args = list(args)
+    try:
+        cursor = int(args.pop(0))
+    except ValueError:
+        raise SyntaxError("invalid cursor")
+
+    pattern = '*'
+    count = float('+inf')
+
+    while args:
+        arg = args.pop(0)
+        if arg.lower() == 'match' and len(args) >= 1:
+            pattern = args.pop(0)
+        elif arg.lower() == 'count' and len(args) >= 1:
+            try:
+                count = int(args.pop(0))
+            except ValueError:
+                raise SyntaxError("value is not an integer or out of range")
+        else:
+            raise SYNTAXERR
+
+    if count < 1:
+        raise SYNTAXERR
+
+    return keyspace.zscan(key, cursor, pattern, count)
 
 
 def _validate_zset_score(score):
