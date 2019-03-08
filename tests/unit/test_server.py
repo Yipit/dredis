@@ -30,3 +30,7 @@ def test_transform_mixed_array():
 
 def test_transform_nested_array():
     assert transform(['1', 3, ['2']]) == '*3\r\n$1\r\n1\r\n:3\r\n*1\r\n$1\r\n2\r\n'
+
+
+def test_transform_error():
+    assert transform(Exception('test')) == '-ERR test\r\n'

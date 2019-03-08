@@ -1,7 +1,6 @@
 import argparse
 import asyncore
 import errno
-import json
 import logging
 import os.path
 import socket
@@ -24,29 +23,15 @@ KEYSPACES = {}
 ROOT_DIR = None  # defined by `main()`
 
 
-def not_found(send_fn, cmd):
-    err(send_fn, "unknown command '{}'".format(cmd))
-
-
-def err(send_fn, msg):
-    send_fn("-ERR {}\r\n".format(msg))
-
-
-def error(send_fn, msg):
-    send_fn('-{}\r\n'.format(msg))
-
-
 def execute_cmd(keyspace, send_fn, cmd, *args):
     try:
         result = run_command(keyspace, cmd, args)
-    except (ValueError, RedisScriptError) as exc:
-        error(send_fn, str(exc))
-    except CommandNotFound:
-        not_found(send_fn, cmd)
-    except SyntaxError as exc:
-        err(send_fn, str(exc))
+    except (SyntaxError, CommandNotFound, ValueError, RedisScriptError) as exc:
+        transmit(send_fn, exc)
     except Exception:
-        err(send_fn, json.dumps(traceback.format_exc()))
+        # no tests cover this part because it's meant for internal errors,
+        # such as unexpected bugs in dredis.
+        transmit(send_fn, Exception(traceback.format_exc()))
     else:
         transmit(send_fn, result)
 
@@ -67,6 +52,8 @@ def transform(obj):
             result.append('*{}\r\n'.format(len(elem)))
             for element in elem:
                 _transform(element)
+        elif isinstance(elem, Exception):
+            result.append('-ERR {}\r\n'.format(str(elem)))
         else:
             assert False, 'couldnt catch a response for {} (type {})'.format(repr(elem), type(elem))
 
