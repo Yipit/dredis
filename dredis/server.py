@@ -1,7 +1,6 @@
 import argparse
 import asyncore
 import errno
-import json
 import logging
 import os.path
 import socket
@@ -24,54 +23,46 @@ KEYSPACES = {}
 ROOT_DIR = None  # defined by `main()`
 
 
-def not_found(send_fn, cmd):
-    err(send_fn, "unknown command '{}'".format(cmd))
-
-
-def err(send_fn, msg):
-    send_fn("-ERR {}\r\n".format(msg))
-
-
-def error(send_fn, msg):
-    send_fn('-{}\r\n'.format(msg))
-
-
 def execute_cmd(keyspace, send_fn, cmd, *args):
     try:
         result = run_command(keyspace, cmd, args)
-    except (ValueError, RedisScriptError) as exc:
-        error(send_fn, str(exc))
-    except CommandNotFound:
-        not_found(send_fn, cmd)
-    except SyntaxError as exc:
-        err(send_fn, str(exc))
+    except (SyntaxError, CommandNotFound, ValueError, RedisScriptError) as exc:
+        transmit(send_fn, exc)
     except Exception:
-        err(send_fn, json.dumps(traceback.format_exc()))
+        # no tests cover this part because it's meant for internal errors,
+        # such as unexpected bugs in dredis.
+        transmit(send_fn, Exception(traceback.format_exc()))
     else:
         transmit(send_fn, result)
 
 
-def transmit(send_fn, result):
-    to_send = []
+def transform(obj):
+    result = []
 
     def _transform(elem):
         if elem is None:
-            to_send.append('$-1\r\n')
+            result.append('$-1\r\n')
         elif isinstance(elem, int):
-            to_send.append(':{}\r\n'.format(elem))
+            result.append(':{}\r\n'.format(elem))
         elif isinstance(elem, SimpleString):
-            to_send.append('+{}\r\n'.format(elem))
+            result.append('+{}\r\n'.format(elem))
         elif isinstance(elem, basestring):
-            to_send.append('${}\r\n{}\r\n'.format(len(elem), elem))
+            result.append('${}\r\n{}\r\n'.format(len(elem), elem))
         elif isinstance(elem, (set, list, tuple)):
-            to_send.append('*{}\r\n'.format(len(elem)))
+            result.append('*{}\r\n'.format(len(elem)))
             for element in elem:
                 _transform(element)
+        elif isinstance(elem, Exception):
+            result.append('-ERR {}\r\n'.format(str(elem)))
         else:
-            assert False, 'couldnt catch a response for {} (type {})'.format(repr(result), type(result))
+            assert False, 'couldnt catch a response for {} (type {})'.format(repr(elem), type(elem))
 
-    _transform(result)
-    send_fn(''.join(to_send))
+    _transform(obj)
+    return ''.join(result)
+
+
+def transmit(send_fn, result):
+    send_fn(transform(result))
 
 
 class CommandHandler(asyncore.dispatcher):

@@ -377,6 +377,6 @@ def run_command(keyspace, cmd, args):
 
     str_args = map(str, args)
     if cmd.upper() not in REDIS_COMMANDS:
-        raise CommandNotFound()
+        raise CommandNotFound("unknown command '{}'".format(cmd))
     else:
         return REDIS_COMMANDS[cmd.upper()](keyspace, *str_args)
