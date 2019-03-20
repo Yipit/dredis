@@ -95,7 +95,7 @@ class LuaRunner(object):
             """
             if isinstance(value, self._lua_table_type):
                 if 'err' in value:
-                    raise ValueError('ERR Error running script: {}'.format(value['err']))
+                    raise ValueError(value['err'])
                 elif 'ok' in value:
                     return value['ok']
                 else:
@@ -106,6 +106,8 @@ class LuaRunner(object):
                 return 1
             elif value is False:
                 return None
+            elif isinstance(value, float):
+                return int(value)
             else:
                 # assuming string at this point
                 return value
