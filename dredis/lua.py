@@ -2,7 +2,7 @@ import json
 
 from lupa._lupa import LuaRuntime
 
-from dredis.commands import run_command, SimpleString, CommandNotFound
+from dredis.commands import run_command, CommandNotFound
 
 
 class RedisScriptError(Exception):
@@ -46,16 +46,19 @@ class RedisLua(object):
         The implementation can be found at:
         https://github.com/antirez/redis/blob/5b4bec9d336655889641b134791dfdd2adc864cf/src/scripting.c#L106-L201
         """
+
         if isinstance(result, (tuple, list, set)):
             table = self._lua_runtime.table()
             for i, elem in enumerate(result, start=1):
+                print type(elem)
                 table[i] = self._convert_redis_types_to_lua_types(elem)
             return table
         elif result is None:
             return False
         elif result is True:
             return 1
-        elif isinstance(result, SimpleString):
+        # SimpleString was failing isinstance checks for strings, and also did not consider unicode
+        elif isinstance(result, (str, unicode)):
             table = self._lua_runtime.table()
             table["ok"] = result
             return table
