@@ -24,7 +24,7 @@ def test_eval_with_error_pcall():
         k.eval("""return redis.pcall('cmd_not_found')""", [], [])
 
 
-def test_lua_return_types():
+def test_lua_return_redis_types_run():
     k = Keyspace()
     runner = LuaRunner(k)
     lua_script = """return {'test', true, false, 10, 20.3, {4}}"""
@@ -32,7 +32,7 @@ def test_lua_return_types():
     assert runner.run(lua_script, [], []) == ['test', 1, None, 10, 20, [4]]
 
 
-def test_lua_table_return_err():
+def test_lua_table_with_error_run():
     k = Keyspace()
     runner = LuaRunner(k)
     lua_script_err = """return {err='This is a ValueError'}"""
@@ -43,7 +43,7 @@ def test_lua_table_return_err():
     assert str(e.value) == 'This is a ValueError'
 
 
-def test_lua_table_return_ok():
+def test_lua_table_with_ok_run():
     k = Keyspace()
     runner = LuaRunner(k)
 
