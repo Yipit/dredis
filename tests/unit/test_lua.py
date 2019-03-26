@@ -69,8 +69,7 @@ def test_redislua_with_error_call():
     redis_lua = RedisLua(k, lua_runtime)
 
     with pytest.raises(RedisScriptError) as exc:
-        table = redis_lua.call('GET')
-        assert table['err'] == "wrong number of arguments for 'get' command"
+        redis_lua.call('GET')
 
     assert str(exc.value) == "wrong number of arguments for 'get' command"
 
@@ -90,8 +89,7 @@ def test_redislua_with_command_error_call():
     redis_lua = RedisLua(k, lua_runtime)
 
     with pytest.raises(RedisScriptError) as exc:
-        table = redis_lua.call('cmd_not_found')
-        assert table['err'] == '@user_script: Unknown Redis command called from Lua script'
+        redis_lua.call('cmd_not_found')
 
     assert str(exc.value) == '@user_script: Unknown Redis command called from Lua script'
 
