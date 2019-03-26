@@ -50,7 +50,6 @@ class RedisLua(object):
         if isinstance(result, (tuple, list, set)):
             table = self._lua_runtime.table()
             for i, elem in enumerate(result, start=1):
-                print type(elem)
                 table[i] = self._convert_redis_types_to_lua_types(elem)
             return table
         elif result is None:
