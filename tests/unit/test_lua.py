@@ -37,30 +37,32 @@ def test_redislua_return_lua_types_call():
     k = Keyspace()
     lua_runtime = LuaRuntime(unpack_returned_tuples=True)
     redis_lua = RedisLua(k, lua_runtime)
-    lua_script = """return {'test', true, false, 10, 20.3, {'another string'}}"""
+    lua_script = """return {'test', true, false, 10, 20.3, {'another string'}, redis.call('ping')['ok']}"""
     table = redis_lua.call('EVAL', lua_script, 0, [])
 
-    assert table[1]['ok'] == 'test'
+    assert table[1] == 'test'
     assert table[2] == 1
     assert table[3] is False
     assert table[4] == 10
     assert table[5] == 20
-    assert table[6][1]['ok'] == 'another string'
+    assert table[6][1] == 'another string'
+    assert table[7] == 'PONG'
 
 
 def test_redislua_return_lua_types_pcall():
     k = Keyspace()
     lua_runtime = LuaRuntime(unpack_returned_tuples=True)
     redis_lua = RedisLua(k, lua_runtime)
-    lua_script = """return {'test', true, false, 10, 20.3, {'another string'}}"""
+    lua_script = """return {'test', true, false, 10, 20.3, {'another string'}, redis.call('ping')['ok']}"""
     table = redis_lua.pcall('EVAL', lua_script, 0, [])
 
-    assert table[1]['ok'] == 'test'
+    assert table[1] == 'test'
     assert table[2] == 1
     assert table[3] is False
     assert table[4] == 10
     assert table[5] == 20
-    assert table[6][1]['ok'] == 'another string'
+    assert table[6][1] == 'another string'
+    assert table[7] == 'PONG'
 
 
 def test_redislua_with_error_call():
