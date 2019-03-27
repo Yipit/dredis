@@ -37,7 +37,7 @@ def test_redislua_return_lua_types_call():
     k = Keyspace()
     lua_runtime = LuaRuntime(unpack_returned_tuples=True)
     redis_lua = RedisLua(k, lua_runtime)
-    lua_script = """return {'test', true, false, 10, 20.3, {'another string'}, redis.call('ping')['ok']}"""
+    lua_script = """return {'test', true, false, 10, 20.3, {'another string'}, redis.call('ping')}"""
     table = redis_lua.call('EVAL', lua_script, 0, [])
 
     assert table[1] == 'test'
@@ -53,7 +53,7 @@ def test_redislua_return_lua_types_pcall():
     k = Keyspace()
     lua_runtime = LuaRuntime(unpack_returned_tuples=True)
     redis_lua = RedisLua(k, lua_runtime)
-    lua_script = """return {'test', true, false, 10, 20.3, {'another string'}, redis.call('ping')['ok']}"""
+    lua_script = """return {'test', true, false, 10, 20.3, {'another string'}, redis.call('ping')}"""
     table = redis_lua.pcall('EVAL', lua_script, 0, [])
 
     assert table[1] == 'test'
