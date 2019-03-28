@@ -2,7 +2,7 @@ import json
 
 from lupa._lupa import LuaRuntime
 
-from dredis.commands import run_command, SimpleString, CommandNotFound
+from dredis.commands import run_command, CommandNotFound, SimpleString
 
 
 class RedisScriptError(Exception):
@@ -46,6 +46,7 @@ class RedisLua(object):
         The implementation can be found at:
         https://github.com/antirez/redis/blob/5b4bec9d336655889641b134791dfdd2adc864cf/src/scripting.c#L106-L201
         """
+
         if isinstance(result, (tuple, list, set)):
             table = self._lua_runtime.table()
             for i, elem in enumerate(result, start=1):
@@ -95,7 +96,7 @@ class LuaRunner(object):
             """
             if isinstance(value, self._lua_table_type):
                 if 'err' in value:
-                    raise ValueError('ERR Error running script: {}'.format(value['err']))
+                    raise ValueError(value['err'])
                 elif 'ok' in value:
                     return value['ok']
                 else:
@@ -106,6 +107,8 @@ class LuaRunner(object):
                 return 1
             elif value is False:
                 return None
+            elif isinstance(value, float):
+                return int(value)
             else:
                 # assuming string at this point
                 return value
