@@ -140,15 +140,13 @@ class Keyspace(object):
                 batch.delete(db_key)
 
     def _get_ldb_prefix_iterator(self, key_prefix):
-        for db_key, db_value in self._ldb.iterator(start=key_prefix, include_start=True):
-            if db_key.startswith(key_prefix):
-                yield db_key, db_value
-            else:
-                break
+        for db_key, db_value in self._ldb.iterator(prefix=key_prefix):
+            yield db_key, db_value
 
     def zadd(self, key, score, value):
         zset_length = int(self._ldb.get(KEY_CODEC.encode_zset(key), '0'))
 
+        batch = self._ldb.write_batch()
         db_score = self._ldb.get(KEY_CODEC.encode_zset_value(key, value))
         if db_score is not None:
             result = 0
@@ -156,15 +154,15 @@ class Keyspace(object):
             if float(previous_score) == float(score):
                 return result
             else:
-                self._ldb.delete(KEY_CODEC.encode_zset_score(key, value, previous_score))
+                batch.delete(KEY_CODEC.encode_zset_score(key, value, previous_score))
         else:
             result = 1
             zset_length += 1
-
-        with self._ldb.write_batch() as batch:
             batch.put(KEY_CODEC.encode_zset(key), bytes(zset_length))
-            batch.put(KEY_CODEC.encode_zset_value(key, value), bytes(score))
-            batch.put(KEY_CODEC.encode_zset_score(key, value, score), bytes(''))
+
+        batch.put(KEY_CODEC.encode_zset_value(key, value), bytes(score))
+        batch.put(KEY_CODEC.encode_zset_score(key, value, score), bytes(''))
+        batch.write()
 
         return result
 
@@ -213,21 +211,27 @@ class Keyspace(object):
         """
         result = 0
         zset_length = int(self._ldb.get(KEY_CODEC.encode_zset(key), '0'))
-        with self._ldb.write_batch() as batch:
-            for member in members:
-                score = self._ldb.get(KEY_CODEC.encode_zset_value(key, member))
-                if score is None:
-                    continue
-                result += 1
-                zset_length -= 1
-                batch.delete(KEY_CODEC.encode_zset_value(key, member))
-                batch.delete(KEY_CODEC.encode_zset_score(key, member, score))
+
+        # safe guard
+        if zset_length == 0:
+            return result
+
+        batch = self._ldb.write_batch()
+        for member in members:
+            score = self._ldb.get(KEY_CODEC.encode_zset_value(key, member))
+            if score is None:
+                continue
+            result += 1
+            zset_length -= 1
+            batch.delete(KEY_CODEC.encode_zset_value(key, member))
+            batch.delete(KEY_CODEC.encode_zset_score(key, member, score))
 
         # empty zset should be removed from keyspace
         if zset_length == 0:
             self.delete(key)
         else:
-            self._ldb.put(KEY_CODEC.encode_zset(key), bytes(zset_length))
+            batch.put(KEY_CODEC.encode_zset(key), bytes(zset_length))
+            batch.write()
         return result
 
     def zrangebyscore(self, key, min_score, max_score, withscores=False, offset=0, count=float('+inf')):
@@ -239,9 +243,11 @@ class Keyspace(object):
             num_elems_per_entry = 1
 
         score_range = ScoreRange(min_score, max_score)
-        for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
+        #for db_key, _ in self._get_ldb_prefix_iterator(KEY_CODEC.get_min_zset_score(key)):
+        for db_key in self._ldb.iterator(prefix=KEY_CODEC.get_min_zset_score(key), include_value=False):
+            if len(result) / num_elems_per_entry >= count:
+                return result
             db_score = KEY_CODEC.decode_zset_score(db_key)
-            db_value = KEY_CODEC.decode_zset_value(db_key)
             if score_range.above_max(db_score):
                 break
             if score_range.check(db_score):
@@ -249,6 +255,7 @@ class Keyspace(object):
                 if len(result) / num_elems_per_entry >= count:
                     return result
                 if num_elems_read > offset:
+                    db_value = KEY_CODEC.decode_zset_value(db_key)
                     result.append(db_value)
                     if withscores:
                         result.append(to_float_string(db_score))
@@ -364,18 +371,23 @@ class Keyspace(object):
         result = 0
         hash_length = int(self._ldb.get(KEY_CODEC.encode_hash(key), '0'))
 
-        with self._ldb.write_batch() as batch:
-            for field in fields:
-                if self._ldb.get(KEY_CODEC.encode_hash_field(key, field)) is not None:
-                    result += 1
-                    hash_length -= 1
-                    batch.delete(KEY_CODEC.encode_hash_field(key, field))
+        # safe guard
+        if hash_length == 0:
+            return result
+
+        batch = self._ldb.write_batch()
+        for field in fields:
+            if self._ldb.get(KEY_CODEC.encode_hash_field(key, field)) is not None:
+                result += 1
+                hash_length -= 1
+                batch.delete(KEY_CODEC.encode_hash_field(key, field))
 
         if hash_length == 0:
             # remove empty hashes from keyspace
             self.delete(key)
         else:
-            self._ldb.put(KEY_CODEC.encode_hash(key), bytes(hash_length))
+            batch.put(KEY_CODEC.encode_hash(key), bytes(hash_length))
+            batch.write()
         return result
 
     def hget(self, key, field):
