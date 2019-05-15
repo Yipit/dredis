@@ -82,6 +82,87 @@ class LDBKeyCodec(object):
     def get_min_zset_value(self, key):
         return self.get_key(key, LDB_ZSET_VALUE_TYPE)
 
+import lmdb
+
+class LMDBBatch(object):
+    def __init__(self, env):
+        self._env = env
+        self._put = {}
+        self._delete = set()
+
+    def put(self, key, value):
+        self._put[key] = value
+
+    def delete(self, key):
+        try:
+            del self._put[key]
+        except KeyError:
+            pass
+        self._delete.add(key)
+
+    def write(self):
+        with self._env.begin(write=True) as t:
+            for k, v in self._put.items():
+                t.put(k, v)
+            for k in self._delete:
+                t.delete(k)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is None:
+            self.write()
+            return True
+
+
+B = 1
+KB = 1024 * B
+MB = KB * 1024
+GB = MB * 1024
+
+class LMDBWrapper(object):
+    def __init__(self, path):
+        self._env = lmdb.open(path, map_size=100*GB, map_async=True, writemap=True)
+
+    def get(self, key, default=None):
+        with self._env.begin() as t:
+            return t.get(key, default)
+
+    def put(self, key, value):
+        with self._env.begin(write=True) as t:
+            t.put(key, value)
+
+    def delete(self, key):
+        with self._env.begin(write=True) as t:
+            t.delete(key)
+
+    def write_batch(self):
+        return LMDBBatch(self._env)
+
+    def close(self):
+        self._env.close()
+
+    def iterator(self, prefix='', include_value=True):
+        with self._env.begin() as t:
+            c = t.cursor()
+            if not c.set_range(prefix):
+                return
+            for k, v in c:
+                if not k.startswith(prefix):
+                    return
+                if include_value:
+                    yield k, v
+                else:
+                    yield k
+
+    def __iter__(self):
+        with self._env.begin() as t:
+            c = t.cursor()
+            for k, v in c:
+                yield k, v
+
+
 
 class LevelDB(object):
 
@@ -92,7 +173,8 @@ class LevelDB(object):
             self._assign_db(db_id, directory)
 
     def open_db(self, path):
-        return plyvel.DB(bytes(path), create_if_missing=True)
+        return LMDBWrapper(bytes(path))
+        #return plyvel.DB(bytes(path), create_if_missing=True)
 
     def get_db(self, db_id):
         return LDB_DBS[str(db_id)]['db']
