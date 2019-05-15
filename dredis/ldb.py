@@ -19,7 +19,10 @@ LDB_KEY_TYPES = [LDB_STRING_TYPE, LDB_SET_TYPE, LDB_HASH_TYPE, LDB_ZSET_TYPE]
 LDB_KEY_PREFIX_FORMAT = '>BI'
 LDB_KEY_PREFIX_LENGTH = struct.calcsize(LDB_KEY_PREFIX_FORMAT)
 LDB_ZSET_SCORE_FORMAT = '>d'
+LDB_ZSET_SCORE_FORMAT_LENGTH = struct.calcsize(LDB_ZSET_SCORE_FORMAT)
 
+LDB_KEY_PREFIX_STRUCT = struct.Struct(LDB_KEY_PREFIX_FORMAT)
+LDB_ZSET_SCORE_STRUCT = struct.Struct(LDB_ZSET_SCORE_FORMAT)
 
 class LDBKeyCodec(object):
 
@@ -30,7 +33,7 @@ class LDBKeyCodec(object):
     # LevelDB doesn't have column families like RocksDB, so the binary prefixes were created to distinguish object types
 
     def get_key(self, key, type_id):
-        prefix = struct.pack(LDB_KEY_PREFIX_FORMAT, type_id, len(key))
+        prefix = LDB_KEY_PREFIX_STRUCT.pack(type_id, len(key))
         return prefix + bytes(key)
 
     def encode_string(self, key):
@@ -61,20 +64,20 @@ class LDBKeyCodec(object):
         return self.get_key(key, LDB_ZSET_VALUE_TYPE) + bytes(value)
 
     def encode_zset_score(self, key, value, score):
-        return self.get_key(key, LDB_ZSET_SCORE_TYPE) + struct.pack(LDB_ZSET_SCORE_FORMAT, float(score)) + bytes(value)
+        return self.get_key(key, LDB_ZSET_SCORE_TYPE) + LDB_ZSET_SCORE_STRUCT.pack(float(score)) + bytes(value)
 
     def decode_key(self, key):
-        type_id, key_length = struct.unpack(LDB_KEY_PREFIX_FORMAT, key[:LDB_KEY_PREFIX_LENGTH])
+        type_id, key_length = LDB_KEY_PREFIX_STRUCT.unpack(key[:LDB_KEY_PREFIX_LENGTH])
         key_value = key[LDB_KEY_PREFIX_LENGTH:]
         return type_id, key_length, key_value
 
     def decode_zset_score(self, ldb_key):
         _, length, key_name = self.decode_key(ldb_key)
-        return struct.unpack(LDB_ZSET_SCORE_FORMAT, key_name[length:length + struct.calcsize(LDB_ZSET_SCORE_FORMAT)])[0]
+        return LDB_ZSET_SCORE_STRUCT.unpack(key_name[length:length + LDB_ZSET_SCORE_FORMAT_LENGTH])[0]
 
     def decode_zset_value(self, ldb_key):
         _, length, key_name = self.decode_key(ldb_key)
-        return key_name[length + struct.calcsize(LDB_ZSET_SCORE_FORMAT):]
+        return key_name[length + LDB_ZSET_SCORE_FORMAT_LENGTH:]
 
     def get_min_zset_score(self, key):
         return self.get_key(key, LDB_ZSET_SCORE_TYPE)
