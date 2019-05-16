@@ -106,11 +106,11 @@ class LMDBBatch(object):
         self._delete.add(key)
 
     def write(self):
-        with self._env.begin(write=True) as t:
+        with self._env.begin(write=True) as tnx:
             for k, v in self._put.items():
-                t.put(k, v)
+                tnx.put(k, v)
             for k in self._delete:
-                t.delete(k)
+                tnx.delete(k)
 
     def __enter__(self):
         return self
@@ -131,16 +131,16 @@ class LMDBWrapper(object):
         self._env = lmdb.open(path, map_size=100*GB, map_async=True, writemap=True)
 
     def get(self, key, default=None):
-        with self._env.begin() as t:
-            return t.get(key, default)
+        with self._env.begin() as tnx:
+            return tnx.get(key, default)
 
     def put(self, key, value):
-        with self._env.begin(write=True) as t:
-            t.put(key, value)
+        with self._env.begin(write=True) as tnx:
+            tnx.put(key, value)
 
     def delete(self, key):
-        with self._env.begin(write=True) as t:
-            t.delete(key)
+        with self._env.begin(write=True) as tnx:
+            tnx.delete(key)
 
     def write_batch(self):
         return LMDBBatch(self._env)
