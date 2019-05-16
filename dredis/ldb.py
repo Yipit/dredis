@@ -151,7 +151,7 @@ class LMDBWrapper(object):
     def iterator(self, prefix='', include_value=True):
         with self._env.begin() as t:
             c = t.cursor()
-            if not c.set_range(prefix):
+            if prefix and not c.set_range(prefix):
                 return
             for k, v in c:
                 if not k.startswith(prefix):
