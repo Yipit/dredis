@@ -5,26 +5,28 @@ import plyvel
 from dredis.path import Path
 
 LDB_DBS = {}
-LDB_STRING_TYPE = 1
-LDB_SET_TYPE = 2
-LDB_SET_MEMBER_TYPE = 3
-LDB_HASH_TYPE = 4
-LDB_HASH_FIELD_TYPE = 5
-LDB_ZSET_TYPE = 6
-LDB_ZSET_VALUE_TYPE = 7
-LDB_ZSET_SCORE_TYPE = 8
-LDB_KEY_TYPES = [LDB_STRING_TYPE, LDB_SET_TYPE, LDB_HASH_TYPE, LDB_ZSET_TYPE]
 
-# type_id | key_length
-LDB_KEY_PREFIX_FORMAT = '>BI'
-LDB_KEY_PREFIX_LENGTH = struct.calcsize(LDB_KEY_PREFIX_FORMAT)
-LDB_ZSET_SCORE_FORMAT = '>d'
-LDB_ZSET_SCORE_FORMAT_LENGTH = struct.calcsize(LDB_ZSET_SCORE_FORMAT)
 
-LDB_KEY_PREFIX_STRUCT = struct.Struct(LDB_KEY_PREFIX_FORMAT)
-LDB_ZSET_SCORE_STRUCT = struct.Struct(LDB_ZSET_SCORE_FORMAT)
+class KeyCodec(object):
 
-class LDBKeyCodec(object):
+    STRING_TYPE = 1
+    SET_TYPE = 2
+    SET_MEMBER_TYPE = 3
+    HASH_TYPE = 4
+    HASH_FIELD_TYPE = 5
+    ZSET_TYPE = 6
+    ZSET_VALUE_TYPE = 7
+    ZSET_SCORE_TYPE = 8
+    KEY_TYPES = [STRING_TYPE, SET_TYPE, HASH_TYPE, ZSET_TYPE]
+
+    # type_id | key_length
+    KEY_PREFIX_FORMAT = '>BI'
+    KEY_PREFIX_LENGTH = struct.calcsize(KEY_PREFIX_FORMAT)
+    ZSET_SCORE_FORMAT = '>d'
+    ZSET_SCORE_FORMAT_LENGTH = struct.calcsize(ZSET_SCORE_FORMAT)
+
+    KEY_PREFIX_STRUCT = struct.Struct(KEY_PREFIX_FORMAT)
+    ZSET_SCORE_STRUCT = struct.Struct(ZSET_SCORE_FORMAT)
 
     # the key format using <key length + key> was inspired by the `blackwidow` project:
     # https://github.com/KernelMaker/blackwidow/blob/5abe9a3e3f035dd0d81f514e598f29c1db679a28/src/zsets_data_key_format.h#L44-L53
@@ -33,57 +35,57 @@ class LDBKeyCodec(object):
     # LevelDB doesn't have column families like RocksDB, so the binary prefixes were created to distinguish object types
 
     def get_key(self, key, type_id):
-        prefix = LDB_KEY_PREFIX_STRUCT.pack(type_id, len(key))
+        prefix = self.KEY_PREFIX_STRUCT.pack(type_id, len(key))
         return prefix + bytes(key)
 
     def encode_string(self, key):
-        return self.get_key(key, LDB_STRING_TYPE)
+        return self.get_key(key, self.STRING_TYPE)
 
     def encode_set(self, key):
-        return self.get_key(key, LDB_SET_TYPE)
+        return self.get_key(key, self.SET_TYPE)
 
     def encode_set_member(self, key, value):
-        return self.get_key(key, LDB_SET_MEMBER_TYPE) + bytes(value)
+        return self.get_key(key, self.SET_MEMBER_TYPE) + bytes(value)
 
     def get_min_set_member(self, key):
-        return self.get_key(key, LDB_SET_MEMBER_TYPE)
+        return self.get_key(key, self.SET_MEMBER_TYPE)
 
     def encode_hash(self, key):
-        return self.get_key(key, LDB_HASH_TYPE)
+        return self.get_key(key, self.HASH_TYPE)
 
     def encode_hash_field(self, key, field):
-        return self.get_key(key, LDB_HASH_FIELD_TYPE) + bytes(field)
+        return self.get_key(key, self.HASH_FIELD_TYPE) + bytes(field)
 
     def get_min_hash_field(self, key):
-        return self.get_key(key, LDB_HASH_FIELD_TYPE)
+        return self.get_key(key, self.HASH_FIELD_TYPE)
 
     def encode_zset(self, key):
-        return self.get_key(key, LDB_ZSET_TYPE)
+        return self.get_key(key, self.ZSET_TYPE)
 
     def encode_zset_value(self, key, value):
-        return self.get_key(key, LDB_ZSET_VALUE_TYPE) + bytes(value)
+        return self.get_key(key, self.ZSET_VALUE_TYPE) + bytes(value)
 
     def encode_zset_score(self, key, value, score):
-        return self.get_key(key, LDB_ZSET_SCORE_TYPE) + LDB_ZSET_SCORE_STRUCT.pack(float(score)) + bytes(value)
+        return self.get_key(key, self.ZSET_SCORE_TYPE) + self.ZSET_SCORE_STRUCT.pack(float(score)) + bytes(value)
 
     def decode_key(self, key):
-        type_id, key_length = LDB_KEY_PREFIX_STRUCT.unpack(key[:LDB_KEY_PREFIX_LENGTH])
-        key_value = key[LDB_KEY_PREFIX_LENGTH:]
+        type_id, key_length = self.KEY_PREFIX_STRUCT.unpack(key[:self.KEY_PREFIX_LENGTH])
+        key_value = key[self.KEY_PREFIX_LENGTH:]
         return type_id, key_length, key_value
 
     def decode_zset_score(self, ldb_key):
         _, length, key_name = self.decode_key(ldb_key)
-        return LDB_ZSET_SCORE_STRUCT.unpack(key_name[length:length + LDB_ZSET_SCORE_FORMAT_LENGTH])[0]
+        return self.ZSET_SCORE_STRUCT.unpack(key_name[length:length + self.ZSET_SCORE_FORMAT_LENGTH])[0]
 
     def decode_zset_value(self, ldb_key):
         _, length, key_name = self.decode_key(ldb_key)
-        return key_name[length + LDB_ZSET_SCORE_FORMAT_LENGTH:]
+        return key_name[length + self.ZSET_SCORE_FORMAT_LENGTH:]
 
     def get_min_zset_score(self, key):
-        return self.get_key(key, LDB_ZSET_SCORE_TYPE)
+        return self.get_key(key, self.ZSET_SCORE_TYPE)
 
     def get_min_zset_value(self, key):
-        return self.get_key(key, LDB_ZSET_VALUE_TYPE)
+        return self.get_key(key, self.ZSET_VALUE_TYPE)
 
 import lmdb
 
@@ -199,5 +201,5 @@ class LevelDB(object):
         }
 
 
-KEY_CODEC = LDBKeyCodec()
+KEY_CODEC = KeyCodec()
 LEVELDB = LevelDB()

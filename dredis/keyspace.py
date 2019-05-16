@@ -1,7 +1,7 @@
 import collections
 import fnmatch
 
-from dredis.ldb import LEVELDB, LDB_KEY_TYPES, KEY_CODEC
+from dredis.ldb import LEVELDB, KEY_CODEC
 from dredis.lua import LuaRunner
 from dredis.utils import to_float
 
@@ -330,7 +330,7 @@ class Keyspace(object):
         level_db_keys = set()
         for key, _ in self._ldb:
             key_type, _, key_value = KEY_CODEC.decode_key(key)
-            if key_type not in LDB_KEY_TYPES:
+            if key_type not in KEY_CODEC.KEY_TYPES:
                 continue
             if pattern is None or fnmatch.fnmatch(key_value, pattern):
                 level_db_keys.add(key_value)
