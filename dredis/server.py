@@ -12,7 +12,7 @@ import sys
 from dredis import __version__
 from dredis.commands import run_command, SimpleString, CommandNotFound
 from dredis.keyspace import Keyspace
-from dredis.ldb import LEVELDB
+from dredis.db import DB_MANAGER
 from dredis.lua import RedisScriptError
 from dredis.parser import Parser
 from dredis.path import Path
@@ -153,7 +153,7 @@ def main():
     else:
         setup_logging(logging.INFO)
 
-    LEVELDB.setup_dbs(ROOT_DIR)
+    DB_MANAGER.setup_dbs(ROOT_DIR)
     keyspace = Keyspace()
     if args.flushall:
         keyspace.flushall()

@@ -1,10 +1,9 @@
 import struct
 
+import lmdb
 import plyvel
 
 from dredis.path import Path
-
-LDB_DBS = {}
 
 
 class KeyCodec(object):
@@ -87,7 +86,6 @@ class KeyCodec(object):
     def get_min_zset_value(self, key):
         return self.get_key(key, self.ZSET_VALUE_TYPE)
 
-import lmdb
 
 class LMDBBatch(object):
     def __init__(self, env):
@@ -121,14 +119,13 @@ class LMDBBatch(object):
             return True
 
 
-B = 1
-KB = 1024 * B
-MB = KB * 1024
-GB = MB * 1024
+class LMDBBackend(object):
+    """
+    Implement a subset of the interface of plyvel.DB
+    """
 
-class LMDBWrapper(object):
-    def __init__(self, path):
-        self._env = lmdb.open(path, map_size=100*GB, map_async=True, writemap=True)
+    def __init__(self, path, **options):
+        self._env = lmdb.open(path, **options)
 
     def get(self, key, default=None):
         with self._env.begin() as tnx:
@@ -168,8 +165,18 @@ class LMDBWrapper(object):
                 yield k, v
 
 
+def leveldb_factory(path):
+    return plyvel.DB(path, create_if_missing=True)
 
-class LevelDB(object):
+
+def lmdb_factory(path):
+    gb = 2 ** 30
+    return LMDBBackend(path, map_size=100*gb, map_async=True, writemap=True, readahead=False)
+
+
+class DBManager(object):
+
+    _DBS = {}
 
     def setup_dbs(self, root_dir):
         for db_id_ in range(16):
@@ -178,28 +185,27 @@ class LevelDB(object):
             self._assign_db(db_id, directory)
 
     def open_db(self, path):
-        return LMDBWrapper(bytes(path))
-        #return plyvel.DB(bytes(path), create_if_missing=True)
+        return lmdb_factory(bytes(path))
 
     def get_db(self, db_id):
-        return LDB_DBS[str(db_id)]['db']
+        return self._DBS[str(db_id)]['db']
 
     def delete_dbs(self):
-        for db_id in LDB_DBS:
+        for db_id in self._DBS:
             self.delete_db(db_id)
 
     def delete_db(self, db_id):
         db_id = str(db_id)
-        LDB_DBS[db_id]['db'].close()
-        LDB_DBS[db_id]['directory'].reset()
-        self._assign_db(db_id, LDB_DBS[db_id]['directory'])
+        self._DBS[db_id]['db'].close()
+        self._DBS[db_id]['directory'].reset()
+        self._assign_db(db_id, self._DBS[db_id]['directory'])
 
     def _assign_db(self, db_id, directory):
-        LDB_DBS[db_id] = {
+        self._DBS[db_id] = {
             'db': self.open_db(directory),
             'directory': directory,
         }
 
 
 KEY_CODEC = KeyCodec()
-LEVELDB = LevelDB()
+DB_MANAGER = DBManager()
