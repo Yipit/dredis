@@ -165,13 +165,28 @@ class LMDBBackend(object):
                 yield k, v
 
 
-def leveldb_factory(path):
-    return plyvel.DB(path, create_if_missing=True)
+DEFAULT_LMDB_OPTIONS = {
+    'map_size': 1 * 2 ** 30,  # 1GB
+    'map_async': True,
+    'writemap': True,
+    'readahead': False,
+}
+
+DEFAULT_LEVELDB_OPTIONS = {
+    'create_if_missing': True,
+}
 
 
-def lmdb_factory(path):
-    gb = 2 ** 30
-    return LMDBBackend(path, map_size=100*gb, map_async=True, writemap=True, readahead=False)
+def leveldb_factory(path, **custom_options):
+    options = DEFAULT_LEVELDB_OPTIONS.copy()
+    options.update(custom_options)
+    return plyvel.DB(path, **options)
+
+
+def lmdb_factory(path, **custom_options):
+    options = DEFAULT_LMDB_OPTIONS.copy()
+    options.update(custom_options)
+    return LMDBBackend(path, **options)
 
 
 DB_BACKENDS = {
@@ -186,10 +201,11 @@ class DBManager(object):
     def __init__(self):
         self._dbs = {}
         self._db_backend = DEFAULT_DB_BACKEND
+        self._db_backend_options = {}
 
-    def setup_dbs(self, root_dir, backend):
-        if backend:
-            self._db_backend = backend
+    def setup_dbs(self, root_dir, backend, backend_options):
+        self._db_backend = backend
+        self._db_backend_options = backend_options
         for db_id_ in range(16):
             db_id = str(db_id_)
             directory = Path(root_dir).join(db_id)
@@ -197,7 +213,8 @@ class DBManager(object):
 
     def open_db(self, path):
         db_factory = DB_BACKENDS[self._db_backend]
-        return db_factory(bytes(path))
+        options = self._db_backend_options or {}
+        return db_factory(bytes(path), **options)
 
     def get_db(self, db_id):
         return self._dbs[str(db_id)]['db']
