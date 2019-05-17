@@ -124,7 +124,15 @@ class LMDBBackend(object):
     Implement a subset of the interface of plyvel.DB
     """
 
-    def __init__(self, path, **options):
+    def __init__(self, path, **custom_options):
+        default_options = {
+            'map_size': 1 * 2 ** 30,  # 1GB
+            'map_async': True,
+            'writemap': True,
+            'readahead': False,
+        }
+        options = default_options.copy()
+        options.update(custom_options)
         self._env = lmdb.open(path, **options)
 
     def get(self, key, default=None):
@@ -165,33 +173,18 @@ class LMDBBackend(object):
                 yield k, v
 
 
-DEFAULT_LMDB_OPTIONS = {
-    'map_size': 1 * 2 ** 30,  # 1GB
-    'map_async': True,
-    'writemap': True,
-    'readahead': False,
-}
-
-DEFAULT_LEVELDB_OPTIONS = {
-    'create_if_missing': True,
-}
-
-
-def leveldb_factory(path, **custom_options):
-    options = DEFAULT_LEVELDB_OPTIONS.copy()
+def leveldb_backend(path, **custom_options):
+    default_options = {
+        'create_if_missing': True,
+    }
+    options = default_options.copy()
     options.update(custom_options)
     return plyvel.DB(path, **options)
 
 
-def lmdb_factory(path, **custom_options):
-    options = DEFAULT_LMDB_OPTIONS.copy()
-    options.update(custom_options)
-    return LMDBBackend(path, **options)
-
-
 DB_BACKENDS = {
-    'leveldb': leveldb_factory,
-    'lmdb': lmdb_factory
+    'leveldb': leveldb_backend,
+    'lmdb': LMDBBackend,
 }
 DEFAULT_DB_BACKEND = 'lmdb'
 
@@ -213,7 +206,7 @@ class DBManager(object):
 
     def open_db(self, path):
         db_factory = DB_BACKENDS[self._db_backend]
-        options = self._db_backend_options or {}
+        options = self._db_backend_options
         return db_factory(bytes(path), **options)
 
     def get_db(self, db_id):
