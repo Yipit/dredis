@@ -10,9 +10,9 @@ import traceback
 import sys
 
 from dredis import __version__
+from dredis import db
 from dredis.commands import run_command, SimpleString, CommandNotFound
 from dredis.keyspace import Keyspace
-from dredis.db import DB_MANAGER
 from dredis.lua import RedisScriptError
 from dredis.parser import Parser
 from dredis.path import Path
@@ -136,6 +136,8 @@ def main():
     parser.add_argument('--port', default='6377', type=int, help='server port (defaults to %(default)s)')
     parser.add_argument('--dir', default=None,
                         help='directory to save data (defaults to a temporary directory)')
+    parser.add_argument('--backend', default=db.DEFAULT_DB_BACKEND, choices=db.DB_BACKENDS.keys(),
+                        help='key/value database backend (defaults to %(default)s)')
     parser.add_argument('--debug', action='store_true', help='enable debug logs')
     parser.add_argument('--flushall', action='store_true', default=False, help='run FLUSHALL on startup')
     args = parser.parse_args()
@@ -153,13 +155,14 @@ def main():
     else:
         setup_logging(logging.INFO)
 
-    DB_MANAGER.setup_dbs(ROOT_DIR)
+    db.DB_MANAGER.setup_dbs(ROOT_DIR, args.backend)
     keyspace = Keyspace()
     if args.flushall:
         keyspace.flushall()
 
     RedisServer(args.host, args.port)
 
+    logger.info("Backend: {}".format(args.backend))
     logger.info("Port: {}".format(args.port))
     logger.info("Root directory: {}".format(ROOT_DIR))
     logger.info('PID: {}'.format(os.getpid()))

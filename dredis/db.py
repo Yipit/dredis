@@ -174,34 +174,46 @@ def lmdb_factory(path):
     return LMDBBackend(path, map_size=100*gb, map_async=True, writemap=True, readahead=False)
 
 
+DB_BACKENDS = {
+    'leveldb': leveldb_factory,
+    'lmdb': lmdb_factory
+}
+DEFAULT_DB_BACKEND = 'lmdb'
+
+
 class DBManager(object):
 
-    _DBS = {}
+    def __init__(self):
+        self._dbs = {}
+        self._db_backend = DEFAULT_DB_BACKEND
 
-    def setup_dbs(self, root_dir):
+    def setup_dbs(self, root_dir, backend):
+        if backend:
+            self._db_backend = backend
         for db_id_ in range(16):
             db_id = str(db_id_)
             directory = Path(root_dir).join(db_id)
             self._assign_db(db_id, directory)
 
     def open_db(self, path):
-        return lmdb_factory(bytes(path))
+        db_factory = DB_BACKENDS[self._db_backend]
+        return db_factory(bytes(path))
 
     def get_db(self, db_id):
-        return self._DBS[str(db_id)]['db']
+        return self._dbs[str(db_id)]['db']
 
     def delete_dbs(self):
-        for db_id in self._DBS:
+        for db_id in self._dbs:
             self.delete_db(db_id)
 
     def delete_db(self, db_id):
         db_id = str(db_id)
-        self._DBS[db_id]['db'].close()
-        self._DBS[db_id]['directory'].reset()
-        self._assign_db(db_id, self._DBS[db_id]['directory'])
+        self._dbs[db_id]['db'].close()
+        self._dbs[db_id]['directory'].reset()
+        self._assign_db(db_id, self._dbs[db_id]['directory'])
 
     def _assign_db(self, db_id, directory):
-        self._DBS[db_id] = {
+        self._dbs[db_id] = {
             'db': self.open_db(directory),
             'directory': directory,
         }

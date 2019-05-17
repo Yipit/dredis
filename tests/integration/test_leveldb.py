@@ -6,7 +6,7 @@ from dredis.db import DB_MANAGER
 
 def test_delete():
     tempdir = tempfile.mkdtemp(prefix="redis-test-")
-    DB_MANAGER.setup_dbs(tempdir)
+    DB_MANAGER.setup_dbs(tempdir, backend='leveldb')
     keyspace = Keyspace()
 
     keyspace.select('0')
