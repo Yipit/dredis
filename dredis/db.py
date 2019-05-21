@@ -173,6 +173,56 @@ class LMDBBackend(object):
                 yield k, v
 
 
+class MemoryBackend(object):
+    """
+    Implement a subset of the interface of plyvel.DB
+    """
+
+    def __init__(self, path, **custom_options):
+        self._db = {}
+
+    def get(self, key, default=None):
+        return self._db.get(key, default)
+
+    def put(self, key, value):
+        self._db[key] = value
+
+    def delete(self, key):
+        try:
+            del self._db[key]
+        except KeyError:
+            return None
+
+    def write_batch(self):
+        return self
+
+    def write(self):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is None:
+            return True
+
+    def iterator(self, prefix='', include_value=True):
+        for k, v in self:
+            if not k.startswith(prefix):
+                continue
+            if include_value:
+                yield k, v
+            else:
+                yield k
+
+    def close(self):
+        pass
+
+    def __iter__(self):
+        for key in sorted(self._db):
+            yield key, self._db[key]
+
+
 def leveldb_backend(path, **custom_options):
     default_options = {
         'create_if_missing': True,
@@ -185,6 +235,7 @@ def leveldb_backend(path, **custom_options):
 DB_BACKENDS = {
     'leveldb': leveldb_backend,
     'lmdb': LMDBBackend,
+    'memory': MemoryBackend,
 }
 DEFAULT_DB_BACKEND = 'lmdb'
 
