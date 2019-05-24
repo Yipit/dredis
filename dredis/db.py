@@ -130,6 +130,7 @@ class LMDBBackend(object):
             'map_async': True,
             'writemap': True,
             'readahead': False,
+            'metasync': False,
         }
         options = default_options.copy()
         options.update(custom_options)
