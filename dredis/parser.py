@@ -27,7 +27,7 @@ class Parser(object):
         result = self._buffer[self._buffer_pos:][:n_bytes]
         # FIXME: ensure self.CRLF is next
         self._buffer_pos += n_bytes + len(self.CRLF)
-        return str(result)
+        return result
 
     def get_instructions(self):
         self._read_into_buffer()
@@ -38,7 +38,7 @@ class Parser(object):
             # Redis's own tests have commands like PING being sent as a Simple String
             if instructions.startswith('+'):
                 self._buffer = self._buffer[self._buffer_pos:]
-                yield instructions[1:].strip().split()
+                yield str(instructions[1:].strip()).split()
             elif instructions.startswith('*'):
                 # array of instructions
                 array_length = int(instructions[1:])  # skip '*' char
@@ -46,7 +46,7 @@ class Parser(object):
                 for _ in range(array_length):
                     line = self._readline()
                     str_len = int(line[1:])  # skip '$' char
-                    instruction = self._read(str_len)
+                    instruction = str(self._read(str_len))
                     instruction_set.append(instruction)
                 self._buffer = self._buffer[self._buffer_pos:]
                 yield instruction_set
@@ -54,4 +54,4 @@ class Parser(object):
                 # inline instructions, saw them in the Redis tests
                 for line in instructions.split(self.CRLF):
                     self._buffer = self._buffer[self._buffer_pos:]
-                    yield line.strip().split()
+                    yield str(line.strip()).split()
