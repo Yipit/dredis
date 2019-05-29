@@ -16,7 +16,7 @@ REDIS_COMMANDS = {}
 
 
 def _check_arity(expected_arity, passed_arity, cmd_name):
-    syntax_err = DredisSyntaxError("wrong number of arguments for '{}' command".format(cmd_name.lower()))
+    syntax_err = DredisSyntaxError("wrong number of arguments for '%s' command" % cmd_name)
     if expected_arity < 0:  # minimum arity
         if passed_arity < -expected_arity:
             raise syntax_err
@@ -506,8 +506,9 @@ def _validate_scan_params(args, cursor):
     return cursor, count, match
 
 
-def run_command(keyspace, cmd, args):
-    logger.debug('[run_command] cmd={}, args={}'.format(repr(cmd), repr(args)))
+def run_command(keyspace, cmd, args, debug=False):
+    if debug:
+        logger.debug('[run_command] cmd=%r, args=%r' % (cmd, args))
 
     str_args = map(str, args)
     if cmd.upper() not in REDIS_COMMANDS:
