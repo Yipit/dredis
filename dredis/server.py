@@ -23,6 +23,7 @@ from dredis.utils import setup_logging
 logger = logging.getLogger('dredis')
 
 ROOT_DIR = None  # defined by `main()`
+DEBUG = False
 
 
 def execute_cmd(keyspace, send_fn, cmd, *args):
@@ -83,8 +84,11 @@ class CommandHandler(asyncore.dispatcher):
     def handle_read(self):
         try:
             for cmd in self._parser.get_instructions():
-                logger.debug('{} data = {}'.format(self.addr, repr(cmd)))
-                execute_cmd(self.keyspace, self.debug_send, *cmd)
+                if DEBUG:
+                    logger.debug('{} data = {}'.format(self.addr, repr(cmd)))
+                    execute_cmd(self.keyspace, self.debug_send, *cmd)
+                else:
+                    execute_cmd(self.keyspace, self.send, *cmd)
         except socket.error as exc:
             # try again later if no data is available
             if exc.errno == errno.EAGAIN:
@@ -97,7 +101,8 @@ class CommandHandler(asyncore.dispatcher):
         return self.send(*args)
 
     def handle_close(self):
-        logger.debug("closing {}".format(self.addr))
+        if DEBUG:
+            logger.debug("closing {}".format(self.addr))
         self.close()
 
 

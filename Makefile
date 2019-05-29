@@ -48,7 +48,7 @@ setup: clean
 	@pip install -r development.txt --quiet
 	@make build_ext
 
-build_ext:
+build_ext: clean
 	@python setup.py build_ext -i
 
 start-redistestserver:
@@ -80,3 +80,4 @@ clean:
 	rm -rf build/ dist/ dredis.egg-info/
 	find . -name '*.pyc' -delete
 	rm -f dump*.rdb
+	find . -name '*.so' -delete
