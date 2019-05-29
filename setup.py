@@ -3,8 +3,11 @@ from __future__ import unicode_literals
 
 import re
 import os
+
+from Cython.Build import cythonize
+
 import dredis
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
 
 
 def parse_requirements():
@@ -41,6 +44,12 @@ def local_file(f):
 
 install_requires, dependency_links = parse_requirements()
 
+extensions = cythonize([
+    Extension(
+        b"dredis.parser",
+        [b"dredis/parser.pyx"],
+    )
+])
 
 if __name__ == '__main__':
     setup(
@@ -67,4 +76,5 @@ if __name__ == '__main__':
             ]
         },
         zip_safe=False,
+        ext_modules=extensions,
     )

@@ -33,10 +33,10 @@ integration: setup
 lint: setup
 	@flake8 --exclude tests/fixtures .
 
-server:
+server: build_ext
 	python -m dredis.server $(TEST_OPTIONS)
 
-start-testserver:
+start-testserver: build_ext
 	-python -m dredis.server $(TEST_OPTIONS) 2>&1 & echo $$! > $(PID)
 
 stop-testserver:
@@ -46,6 +46,10 @@ stop-testserver:
 
 setup: clean
 	@pip install -r development.txt --quiet
+	@make build_ext
+
+build_ext:
+	@python setup.py build_ext -i
 
 start-redistestserver:
 	-@redis-server $(PORT) 2>&1 & echo $$! > $(REDIS_PID)
@@ -55,7 +59,7 @@ stop-redistestserver:
 	@-kill `cat $(REDIS_PID)` 2> /dev/null
 	@-rm $(REDIS_PID)
 
-redis_server:
+redis_server: build_ext
 	@mkdir -p dredis-data
 	PYTHONPATH=. python -m dredis.server --dir /tmp/dredis-data --port 6379
 
@@ -66,7 +70,7 @@ release:
 test-performance:
 	@py.test -vvvvv -s tests-performance
 
-performance-server:
+performance-server: build_ext
 	python -m cProfile -o $(STATS_FILE) dredis/server.py $(PROFILE_OPTIONS)
 
 performance-stats:

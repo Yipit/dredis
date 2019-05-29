@@ -3,3 +3,4 @@ six
 plyvel
 lmdb
 python-lzf
+cython

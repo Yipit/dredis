@@ -1,35 +1,59 @@
-class Parser(object):
+cdef class Parser(object):
 
-    MAX_BUFSIZE = 1024 * 1024
-    CRLF = '\r\n'
+    cdef bytearray _buffer
+    cdef int _buffer_pos
+    cdef object _read_fn
+    cdef int MAX_BUFSIZE
+    cdef str CRLF
+    cdef int CRLF_LEN
 
-    def __init__(self, read_fn):
+    def __cinit__(self, read_fn):
         self._buffer = bytearray()
         self._buffer_pos = 0
         self._read_fn = read_fn
+        self.MAX_BUFSIZE = 1024 * 1024
+        self.CRLF = '\r\n'
+        self.CRLF_LEN = 2
 
-    def _readline(self):
-        if self.CRLF not in self._buffer[self._buffer_pos:]:
+    cdef bytearray _readline(self):
+        cdef bytearray result
+        cdef bytearray buffer
+        cdef int crlf_position
+
+        buffer = self._buffer[self._buffer_pos:]
+        crlf_position = buffer.find(self.CRLF)
+        if crlf_position == -1:
             raise StopIteration()
-        crlf_position = self._buffer[self._buffer_pos:].find(self.CRLF)
-        result = self._buffer[self._buffer_pos:][:crlf_position]
-        self._buffer_pos += crlf_position + len(self.CRLF)
+        result = buffer[:crlf_position]
+        self._buffer_pos += crlf_position + self.CRLF_LEN
         return result
 
-    def _read_into_buffer(self):
+    cdef void _read_into_buffer(self):
+        cdef bytes data
+
         # FIXME: implement a maximum size for the buffer to prevent a crash due to bad clients
         data = self._read_fn(self.MAX_BUFSIZE)
         self._buffer.extend(data)
 
-    def _read(self, n_bytes):
-        if len(self._buffer[self._buffer_pos:]) < n_bytes:
+    cdef bytearray _read(self, int n_bytes):
+        cdef bytearray result
+        cdef bytearray buffer
+
+        buffer = self._buffer[self._buffer_pos:]
+        if len(buffer) < n_bytes:
             raise StopIteration()
-        result = self._buffer[self._buffer_pos:][:n_bytes]
+        result = buffer[:n_bytes]
         # FIXME: ensure self.CRLF is next
-        self._buffer_pos += n_bytes + len(self.CRLF)
+        self._buffer_pos += n_bytes + self.CRLF_LEN
         return result
 
     def get_instructions(self):
+        cdef bytearray instructions
+        cdef int array_length
+        cdef list instruction_set
+        cdef bytearray line
+        cdef str instruction
+
         self._read_into_buffer()
         while self._buffer:
             self._buffer_pos = 0
