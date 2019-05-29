@@ -510,7 +510,7 @@ def _validate_scan_params(args, cursor):
 
 def run_command(keyspace, cmd, args, debug=False):
     if debug:
-        logger.debug('[run_command] cmd=%r, args=%r' % (cmd, args))
+        logger.debug('[run_command] cmd=%r, args=%r', cmd, args)
 
     str_args = map(str, args)
     if cmd.upper() not in REDIS_COMMANDS:

@@ -85,7 +85,7 @@ class CommandHandler(asyncore.dispatcher):
         try:
             for cmd in self._parser.get_instructions():
                 if DEBUG:
-                    logger.debug('%s data = %r' % (self.addr, repr(cmd)))
+                    logger.debug('%s data = %r', self.addr, repr(cmd))
                     execute_cmd(self.keyspace, self.debug_send, *cmd)
                 else:
                     execute_cmd(self.keyspace, self.send, *cmd)
@@ -97,12 +97,12 @@ class CommandHandler(asyncore.dispatcher):
                 raise
 
     def debug_send(self, *args):
-        logger.debug("out=%r" % (args))
+        logger.debug("out=%r", args)
         return self.send(*args)
 
     def handle_close(self):
         if DEBUG:
-            logger.debug("closing %s" % self.addr)
+            logger.debug("closing %s", self.addr)
         self.close()
 
 
@@ -124,7 +124,7 @@ class RedisServer(asyncore.dispatcher):
             # Redis does the same thing, it seems to be a common practice to send data as soon as possible.
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
-            logger.debug('Incoming connection from %s' % repr(addr))
+            logger.debug('Incoming connection from %r', addr)
             CommandHandler(sock)
 
 
