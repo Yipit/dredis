@@ -38,11 +38,13 @@ def command(cmd_name, arity, flags):
     :return: new decorated function that checks the arity and the write flag
     """
     def decorator(fn):
+        lower_cmd_name = cmd_name.lower()
+
         @wraps(fn)
         def newfn(keyspace, *args, **kwargs):
             # redis includes the command name in the arity, thus adding 1
             passed_arity = 1 + len(args) + len(kwargs)
-            _check_arity(arity, passed_arity, cmd_name)
+            _check_arity(arity, passed_arity, lower_cmd_name)
             return fn(keyspace, *args, **kwargs)
         newfn.arity = arity
         newfn.flags = flags
