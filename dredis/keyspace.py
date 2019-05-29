@@ -16,7 +16,7 @@ RDB_FILENAME_FORMAT = 'dump_%Y-%m-%dT%H:%M:%S.rdb'
 def to_float_string(f):
     # copied from the redis source:
     # https://github.com/antirez/redis/blob/c8391388c221b9255a7b6536c3f43438f36b8e2b/src/networking.c#L500-L524
-    return "{:.17g}".format(float(f))
+    return "%.17g" % float(f)
 
 
 class Cursors(object):

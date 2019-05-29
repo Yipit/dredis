@@ -47,24 +47,24 @@ def transform(obj):
         if elem is None:
             result.append('$-1\r\n')
         elif isinstance(elem, int):
-            result.append(':{}\r\n'.format(elem))
+            result.append(':%s\r\n' % elem)
         elif isinstance(elem, float):
             elem_as_string = to_float_string(elem)
-            result.append('${}\r\n{}\r\n'.format(len(elem_as_string), elem_as_string))
+            result.append('$%d\r\n%s\r\n' % (len(elem_as_string), elem_as_string))
         elif isinstance(elem, SimpleString):
-            result.append('+{}\r\n'.format(elem))
+            result.append('+%s\r\n' % elem)
         elif isinstance(elem, basestring):
-            result.append('${}\r\n{}\r\n'.format(len(elem), elem))
+            result.append('$%d\r\n%s\r\n'% (len(elem), elem))
         elif isinstance(elem, (set, list, tuple)):
-            result.append('*{}\r\n'.format(len(elem)))
+            result.append('*%d\r\n' % len(elem))
             for element in elem:
                 _transform(element)
         elif isinstance(elem, DredisError):
             result.append('-{}\r\n'.format(str(elem)))
         elif isinstance(elem, Exception):
-            result.append('-INTERNALERROR {}\r\n'.format(str(elem)))
+            result.append('-INTERNALERROR %s\r\n' % elem)
         else:
-            assert False, 'couldnt catch a response for {} (type {})'.format(repr(elem), type(elem))
+            assert False, 'couldnt catch a response for %r (type %r)' % (elem, type(elem))
 
     _transform(obj)
     return ''.join(result)
@@ -85,7 +85,7 @@ class CommandHandler(asyncore.dispatcher):
         try:
             for cmd in self._parser.get_instructions():
                 if DEBUG:
-                    logger.debug('{} data = {}'.format(self.addr, repr(cmd)))
+                    logger.debug('%s data = %r' % (self.addr, repr(cmd)))
                     execute_cmd(self.keyspace, self.debug_send, *cmd)
                 else:
                     execute_cmd(self.keyspace, self.send, *cmd)
@@ -97,12 +97,12 @@ class CommandHandler(asyncore.dispatcher):
                 raise
 
     def debug_send(self, *args):
-        logger.debug("out={}".format(repr(args)))
+        logger.debug("out=%r" % (args))
         return self.send(*args)
 
     def handle_close(self):
         if DEBUG:
-            logger.debug("closing {}".format(self.addr))
+            logger.debug("closing %s" % self.addr)
         self.close()
 
 
@@ -184,11 +184,11 @@ def main():
 
     RedisServer(args.host, args.port)
 
-    logger.info("Backend: {}".format(args.backend))
-    logger.info("Port: {}".format(args.port))
-    logger.info("Root directory: {}".format(ROOT_DIR))
-    logger.info('PID: {}'.format(os.getpid()))
-    logger.info('Readonly: {}'.format(config.get('readonly')))
+    logger.info("Backend: %s" % args.backend)
+    logger.info("Port: %s" % args.port)
+    logger.info("Root directory: %s" % ROOT_DIR)
+    logger.info('PID: %s' % os.getpid())
+    logger.info('Readonly: %s' % config.get('readonly'))
     logger.info('Ready to accept connections')
 
     try:

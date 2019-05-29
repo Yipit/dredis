@@ -512,7 +512,7 @@ def run_command(keyspace, cmd, args, debug=False):
 
     str_args = map(str, args)
     if cmd.upper() not in REDIS_COMMANDS:
-        raise CommandNotFound("unknown command '{}'".format(cmd))
+        raise CommandNotFound("unknown command '%s'" % cmd)
     else:
         cmd_fn = REDIS_COMMANDS[cmd.upper()]
         if config.get('requirepass') != config.EMPTY and not keyspace.authenticated and cmd_fn != cmd_auth:

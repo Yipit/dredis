@@ -70,7 +70,7 @@ class LuaRunner(object):
     def run(self, script, keys, argv):
         self._runtime.execute('KEYS = {%s}' % ', '.join(map(json.dumps, keys)))
         self._runtime.execute('ARGV = {%s}' % ', '.join(map(json.dumps, argv)))
-        script_function = self._runtime.eval('function(redis) {} end'.format(script))
+        script_function = self._runtime.eval('function(redis) %s end' % script)
         result = script_function(self._redis_obj)
         return self._convert_lua_types_to_redis_types(result)
 
