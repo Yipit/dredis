@@ -238,7 +238,7 @@ DB_BACKENDS = {
     'lmdb': LMDBBackend,
     'memory': MemoryBackend,
 }
-DEFAULT_DB_BACKEND = 'lmdb'
+DEFAULT_DB_BACKEND = 'leveldb'
 
 
 class DBManager(object):
