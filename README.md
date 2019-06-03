@@ -28,6 +28,7 @@ $ dredis --dir /tmp/dredis-data
 To know about all of the options, use `--help`:
 
 ```shell
+$ dredis --help
 usage: dredis [-h] [-v] [--host HOST] [--port PORT] [--dir DIR]
               [--backend {lmdb,leveldb,memory}]
               [--backend-option BACKEND_OPTION] [--debug] [--flushall]
