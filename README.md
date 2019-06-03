@@ -150,15 +150,26 @@ HGETALL key                                  | Hashes
 ## How is DRedis implemented
 
 Initially DRedis had its own filesystem structure, but then it was converted to use [LevelDB](https://github.com/google/leveldb), which is a lot more reliable and faster (nowadays there's also the LMDB backend).
-Other projects implement similar features to what's available on DRedis, but they aren't what Yipit needed when the project started.
-Some similar projects follow:
 
+Other projects implement similar features to what's available on DRedis, but they aren't what Yipit needed when the project started. Some of them
+rely on multiple threads and compromise on consistency, don't implement Lua scripts, or don't implement sorted sets correctly. We ran the DRedis tests against a few solutions and they failed (which means they're not fully compatible).
+
+Similar projects:
+
+* https://github.com/yinqiwen/ardb
+  * `ardb` seems to be the most similar in scope and a good candidate for contributions or a fork. Their sorted sets implementation has a bug with negative scores. It's a large C++ project with lots of features.
 * https://github.com/Qihoo360/pika
+  * no Lua support. This is a large C++ project and its documentation is in Chinese. The project seems to be stable and is used by large Chinese companies.
 * https://github.com/KernelMaker/blackwidow
+  * a C++ library, not a Redis-like server
 * https://github.com/siddontang/ledisdb
+  * Similar to Redis but different commands
 * https://github.com/reborndb/qdb
+  * No Lua support and no longer maintained
 * https://github.com/alash3al/redix
+  * No Lua and no sorted set support
 * https://github.com/meitu/titan
+  * No Lua support and not enough sorted set support
 
 
 ## Lua support
