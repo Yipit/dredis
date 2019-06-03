@@ -78,11 +78,13 @@ The current default options for LevelDB are:
 ### LMDB
 
 The performance of LMDB can be better than LevelDB and we're considering making it the default backend in the future.
-We use [py-lmdb](https://github.com/dw/py-lmdb/) as the LMDB backend. All available options are parameters of [lmdb.Environment](https://lmdb.readthedocs.io/en/release/#environment-class).
-We recommend that you think ahead and change the `map_size` parameter according to your needs — this is the maximum size of the LMDB database file on disk.
 
 #### Options
 
+We use [py-lmdb](https://github.com/dw/py-lmdb/) as the LMDB backend. All available options are parameters of [lmdb.Environment](https://lmdb.readthedocs.io/en/release/#environment-class).
+We recommend that you think ahead and change the `map_size` parameter according to your needs — this is the maximum size of the LMDB database file on disk.
+
+The current default options for LMDB are:
 * `path`: The same value as the `--dir` option
 * `map_size`: `1073741824` (1GB)
 * `map_async`: `True`
