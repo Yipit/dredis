@@ -198,10 +198,11 @@ The commands SAVE or BGSAVE may be supported in the future.
 
 ## Why Python
 
-Because it's a good language to get things off the ground quickly and @hltbra knows it very well.
-If this becomes a valuable project, other languages will be evaluated — the language of choice won't affect much of the I/O bottleneck, though. 
+Because it's a good language to get things off the ground quickly and everybody at Yipit knows it well.
+If this becomes a valuable project, other languages will be evaluated — the language of choice won't affect much of the I/O bottleneck, but it may bring good performance benefits.
+We're experimenting with [Cython](https://cython.org/) to get better performance without having to rewrite large chunks in C.
 
-Python 3 will be eventually supported, @hltbra didn't want to deal with bytes/str shenanigans when this project started as a proof-of-concept.
+The project will migrate to Python 3 soon.
 
 
 ## Didn't you have better names?
@@ -209,4 +210,4 @@ Python 3 will be eventually supported, @hltbra didn't want to deal with bytes/st
 [@andrewgross](https://github.com/andrewgross) suggested [REDISK](https://twitter.com/awgross/status/1031962830633934849). The name will only matter if this project survives, it's still an experiment.
 Also, [other projects use the name redisk](https://github.com/search?q=redisk&type=Repositories).
 
-[@nadlerjessie](https://github.com/nadlerjessie) is okay with the name dredis but wants it to be pronunced "Doctor Redis". The YipitData engineering team has fun with this pronunciation.
+[@nadlerjessie](https://github.com/nadlerjessie) suggested we pronounce dredis as "Doctor Redis".
