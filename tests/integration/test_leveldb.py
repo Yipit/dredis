@@ -1,12 +1,12 @@
 import tempfile
 
 from dredis.keyspace import Keyspace
-from dredis.ldb import LEVELDB
+from dredis.db import DB_MANAGER
 
 
 def test_delete():
     tempdir = tempfile.mkdtemp(prefix="redis-test-")
-    LEVELDB.setup_dbs(tempdir)
+    DB_MANAGER.setup_dbs(tempdir, backend='leveldb', backend_options={})
     keyspace = Keyspace()
 
     keyspace.select('0')
@@ -17,4 +17,4 @@ def test_delete():
 
     keyspace.delete('mystr', 'myset', 'myzset', 'myhash', 'notfound')
 
-    assert list(LEVELDB.get_db('0').iterator()) == []
+    assert list(DB_MANAGER.get_db('0').iterator()) == []

@@ -16,6 +16,8 @@ Make sure to install the [LevelDB](https://github.com/google/leveldb) C++ librar
 $ pip install dredis
 ```
 
+Note: The LMDB backend doesn't require external dependencies.
+
 ## Running
 
 
@@ -27,25 +29,76 @@ To know about all of the options, use `--help`:
 
 ```shell
 $ dredis --help
-usage: dredis [-h] [-v] [--host HOST] [--port PORT] [--dir DIR] [--debug]
-              [--flushall]
+usage: dredis [-h] [-v] [--host HOST] [--port PORT] [--dir DIR]
+              [--backend {lmdb,leveldb,memory}]
+              [--backend-option BACKEND_OPTION] [--debug] [--flushall]
 
 optional arguments:
-  -h, --help     show this help message and exit
-  -v, --version  show program's version number and exit
-  --host HOST    server host (defaults to 127.0.0.1)
-  --port PORT    server port (defaults to 6377)
-  --dir DIR      directory to save data (defaults to a temporary directory)
-  --debug        enable debug logs
-  --flushall     run FLUSHALL on startup
+  -h, --help            show this help message and exit
+  -v, --version         show program's version number and exit
+  --host HOST           server host (defaults to 127.0.0.1)
+  --port PORT           server port (defaults to 6377)
+  --dir DIR             directory to save data (defaults to a temporary
+                        directory)
+  --backend {lmdb,leveldb,memory}
+                        key/value database backend (defaults to leveldb)
+  --backend-option BACKEND_OPTION
+                        database backend options (e.g., --backend-option
+                        map_size=BYTES)
+  --debug               enable debug logs
+  --flushall            run FLUSHALL on startup
 ```
 
 
-If you want to try it with docker locally (port 6377 on the host):
+Running dredis with Docker locally (port 6377 on the host):
 
 ```shell
 $ docker-compose up
 ```
+
+
+
+## Backends
+
+There's support for LevelDB, LMDB, and an experimental memory backend.
+All backend options should be passed in the command line as `--backend-option NAME1=value1 --backend-option NAME2=value2` (the values must be JSON-compatible).
+
+### LevelDB
+LevelDB is the easiest persistent backend because it doesn't require any option tweaking to get it to work reliably.
+
+#### Options
+
+We use [plyvel](https://github.com/wbolster/plyvel) as the LevelDB backend. All available options are parameters of [plyvel.DB](https://plyvel.readthedocs.io/en/latest/api.html#DB).
+
+The current default options for LevelDB are:
+* `name`: The same value as the `--dir` option
+* `create_if_missing`: `True`
+
+
+### LMDB
+
+The performance of LMDB can be better than LevelDB and we're considering making it the default backend in the future.
+
+#### Options
+
+We use [py-lmdb](https://github.com/dw/py-lmdb/) as the LMDB backend. All available options are parameters of [lmdb.Environment](https://lmdb.readthedocs.io/en/release/#environment-class).
+We recommend that you think ahead and change the `map_size` parameter according to your needs — this is the maximum size of the LMDB database file on disk.
+
+The current default options for LMDB are:
+* `path`: The same value as the `--dir` option
+* `map_size`: `1073741824` (1GB)
+* `map_async`: `True`
+* `writemap`: `True`
+* `readahead`: `False`
+* `metasync`: `False`
+
+### Memory
+
+This is experimental and doesn't persist to disk. It was created to have a baseline to compare persistent backends.
+
+
+#### Options
+None.
 
 
 ## Supported Commands
@@ -91,12 +144,12 @@ HLEN key                                     | Hashes
 HINCRBY key field increment                  | Hashes
 HGETALL key                                  | Hashes
 
-\* `COMMAND`'s reply is incompatible at the moment, it returns a flat array with command names (their arity, flags, positions, or step count are not returned). 
+\* `COMMAND`'s reply is incompatible at the moment, it returns a flat array with command names (their arity, flags, positions, or step count are not returned).
 
 
 ## How is DRedis implemented
 
-Initially DRedis had its own filesystem structure, but then it was converted to use [LevelDB](https://github.com/google/leveldb), which is a lot more reliable and faster.
+Initially DRedis had its own filesystem structure, but then it was converted to use [LevelDB](https://github.com/google/leveldb), which is a lot more reliable and faster (nowadays there's also the LMDB backend).
 Other projects implement similar features to what's available on DRedis, but they aren't what Yipit needed when the project started.
 Some similar projects follow:
 
@@ -117,7 +170,7 @@ Lua is supported through the [lupa](https://github.com/scoder/lupa) library.
 
 ### Data Consistency
 
-We are relying on LevelDB's consistency, no stress tests were performed.
+We rely on the backends' consistency properties and we use batches/transactions to stay consistent. Tweaking the backend options may impair consistency (e.g., `sync=false` for LMDB).
 
 ### Cluster mode & Replication
 
@@ -128,13 +181,9 @@ Use DNS routing or a network load balancer to route requests properly.
 ### Backups
 
 There are many solutions to back up files. DRedis will have no impact when backups are performed because it's done from the outside (different from Redis, which uses `fork()` to snapshot the data).
-A straightforward approach is to have period backups to an object storage such as Amazon S3.
+A straightforward approach is to have periodic backups to an object storage such as Amazon S3 orr use a block storage solution and perform periodic backups (e.g., AWS EBS).
 
-The commands SAVE or BGSAVE will be supported in the future to guarantee consistency when generating backups.
-
-This project includes a snapshot utility (`dredis-snapshot`) to make it easier to back up data locally or to AWS S3.
-Be aware that there may be consistency issues during the snapshot (`dredis` won't pause during the temporary copy of the data directory).
-
+The commands SAVE or BGSAVE may be supported in the future.
 
 ## Why Python
 
