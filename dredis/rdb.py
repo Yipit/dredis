@@ -89,12 +89,18 @@ def save_len(len):
 
 
 def save_double(number):
+    """
+    :return: big endian encoded float. 255 represents -inf, 244 +inf, 253 NaN
+
+    This function is based on rdbSaveDoubleValue() from rdb.c
+    """
     number = float(number)
     if number == float('-inf'):
         return struct.pack('>B', 255)
     elif number == float('+inf'):
         return struct.pack('>B', 254)
-    #TODO: elif number == float('nan'):
+    elif number == float('nan'):
+        return struct.pack('>B', 253)
     else:
         string = '%.17g' % float(number)
         return struct.pack('>B', len(string)) + string
