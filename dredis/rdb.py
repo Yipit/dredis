@@ -10,6 +10,12 @@ This module is based on the following Redis files:
 import struct
 
 RDB_TYPE_STRING = 0
+RDB_TYPE_HASH = 4
+
+RDB_TYPES = {
+    'string': RDB_TYPE_STRING,
+    'hash': RDB_TYPE_HASH,
+}
 
 RDB_6BITLEN = 0
 RDB_14BITLEN = 1
@@ -19,19 +25,36 @@ RDB_VERSION = 7
 
 
 def object_type(type_name):
-    # FIXME: only works with strings at the moment
-    return struct.pack('<b', RDB_TYPE_STRING)
+    """
+    :return little endian encoded type
+    """
+    return struct.pack('<B', RDB_TYPES[type_name])
 
 
 def object_value(keyspace, key, key_type):
-    # FIXME: only works with strings at the moment
-    key_value = keyspace.get(key)
-    return save_len(len(key_value)) + key_value
+    if key_type == 'string':
+        string = keyspace.get(key)
+        return save_raw_string(string)
+    elif key_type == 'hash':
+        keys_and_values = keyspace.hgetall(key)
+        length = len(keys_and_values) / 2
+        result = save_len(length)
+        while keys_and_values:
+            hash_key = keys_and_values.pop(0)
+            hash_value = keys_and_values.pop(0)
+            result += save_raw_string(hash_key)
+            result += save_raw_string(hash_value)
+        return result
+    raise ValueError("Can't convert %r" % key_type)
+
+
+def save_raw_string(string):
+    return save_len(len(string)) + string
 
 
 def save_len(len):
     """
-    :return big endian encoded value
+    :return big endian encoded length
 
     Original: https://github.com/antirez/redis/blob/3.2.6/src/rdb.c
 
@@ -45,4 +68,7 @@ def save_len(len):
 
 
 def get_rdb_version():
+    """
+    :return little endian encoded 2-byte RDB version
+    """
     return struct.pack('<BB', RDB_VERSION & 0xff, (RDB_VERSION >> 8) & 0xff)
