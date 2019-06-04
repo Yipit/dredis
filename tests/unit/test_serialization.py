@@ -60,3 +60,11 @@ def test_serialize_sorted_set():
 
     for value in values:
         assert value in object_value
+
+
+def test_serialize_set():
+    k = Keyspace()
+    k.sadd('set', 'a')
+    k.sadd('set', 'b')
+
+    assert k.dump('set') == b'\x02\x02\x01a\x01b\x07\x00\x01V\xf4\xd6\xe3\xc9\xe8\x17'

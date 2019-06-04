@@ -10,11 +10,13 @@ This module is based on the following Redis files:
 import struct
 
 RDB_TYPE_STRING = 0
+RDB_TYPE_SET = 2
 RDB_TYPE_ZSET = 3
 RDB_TYPE_HASH = 4
 
 RDB_TYPES = {
     'string': RDB_TYPE_STRING,
+    'set': RDB_TYPE_SET,
     'hash': RDB_TYPE_HASH,
     'zset': RDB_TYPE_ZSET,
 }
@@ -37,6 +39,13 @@ def object_value(keyspace, key, key_type):
     if key_type == 'string':
         string = keyspace.get(key)
         return save_raw_string(string)
+    elif key_type == 'set':
+        members = keyspace.smembers(key)
+        length = len(members)
+        result = save_len(length)
+        for member in members:
+            result += save_raw_string(member)
+        return result
     elif key_type == 'hash':
         keys_and_values = keyspace.hgetall(key)
         length = len(keys_and_values) / 2
