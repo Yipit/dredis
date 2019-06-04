@@ -104,6 +104,11 @@ def cmd_exists(keyspace, *keys):
     return keyspace.exists(*keys)
 
 
+@command('DUMP', arity=2)
+def cmd_dump(keyspace, key):
+    return keyspace.dump(key)
+
+
 """
 ***********************
 * Connection commands *

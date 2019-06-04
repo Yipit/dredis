@@ -70,3 +70,10 @@ def test_delete():
 
     assert r.delete('mystr', 'myset', 'myzset', 'myhash', 'notfound') == 4
     assert r.keys('*') == []
+
+
+def test_dump():
+    r = fresh_redis()
+
+    r.set('str', 'test')
+    assert r.dump('str') == b'\x00\x04test\x07\x00~\xa2zSd;e_'
