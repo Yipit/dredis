@@ -30,7 +30,7 @@ RDB_VERSION = 7
 
 def object_type(type_name):
     """
-    :return little endian encoded type
+    :return: little endian encoded type
     """
     return struct.pack('<B', RDB_TYPES[type_name])
 
@@ -75,7 +75,7 @@ def save_raw_string(string):
 
 def save_len(len):
     """
-    :return big endian encoded length
+    :return: big endian encoded length
 
     Original: https://github.com/antirez/redis/blob/3.2.6/src/rdb.c
 
@@ -108,6 +108,6 @@ def save_double(number):
 
 def get_rdb_version():
     """
-    :return little endian encoded 2-byte RDB version
+    :return: little endian encoded 2-byte RDB version
     """
     return struct.pack('<BB', RDB_VERSION & 0xff, (RDB_VERSION >> 8) & 0xff)
