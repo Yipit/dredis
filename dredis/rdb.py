@@ -10,11 +10,13 @@ This module is based on the following Redis files:
 import struct
 
 RDB_TYPE_STRING = 0
+RDB_TYPE_ZSET = 3
 RDB_TYPE_HASH = 4
 
 RDB_TYPES = {
     'string': RDB_TYPE_STRING,
     'hash': RDB_TYPE_HASH,
+    'zset': RDB_TYPE_ZSET,
 }
 
 RDB_6BITLEN = 0
@@ -45,6 +47,16 @@ def object_value(keyspace, key, key_type):
             result += save_raw_string(hash_key)
             result += save_raw_string(hash_value)
         return result
+    elif key_type == 'zset':
+        values_and_scores = keyspace.zrange(key, 0, -1, with_scores=True)
+        length = len(values_and_scores) / 2
+        result = save_len(length)
+        while values_and_scores:
+            value = values_and_scores.pop(0)
+            score = values_and_scores.pop(0)
+            result += save_raw_string(value)
+            result += save_double(score)
+        return result
     raise ValueError("Can't convert %r" % key_type)
 
 
@@ -65,6 +77,18 @@ def save_len(len):
         return struct.pack('>BB', ((len >> 8) & 0xFF) | (RDB_14BITLEN << 6), len & 0xFF)
     else:
         return struct.pack('>BL', (RDB_32BITLEN << 6), len)
+
+
+def save_double(number):
+    number = float(number)
+    if number == float('-inf'):
+        return struct.pack('>B', 255)
+    elif number == float('+inf'):
+        return struct.pack('>B', 254)
+    #TODO: elif number == float('nan'):
+    else:
+        string = '%.17g' % float(number)
+        return struct.pack('>B', len(string)) + string
 
 
 def get_rdb_version():
