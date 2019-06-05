@@ -21,3 +21,13 @@ def test_dump_and_restore_fuzzy_strings(keyspace):
         keyspace.restore(key2, 0, keyspace.dump(key1), replace=True)
         assert keyspace.get(key1) == fuzzy_value
         assert keyspace.get(key2) == keyspace.get(key1)
+
+
+def test_dump_and_restore_fuzzy_sets(keyspace):
+    key1 = 'test1'
+    key2 = 'test2'
+    for fuzzy_value in FUZZY_DATA:
+        keyspace.sadd(key1, fuzzy_value)
+    keyspace.restore(key2, 0, keyspace.dump(key1), replace=True)
+    assert keyspace.smembers(key1) == set(FUZZY_DATA)
+    assert keyspace.smembers(key2) == keyspace.smembers(key1)

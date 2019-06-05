@@ -450,8 +450,12 @@ class Keyspace(object):
             raise KeyError('BUSYKEY Target key name already exists')
         rdb.verify_payload(payload)
         obj = rdb.load_object(payload)
-        # FIXME: only strings supported at the moment
-        self.set(key, obj)
+        if isinstance(obj, basestring):
+            self.set(key, obj)
+        elif isinstance(obj, set):
+            for member in obj:
+                self.sadd(key, member)
+
 
 class ScoreRange(object):
 

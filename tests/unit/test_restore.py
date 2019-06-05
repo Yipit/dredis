@@ -61,3 +61,14 @@ def test_should_be_able_to_restore_strings(keyspace):
     keyspace.restore('test2', 0, payload, replace=False)
 
     assert keyspace.get('test2') == 'testvalue'
+
+
+def test_should_be_able_to_restore_sets(keyspace):
+    keyspace.sadd('set1', 'member1')
+    keyspace.sadd('set1', 'member2')
+    keyspace.sadd('set1', 'member3')
+    payload = keyspace.dump('set1')
+
+    keyspace.restore('set2', 0, payload, replace=False)
+
+    assert keyspace.smembers('set2') == {'member1', 'member2', 'member3'}

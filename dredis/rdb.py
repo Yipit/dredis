@@ -156,11 +156,24 @@ def load_object(payload):
 
     if obj_type == RDB_TYPE_STRING:
         return load_string_object(data[1:])
+    elif obj_type == RDB_TYPE_SET:
+        return load_set_object(data[1:])
 
 
 def load_string_object(data):
     length, data = load_len(data)
-    return data[:length]
+    result = data[:length]
+    return result
+
+
+def load_set_object(data):
+    length, data = load_len(data)
+    result = set()
+    for _ in range(length):
+        elem_length, data = load_len(data)
+        elem, data = data[:elem_length], data[elem_length:]
+        result.add(elem)
+    return result
 
 
 def generate_payload(keyspace, key, key_type):
