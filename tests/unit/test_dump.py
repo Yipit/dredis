@@ -1,12 +1,12 @@
 from dredis.keyspace import Keyspace
 
 
-def test_serialize_not_found_key():
+def test_dump_not_found_key():
     k = Keyspace()
     assert k.dump('notfound') is None
 
 
-def test_serialize_string():
+def test_dump_string():
     # dredis serializes strings verbatim,
     # it doesn't encode int strings differently than raw strings,
     # and doesn't use LZF compresssion
@@ -25,7 +25,7 @@ def test_serialize_string():
     assert k.dump('str3') == b'\x00\x80\x00\x00@\x00' + str3 + b'\x07\x00\xe9\x9e\x16)r\x8c\xac\x87'
 
 
-def test_serialize_hash():
+def test_dump_hash():
     k = Keyspace()
     k.hset('hash', 'field1', 'value1')
     k.hset('hash', 'field2', 'value2')
@@ -34,7 +34,7 @@ def test_serialize_hash():
     assert k.dump('hash') == '\x04\x02\x06field1\x06value1\x06field2\x06value2\x07\x00\xbf\xe3\xa8l\x05l\xbd\xf1'
 
 
-def test_serialize_sorted_set():
+def test_dump_sorted_set():
     k = Keyspace()
     k.zadd('zset', float('-inf'), 'value1')
     k.zadd('zset', -1, 'value2')
@@ -62,7 +62,7 @@ def test_serialize_sorted_set():
         assert value in object_value
 
 
-def test_serialize_set():
+def test_dump_set():
     k = Keyspace()
     k.sadd('set', 'a')
     k.sadd('set', 'b')
