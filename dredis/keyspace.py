@@ -316,13 +316,13 @@ class Keyspace(object):
         return result
 
     def type(self, key):
-        if self._db.get(KEY_CODEC.encode_string(key)):
+        if self._db.get(KEY_CODEC.encode_string(key)) is not None:
             return 'string'
-        if self._db.get(KEY_CODEC.encode_set(key)):
+        if self._db.get(KEY_CODEC.encode_set(key)) is not None:
             return 'set'
-        if self._db.get(KEY_CODEC.encode_hash(key)):
+        if self._db.get(KEY_CODEC.encode_hash(key)) is not None:
             return 'hash'
-        if self._db.get(KEY_CODEC.encode_zset(key)):
+        if self._db.get(KEY_CODEC.encode_zset(key)) is not None:
             return 'zset'
         return 'none'
 

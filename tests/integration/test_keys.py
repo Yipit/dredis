@@ -4,6 +4,7 @@ from tests.helpers import fresh_redis
 def test_types():
     r = fresh_redis()
 
+    r.set('emptystr', '')
     r.set('mystr', 'test')
     r.incr('myint')
     r.sadd('myset', 'test')
@@ -11,6 +12,7 @@ def test_types():
     r.hset('myhash1', 'field', 'value')
     r.hsetnx('myhash2', 'field', 'value')
 
+    assert r.type('emptystr') == 'string'
     assert r.type('mystr') == 'string'
     assert r.type('myint') == 'string'
     assert r.type('myset') == 'set'
