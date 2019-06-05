@@ -449,6 +449,24 @@ class Keyspace(object):
             checksum = crc64.checksum(payload)
             return payload + checksum
 
+    def restore(self, key, ttl, payload, replace):
+        # TODO: there's no TTL support at the moment
+        object_type = self.type(key)
+        if object_type != 'none' and not replace:
+            raise KeyError('BUSYKEY Target key name already exists')
+        bad_payload = ValueError('DUMP payload version or checksum are wrong')
+        if len(payload) < 10:
+            raise bad_payload
+        data, footer = payload[:-10], payload[-10:]
+        rdb_version, crc = footer[:2], footer[2:]
+        if rdb_version != rdb.get_rdb_version():
+            raise bad_payload
+        if crc64.checksum(data + rdb_version) != crc:
+            raise bad_payload
+        obj = rdb.load_object(data)
+        # FIXME: only strings supported at the moment
+        self.set(key, obj)
+
 
 class ScoreRange(object):
 

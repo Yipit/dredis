@@ -27,6 +27,8 @@ RDB_32BITLEN = 2
 
 RDB_VERSION = 7
 
+BAD_DATA_FORMAT_ERR = ValueError("Bad data format")
+
 
 def object_type(type_name):
     """
@@ -88,6 +90,35 @@ def save_len(len):
         return struct.pack('>BL', (RDB_32BITLEN << 6), len)
 
 
+def load_len(data):
+    """
+    :param data: str
+    :return: (int, str). the length of the string and the data after the string
+
+    Based on rdbLoadLen() in rdb.c
+    """
+
+    def get_byte(index):
+        return struct.unpack('>B', data[index])[0]
+
+    def get_long(start, end):
+        return struct.unpack('>L', data[start:end])[0]
+
+    len_type = (get_byte(0) & 0xC0) >> 6
+    if len_type == RDB_6BITLEN:
+        length = get_byte(0) & 0x3F
+        new_data = data[1:]
+    elif len_type == RDB_14BITLEN:
+        length = ((get_byte(0) & 0x3F) << 8) | get_byte(1)
+        new_data = data[2:]
+    elif len_type == RDB_32BITLEN:
+        length = get_long(0, 4)
+        new_data = data[4:]
+    else:
+        raise BAD_DATA_FORMAT_ERR
+    return length, new_data
+
+
 def save_double(number):
     """
     :return: big endian encoded float. 255 represents -inf, 244 +inf, 253 NaN
@@ -111,3 +142,19 @@ def get_rdb_version():
     :return: little endian encoded 2-byte RDB version
     """
     return struct.pack('<BB', RDB_VERSION & 0xff, (RDB_VERSION >> 8) & 0xff)
+
+
+def load_object(data):
+    if not data:
+        raise BAD_DATA_FORMAT_ERR
+    obj_type = struct.unpack('<B', data[0])[0]
+    if obj_type not in RDB_TYPES.values():
+        raise BAD_DATA_FORMAT_ERR
+
+    if obj_type == RDB_TYPE_STRING:
+        return load_string_object(data[1:])
+
+
+def load_string_object(data):
+    length, data = load_len(data)
+    return data[:length]
