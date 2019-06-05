@@ -9,6 +9,8 @@ This module is based on the following Redis files:
 
 import struct
 
+from dredis import crc64
+
 RDB_TYPE_STRING = 0
 RDB_TYPE_SET = 2
 RDB_TYPE_ZSET = 3
@@ -144,7 +146,8 @@ def get_rdb_version():
     return struct.pack('<BB', RDB_VERSION & 0xff, (RDB_VERSION >> 8) & 0xff)
 
 
-def load_object(data):
+def load_object(payload):
+    data = payload[:-10]  # ignore the RDB header (2 bytes) and the CRC64 checksum (8 bytes)
     if not data:
         raise BAD_DATA_FORMAT_ERR
     obj_type = struct.unpack('<B', data[0])[0]
@@ -158,3 +161,25 @@ def load_object(data):
 def load_string_object(data):
     length, data = load_len(data)
     return data[:length]
+
+
+def generate_payload(keyspace, key, key_type):
+    payload = (
+        object_type(key_type) +
+        object_value(keyspace, key, key_type) +
+        get_rdb_version()
+    )
+    checksum = crc64.checksum(payload)
+    return payload + checksum
+
+
+def verify_payload(payload):
+    bad_payload = ValueError('DUMP payload version or checksum are wrong')
+    if len(payload) < 10:
+        raise bad_payload
+    data, footer = payload[:-10], payload[-10:]
+    rdb_version, crc = footer[:2], footer[2:]
+    if rdb_version != get_rdb_version():
+        raise bad_payload
+    if crc64.checksum(data + rdb_version) != crc:
+        raise bad_payload

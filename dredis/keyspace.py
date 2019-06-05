@@ -1,7 +1,7 @@
 import collections
 import fnmatch
 
-from dredis import crc64, rdb
+from dredis import rdb
 from dredis.db import DB_MANAGER, KEY_CODEC
 from dredis.lua import LuaRunner
 from dredis.utils import to_float
@@ -441,32 +441,17 @@ class Keyspace(object):
         if key_type == 'none':
             return None
         else:
-            payload = (
-                rdb.object_type(key_type) +
-                rdb.object_value(self, key, key_type) +
-                rdb.get_rdb_version()
-            )
-            checksum = crc64.checksum(payload)
-            return payload + checksum
+            return rdb.generate_payload(self, key, key_type)
 
     def restore(self, key, ttl, payload, replace):
         # TODO: there's no TTL support at the moment
         object_type = self.type(key)
         if object_type != 'none' and not replace:
             raise KeyError('BUSYKEY Target key name already exists')
-        bad_payload = ValueError('DUMP payload version or checksum are wrong')
-        if len(payload) < 10:
-            raise bad_payload
-        data, footer = payload[:-10], payload[-10:]
-        rdb_version, crc = footer[:2], footer[2:]
-        if rdb_version != rdb.get_rdb_version():
-            raise bad_payload
-        if crc64.checksum(data + rdb_version) != crc:
-            raise bad_payload
-        obj = rdb.load_object(data)
+        rdb.verify_payload(payload)
+        obj = rdb.load_object(payload)
         # FIXME: only strings supported at the moment
         self.set(key, obj)
-
 
 class ScoreRange(object):
 
