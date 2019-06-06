@@ -111,4 +111,3 @@ def test_restore_with_valid_params():
     with pytest.raises(redis.ResponseError) as exc:
         r.execute_command('RESTORE', 'str1', '0', 'payload', 'repl')
     assert str(exc.value) == "syntax error"
-
