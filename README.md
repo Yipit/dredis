@@ -188,7 +188,7 @@ We rely on the backends' consistency properties and we use batches/transactions 
 
 ### Cluster mode & Replication
 
-Replication, key distribution, and cluster mode isn't supported.
+Replication, key distribution, and cluster mode are not supported.
 If you want higher availability you can create multiple servers that share or replicate a disk (consistency may suffer when replicating).
 Use DNS routing or a network load balancer to route requests properly.
 
