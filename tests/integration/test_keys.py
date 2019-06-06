@@ -1,3 +1,6 @@
+import pytest
+import redis
+
 from tests.helpers import fresh_redis
 
 
@@ -79,3 +82,33 @@ def test_dump():
 
     r.set('str', 'test')
     assert r.dump('str') == b'\x00\x04test\x07\x00~\xa2zSd;e_'
+
+
+def test_restore():
+    r = fresh_redis()
+
+    r.set('str1', 'test')
+    payload = r.dump('str1')
+    r.set('str1', 'test2')
+    r.restore('str1', 0, payload, replace=True)
+    r.restore('str2', 0, payload, replace=False)
+
+    assert r.get('str1') == 'test'
+    assert r.get('str2') == 'test'
+
+
+def test_restore_with_valid_params():
+    r = fresh_redis()
+
+    with pytest.raises(redis.ResponseError) as exc:
+        r.execute_command('RESTORE', 'str1')
+    assert str(exc.value) == "wrong number of arguments for 'restore' command"
+
+    with pytest.raises(redis.ResponseError) as exc:
+        r.execute_command('RESTORE', 'str1', 'a')
+    assert str(exc.value) == "wrong number of arguments for 'restore' command"
+
+    with pytest.raises(redis.ResponseError) as exc:
+        r.execute_command('RESTORE', 'str1', '0', 'payload', 'repl')
+    assert str(exc.value) == "syntax error"
+

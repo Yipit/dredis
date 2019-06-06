@@ -139,6 +139,21 @@ def save_double(number):
         return struct.pack('>B', len(string)) + string
 
 
+def load_double(data):
+    length = struct.unpack('>B', data[0])[0]
+    new_data = data[1:]
+    if length == 255:
+        result = float('-inf')
+    elif length == 254:
+        result = float('+inf')
+    elif length == 253:
+        result = float('nan')
+    else:
+        result = float(new_data[:length])
+        new_data = new_data[length:]
+    return result, new_data
+
+
 def get_rdb_version():
     """
     :return: little endian encoded 2-byte RDB version
@@ -158,6 +173,8 @@ def load_object(payload):
         return load_string_object(data[1:])
     elif obj_type == RDB_TYPE_SET:
         return load_set_object(data[1:])
+    elif obj_type == RDB_TYPE_ZSET:
+        return load_zset_object(data[1:])
 
 
 def load_string_object(data):
@@ -173,6 +190,17 @@ def load_set_object(data):
         elem_length, data = load_len(data)
         elem, data = data[:elem_length], data[elem_length:]
         result.add(elem)
+    return result
+
+
+def load_zset_object(data):
+    length, data = load_len(data)
+    result = []
+    for _ in range(length):
+        value_length, data = load_len(data)
+        value, data = data[:value_length], data[value_length:]
+        score, data = load_double(data)
+        result.append((value, score))
     return result
 
 

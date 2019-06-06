@@ -109,6 +109,18 @@ def cmd_dump(keyspace, key):
     return keyspace.dump(key)
 
 
+@command('RESTORE', arity=-4)
+def cmd_dump(keyspace, key, ttl, payload, *args):
+    replace = False
+    if args:
+        if len(args) == 1 and args[0].lower() == 'replace':
+            replace = True
+        else:
+            raise SYNTAXERR
+    keyspace.restore(key, ttl, payload, replace)
+    return SimpleString('OK')
+
+
 """
 ***********************
 * Connection commands *
