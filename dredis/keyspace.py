@@ -447,8 +447,11 @@ class Keyspace(object):
     def restore(self, key, ttl, payload, replace):
         # TODO: there's no TTL support at the moment
         object_type = self.type(key)
-        if object_type != 'none' and not replace:
-            raise KeyError('BUSYKEY Target key name already exists')
+        if object_type != 'none':
+            if replace:
+                self.delete(key)
+            else:
+                raise KeyError('BUSYKEY Target key name already exists')
         rdb.verify_payload(payload)
         obj = rdb.load_object(payload)
         if isinstance(obj, basestring):

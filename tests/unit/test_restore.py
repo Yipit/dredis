@@ -107,3 +107,15 @@ def test_should_be_able_to_restore_hashes(keyspace):
     keyspace.restore('hash2', 0, payload, replace=False)
 
     assert keyspace.hgetall('hash2') == ['field1', 'value1', 'field2', 'value2', 'field3', 'value3']
+
+
+def test_restore_should_remove_key_before_adding_new_values(keyspace):
+    keyspace.hset('hash', 'field1', 'value1')
+    keyspace.hset('hash', 'field2', 'value2')
+    payload = keyspace.dump('hash')
+
+    # added after the dump
+    keyspace.hset('hash', 'field3', 'value3')
+
+    keyspace.restore('hash', 0, payload, replace=True)
+    assert keyspace.hgetall('hash') == ['field1', 'value1', 'field2', 'value2']
