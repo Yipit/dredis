@@ -233,7 +233,7 @@ def verify_payload(payload):
         raise bad_payload
     data, footer = payload[:-10], payload[-10:]
     rdb_version, crc = footer[:2], footer[2:]
-    if rdb_version != get_rdb_version():
+    if rdb_version > get_rdb_version():
         raise bad_payload
     if crc64.checksum(data + rdb_version) != crc:
         raise bad_payload
