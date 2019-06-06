@@ -110,7 +110,7 @@ def cmd_dump(keyspace, key):
 
 
 @command('RESTORE', arity=-4)
-def cmd_dump(keyspace, key, ttl, payload, *args):
+def cmd_restore(keyspace, key, ttl, payload, *args):
     replace = False
     if args:
         if len(args) == 1 and args[0].lower() == 'replace':
