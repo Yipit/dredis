@@ -114,8 +114,8 @@ def load_len(data):
         length = ((get_byte(0) & 0x3F) << 8) | get_byte(1)
         new_data = data[2:]
     elif len_type == RDB_32BITLEN:
-        length = get_long(0, 4)
-        new_data = data[4:]
+        length = get_long(1, 5)
+        new_data = data[5:]
     else:
         raise BAD_DATA_FORMAT_ERR
     return length, new_data
