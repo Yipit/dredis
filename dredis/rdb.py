@@ -187,7 +187,7 @@ def load_string_object(data):
 def load_set_object(data):
     length, data = load_len(data)
     result = set()
-    for _ in range(length):
+    for _ in xrange(length):
         elem_length, data = load_len(data)
         elem, data = data[:elem_length], data[elem_length:]
         result.add(elem)
@@ -197,7 +197,7 @@ def load_set_object(data):
 def load_zset_object(data):
     length, data = load_len(data)
     result = []
-    for _ in range(length):
+    for _ in xrange(length):
         value_length, data = load_len(data)
         value, data = data[:value_length], data[value_length:]
         score, data = load_double(data)
@@ -208,7 +208,7 @@ def load_zset_object(data):
 def load_hash_object(data):
     length, data = load_len(data)
     result = {}
-    for _ in range(length):
+    for _ in xrange(length):
         key_length, data = load_len(data)
         key, data = data[:key_length], data[key_length:]
         value_length, data = load_len(data)
