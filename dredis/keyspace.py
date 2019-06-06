@@ -161,7 +161,7 @@ class Keyspace(object):
             zset_length += 1
             batch.put(KEY_CODEC.encode_zset(key), bytes(zset_length))
 
-        batch.put(KEY_CODEC.encode_zset_value(key, value), bytes(score))
+        batch.put(KEY_CODEC.encode_zset_value(key, value), to_float_string(score))
         batch.put(KEY_CODEC.encode_zset_score(key, value, score), bytes(''))
         batch.write()
 
@@ -455,6 +455,9 @@ class Keyspace(object):
         elif isinstance(obj, set):
             for member in obj:
                 self.sadd(key, member)
+        elif isinstance(obj, list):
+            for value, score in obj:
+                self.zadd(key, score, value)
 
 
 class ScoreRange(object):
