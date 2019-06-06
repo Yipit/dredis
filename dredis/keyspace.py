@@ -458,6 +458,11 @@ class Keyspace(object):
         elif isinstance(obj, list):
             for value, score in obj:
                 self.zadd(key, score, value)
+        elif isinstance(obj, dict):
+            for field, value in obj.items():
+                self.hset(key, field, value)
+        else:
+            raise ValueError("Can't restore %r" % obj)
 
 
 class ScoreRange(object):

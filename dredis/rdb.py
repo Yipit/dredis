@@ -166,15 +166,16 @@ def load_object(payload):
     if not data:
         raise BAD_DATA_FORMAT_ERR
     obj_type = struct.unpack('<B', data[0])[0]
-    if obj_type not in RDB_TYPES.values():
-        raise BAD_DATA_FORMAT_ERR
-
     if obj_type == RDB_TYPE_STRING:
         return load_string_object(data[1:])
     elif obj_type == RDB_TYPE_SET:
         return load_set_object(data[1:])
     elif obj_type == RDB_TYPE_ZSET:
         return load_zset_object(data[1:])
+    elif obj_type == RDB_TYPE_HASH:
+        return load_hash_object(data[1:])
+    else:
+        raise BAD_DATA_FORMAT_ERR
 
 
 def load_string_object(data):
@@ -201,6 +202,18 @@ def load_zset_object(data):
         value, data = data[:value_length], data[value_length:]
         score, data = load_double(data)
         result.append((value, score))
+    return result
+
+
+def load_hash_object(data):
+    length, data = load_len(data)
+    result = {}
+    for _ in range(length):
+        key_length, data = load_len(data)
+        key, data = data[:key_length], data[key_length:]
+        value_length, data = load_len(data)
+        value, data = data[:value_length], data[value_length:]
+        result[key] = value
     return result
 
 

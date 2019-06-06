@@ -96,3 +96,14 @@ def test_should_be_able_to_restore_sorted_sets(keyspace):
         flat_pairs_dict[flat_pairs[i]] = to_float_string(flat_pairs[i + 1])
     zrange = keyspace.zrange('zset2', 0, -1, with_scores=True)
     assert dict(zip(zrange[::2], zrange[1::2])) == flat_pairs_dict
+
+
+def test_should_be_able_to_restore_hashes(keyspace):
+    keyspace.hset('hash1', 'field1', 'value1')
+    keyspace.hset('hash1', 'field2', 'value2')
+    keyspace.hset('hash1', 'field3', 'value3')
+    payload = keyspace.dump('hash1')
+
+    keyspace.restore('hash2', 0, payload, replace=False)
+
+    assert keyspace.hgetall('hash2') == ['field1', 'value1', 'field2', 'value2', 'field3', 'value3']
