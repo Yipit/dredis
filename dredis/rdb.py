@@ -92,7 +92,7 @@ def save_len(len):
         return struct.pack('>BL', (RDB_32BITLEN << 6), len)
 
 
-def load_len(data):
+def load_len(data, index):
     """
     :param data: str
     :return: (int, str). the length of the string and the data after the string
@@ -100,25 +100,25 @@ def load_len(data):
     Based on rdbLoadLen() in rdb.c
     """
 
-    def get_byte(index):
-        return struct.unpack('>B', data[index])[0]
+    def get_byte(i):
+        return struct.unpack('>B', data[index + i])[0]
 
     def get_long(start, end):
-        return struct.unpack('>L', data[start:end])[0]
+        return struct.unpack('>L', data[index + start:index + end])[0]
 
     len_type = (get_byte(0) & 0xC0) >> 6
     if len_type == RDB_6BITLEN:
         length = get_byte(0) & 0x3F
-        new_data = data[1:]
+        index += 1
     elif len_type == RDB_14BITLEN:
         length = ((get_byte(0) & 0x3F) << 8) | get_byte(1)
-        new_data = data[2:]
+        index += 2
     elif len_type == RDB_32BITLEN:
         length = get_long(1, 5)
-        new_data = data[5:]
+        index += 5
     else:
         raise BAD_DATA_FORMAT_ERR
-    return length, new_data
+    return length, index
 
 
 def save_double(number):
@@ -139,9 +139,9 @@ def save_double(number):
         return struct.pack('>B', len(string)) + string
 
 
-def load_double(data):
-    length = struct.unpack('>B', data[0])[0]
-    new_data = data[1:]
+def load_double(data, index):
+    length = struct.unpack('>B', data[index])[0]
+    index += 1
     if length == 255:
         result = float('-inf')
     elif length == 254:
@@ -149,9 +149,9 @@ def load_double(data):
     elif length == 253:
         result = float('nan')
     else:
-        result = float(new_data[:length])
-        new_data = new_data[length:]
-    return result, new_data
+        result = float(data[index:index + length])
+        index += length
+    return result, index
 
 
 def get_rdb_version():
@@ -179,41 +179,49 @@ def load_object(payload):
 
 
 def load_string_object(data):
-    length, data = load_len(data)
-    result = data[:length]
+    index = 0
+    length, index = load_len(data, index)
+    result = data[index:index + length]
     return result
 
 
 def load_set_object(data):
-    length, data = load_len(data)
+    index = 0
+    length, index = load_len(data, index)
     result = set()
     for _ in xrange(length):
-        elem_length, data = load_len(data)
-        elem, data = data[:elem_length], data[elem_length:]
-        result.add(elem)
+        elem_length, index = load_len(data, index)
+        elem = data[index:index + elem_length]
+        index += elem_length
+        result.add(str(elem))
     return result
 
 
 def load_zset_object(data):
-    length, data = load_len(data)
+    index = 0
+    length, index = load_len(data, index)
     result = []
     for _ in xrange(length):
-        value_length, data = load_len(data)
-        value, data = data[:value_length], data[value_length:]
-        score, data = load_double(data)
+        value_length, index = load_len(data, index)
+        value = data[index:index + value_length]
+        index += value_length
+        score, index = load_double(data, index)
         result.append((value, score))
     return result
 
 
 def load_hash_object(data):
-    length, data = load_len(data)
+    index = 0
+    length, index = load_len(data, index)
     result = {}
     for _ in xrange(length):
-        key_length, data = load_len(data)
-        key, data = data[:key_length], data[key_length:]
-        value_length, data = load_len(data)
-        value, data = data[:value_length], data[value_length:]
-        result[key] = value
+        key_length, index = load_len(data, index)
+        key = data[index:index + key_length]
+        index += key_length
+        value_length, index = load_len(data, index)
+        value = data[index:index + value_length]
+        index += value_length
+        result[str(key)] = value
     return result
 
 
