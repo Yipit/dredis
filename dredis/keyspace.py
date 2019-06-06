@@ -1,6 +1,7 @@
 import collections
 import fnmatch
 
+from dredis import crc64, rdb
 from dredis.db import DB_MANAGER, KEY_CODEC
 from dredis.lua import LuaRunner
 from dredis.utils import to_float
@@ -434,6 +435,19 @@ class Keyspace(object):
     @property
     def _db(self):
         return DB_MANAGER.get_db(self._current_db)
+
+    def dump(self, key):
+        key_type = self.type(key)
+        if key_type == 'none':
+            return None
+        else:
+            payload = (
+                rdb.object_type(key_type) +
+                rdb.object_value(self, key, key_type) +
+                rdb.get_rdb_version()
+            )
+            checksum = crc64.checksum(payload)
+            return payload + checksum
 
 
 class ScoreRange(object):

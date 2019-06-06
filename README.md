@@ -113,6 +113,7 @@ DEL key [key ...]                            | Keys
 TYPE key                                     | Keys
 KEYS pattern                                 | Keys
 EXISTS key [key ...]                         | Keys
+DUMP key                                     | Keys
 PING [msg]                                   | Connection
 SELECT db                                    | Connection
 SET key value                                | Strings
