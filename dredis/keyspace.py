@@ -406,7 +406,7 @@ class Keyspace(object):
     def hvals(self, key):
         result = []
         if self._db.get(KEY_CODEC.encode_hash(key)) is not None:
-            for db_key, db_value in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key)):
+            for _, db_value in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key)):
                 result.append(db_value)
         return result
 
@@ -424,12 +424,13 @@ class Keyspace(object):
         return new_value
 
     def hgetall(self, key):
-        keys = self.hkeys(key)
-        values = self.hvals(key)
         result = []
-        for (k, v) in zip(keys, values):
-            result.append(k)
-            result.append(v)
+        if self._db.get(KEY_CODEC.encode_hash(key)) is not None:
+            for db_key, db_value in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key)):
+                _, length, field_key = KEY_CODEC.decode_key(db_key)
+                field = field_key[length:]
+                result.append(field)
+                result.append(db_value)
         return result
 
     @property
