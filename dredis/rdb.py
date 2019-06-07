@@ -161,19 +161,23 @@ def get_rdb_version():
     return struct.pack('<BB', RDB_VERSION & 0xff, (RDB_VERSION >> 8) & 0xff)
 
 
-def load_object(payload):
+def load_object(keyspace, key, payload):
     data = payload[:-10]  # ignore the RDB header (2 bytes) and the CRC64 checksum (8 bytes)
     if not data:
         raise BAD_DATA_FORMAT_ERR
     obj_type = struct.unpack('<B', data[0])[0]
     if obj_type == RDB_TYPE_STRING:
-        return load_string_object(data[1:])
+        obj = load_string_object(data[1:])
+        keyspace.set(key, obj)
     elif obj_type == RDB_TYPE_SET:
-        return load_set_object(data[1:])
+        for member in load_set_object(data[1:]):
+            keyspace.sadd(key, member)
     elif obj_type == RDB_TYPE_ZSET:
-        return load_zset_object(data[1:])
+        for value, score in load_zset_object(data[1:]):
+            keyspace.zadd(key, score, value)
     elif obj_type == RDB_TYPE_HASH:
-        return load_hash_object(data[1:])
+        for field, value in load_hash_object(data[1:]).items():
+            keyspace.hset(key, field, value)
     else:
         raise BAD_DATA_FORMAT_ERR
 

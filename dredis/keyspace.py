@@ -453,20 +453,7 @@ class Keyspace(object):
             else:
                 raise KeyError('BUSYKEY Target key name already exists')
         rdb.verify_payload(payload)
-        obj = rdb.load_object(payload)
-        if isinstance(obj, basestring):
-            self.set(key, obj)
-        elif isinstance(obj, set):
-            for member in obj:
-                self.sadd(key, member)
-        elif isinstance(obj, list):
-            for value, score in obj:
-                self.zadd(key, score, value)
-        elif isinstance(obj, dict):
-            for field, value in obj.items():
-                self.hset(key, field, value)
-        else:
-            raise ValueError("Can't restore %r" % obj)
+        rdb.load_object(self, key, payload)
 
 
 class ScoreRange(object):
