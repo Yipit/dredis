@@ -167,66 +167,56 @@ def load_object(keyspace, key, payload):
         raise BAD_DATA_FORMAT_ERR
     obj_type = struct.unpack('<B', data[0])[0]
     if obj_type == RDB_TYPE_STRING:
-        obj = load_string_object(data[1:])
-        keyspace.set(key, obj)
+        load_string_object(keyspace, key, data[1:])
     elif obj_type == RDB_TYPE_SET:
-        for member in load_set_object(data[1:]):
-            keyspace.sadd(key, member)
+        load_set_object(keyspace, key, data[1:])
     elif obj_type == RDB_TYPE_ZSET:
-        for value, score in load_zset_object(data[1:]):
-            keyspace.zadd(key, score, value)
+        load_zset_object(keyspace, key, data[1:])
     elif obj_type == RDB_TYPE_HASH:
-        for field, value in load_hash_object(data[1:]).items():
-            keyspace.hset(key, field, value)
+        load_hash_object(keyspace, key, data[1:])
     else:
         raise BAD_DATA_FORMAT_ERR
 
 
-def load_string_object(data):
+def load_string_object(keyspace, key, data):
     index = 0
     length, index = load_len(data, index)
-    result = data[index:index + length]
-    return result
+    obj = data[index:index + length]
+    keyspace.set(key, obj)
 
 
-def load_set_object(data):
+def load_set_object(keyspace, key, data):
     index = 0
     length, index = load_len(data, index)
-    result = set()
     for _ in xrange(length):
         elem_length, index = load_len(data, index)
         elem = data[index:index + elem_length]
         index += elem_length
-        result.add(str(elem))
-    return result
+        keyspace.sadd(key, elem)
 
 
-def load_zset_object(data):
+def load_zset_object(keyspace, key, data):
     index = 0
     length, index = load_len(data, index)
-    result = []
     for _ in xrange(length):
         value_length, index = load_len(data, index)
         value = data[index:index + value_length]
         index += value_length
         score, index = load_double(data, index)
-        result.append((value, score))
-    return result
+        keyspace.zadd(key, score, value)
 
 
-def load_hash_object(data):
+def load_hash_object(keyspace, key, data):
     index = 0
     length, index = load_len(data, index)
-    result = {}
     for _ in xrange(length):
-        key_length, index = load_len(data, index)
-        key = data[index:index + key_length]
-        index += key_length
+        field_length, index = load_len(data, index)
+        field = data[index:index + field_length]
+        index += field_length
         value_length, index = load_len(data, index)
         value = data[index:index + value_length]
         index += value_length
-        result[str(key)] = value
-    return result
+        keyspace.hset(key, field, value)
 
 
 def generate_payload(keyspace, key, key_type):
