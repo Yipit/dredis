@@ -438,11 +438,7 @@ class Keyspace(object):
         return DB_MANAGER.get_db(self._current_db)
 
     def dump(self, key):
-        key_type = self.type(key)
-        if key_type == 'none':
-            return None
-        else:
-            return rdb.generate_payload(self, key, key_type)
+        return rdb.generate_payload(self, key)
 
     def restore(self, key, ttl, payload, replace):
         # TODO: there's no TTL support at the moment
