@@ -114,6 +114,7 @@ TYPE key                                     | Keys
 KEYS pattern                                 | Keys
 EXISTS key [key ...]                         | Keys
 DUMP key                                     | Keys
+RESTORE key ttl serialized-value [REPLACE]\**| Keys
 PING [msg]                                   | Connection
 SELECT db                                    | Connection
 SET key value                                | Strings
@@ -146,6 +147,7 @@ HINCRBY key field increment                  | Hashes
 HGETALL key                                  | Hashes
 
 \* `COMMAND`'s reply is incompatible at the moment, it returns a flat array with command names (their arity, flags, positions, or step count are not returned).
+\** `RESTORE` doesn't work with Redis strings compressed with LZF or encoded as `OBJ_ENCODING_INT`; also doesn't work with sets encoded as `OBJ_ENCODING_INTSET`, nor hashes and sorted sets encoded as `OBJ_ENCODING_ZIPLIST`.
 
 
 ## How is DRedis implemented
@@ -186,7 +188,7 @@ We rely on the backends' consistency properties and we use batches/transactions 
 
 ### Cluster mode & Replication
 
-Replication, key distribution, and cluster mode isn't supported.
+Replication, key distribution, and cluster mode are not supported.
 If you want higher availability you can create multiple servers that share or replicate a disk (consistency may suffer when replicating).
 Use DNS routing or a network load balancer to route requests properly.
 

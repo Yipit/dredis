@@ -1,7 +1,7 @@
 import collections
 import fnmatch
 
-from dredis import crc64, rdb
+from dredis import rdb
 from dredis.db import DB_MANAGER, KEY_CODEC
 from dredis.lua import LuaRunner
 from dredis.utils import to_float
@@ -161,7 +161,7 @@ class Keyspace(object):
             zset_length += 1
             batch.put(KEY_CODEC.encode_zset(key), bytes(zset_length))
 
-        batch.put(KEY_CODEC.encode_zset_value(key, value), bytes(score))
+        batch.put(KEY_CODEC.encode_zset_value(key, value), to_float_string(score))
         batch.put(KEY_CODEC.encode_zset_score(key, value, score), bytes(''))
         batch.write()
 
@@ -316,13 +316,13 @@ class Keyspace(object):
         return result
 
     def type(self, key):
-        if self._db.get(KEY_CODEC.encode_string(key)):
+        if self._db.get(KEY_CODEC.encode_string(key)) is not None:
             return 'string'
-        if self._db.get(KEY_CODEC.encode_set(key)):
+        if self._db.get(KEY_CODEC.encode_set(key)) is not None:
             return 'set'
-        if self._db.get(KEY_CODEC.encode_hash(key)):
+        if self._db.get(KEY_CODEC.encode_hash(key)) is not None:
             return 'hash'
-        if self._db.get(KEY_CODEC.encode_zset(key)):
+        if self._db.get(KEY_CODEC.encode_zset(key)) is not None:
             return 'zset'
         return 'none'
 
@@ -406,7 +406,7 @@ class Keyspace(object):
     def hvals(self, key):
         result = []
         if self._db.get(KEY_CODEC.encode_hash(key)) is not None:
-            for db_key, db_value in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key)):
+            for _, db_value in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key)):
                 result.append(db_value)
         return result
 
@@ -424,12 +424,13 @@ class Keyspace(object):
         return new_value
 
     def hgetall(self, key):
-        keys = self.hkeys(key)
-        values = self.hvals(key)
         result = []
-        for (k, v) in zip(keys, values):
-            result.append(k)
-            result.append(v)
+        if self._db.get(KEY_CODEC.encode_hash(key)) is not None:
+            for db_key, db_value in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key)):
+                _, length, field_key = KEY_CODEC.decode_key(db_key)
+                field = field_key[length:]
+                result.append(field)
+                result.append(db_value)
         return result
 
     @property
@@ -441,13 +442,18 @@ class Keyspace(object):
         if key_type == 'none':
             return None
         else:
-            payload = (
-                rdb.object_type(key_type) +
-                rdb.object_value(self, key, key_type) +
-                rdb.get_rdb_version()
-            )
-            checksum = crc64.checksum(payload)
-            return payload + checksum
+            return rdb.generate_payload(self, key, key_type)
+
+    def restore(self, key, ttl, payload, replace):
+        # TODO: there's no TTL support at the moment
+        object_type = self.type(key)
+        if object_type != 'none':
+            if replace:
+                self.delete(key)
+            else:
+                raise KeyError('BUSYKEY Target key name already exists')
+        rdb.verify_payload(payload)
+        rdb.load_object(self, key, payload)
 
 
 class ScoreRange(object):

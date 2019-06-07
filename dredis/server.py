@@ -27,7 +27,7 @@ ROOT_DIR = None  # defined by `main()`
 def execute_cmd(keyspace, send_fn, cmd, *args):
     try:
         result = run_command(keyspace, cmd, args)
-    except (SyntaxError, CommandNotFound, ValueError, RedisScriptError) as exc:
+    except (SyntaxError, CommandNotFound, ValueError, RedisScriptError, KeyError) as exc:
         transmit(send_fn, exc)
     except Exception:
         # no tests cover this part because it's meant for internal errors,

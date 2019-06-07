@@ -42,16 +42,19 @@ Original: https://github.com/antirez/redis/blob/3.2.6/src/crc64.c
 
 """
 
-import ctypes
 import struct
 
 
+UINT64_BITMASK = 2 ** 64 - 1
+UINT8_BITMASK = 2 ** 8 - 1
+
+
 def uint64_t(x):
-    return ctypes.c_uint64(x).value
+    return x & UINT64_BITMASK
 
 
 def uint8_t(x):
-    return ctypes.c_uint8(x).value
+    return x & UINT8_BITMASK
 
 
 UINT64_C = uint64_t
@@ -189,12 +192,11 @@ crc64_tab = [
 ]
 
 
-def crc64(crc, s):
-    for char in s:
-        byte = uint8_t(ord(char))
+def crc64(crc, bytes_):
+    for byte in bytes_:
         crc = uint64_t(crc64_tab[uint8_t(crc) ^ byte] ^ (crc >> 8))
     return crc
 
 
 def checksum(payload):
-    return struct.pack('<Q', crc64(0, payload))
+    return struct.pack('<Q', crc64(0, bytearray(payload)))
