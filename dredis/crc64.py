@@ -189,12 +189,11 @@ crc64_tab = [
 ]
 
 
-def crc64(crc, s):
-    for char in s:
-        byte = uint8_t(ord(char))
+def crc64(crc, bytes_):
+    for byte in bytes_:
         crc = uint64_t(crc64_tab[uint8_t(crc) ^ byte] ^ (crc >> 8))
     return crc
 
 
 def checksum(payload):
-    return struct.pack('<Q', crc64(0, payload))
+    return struct.pack('<Q', crc64(0, bytearray(payload)))
