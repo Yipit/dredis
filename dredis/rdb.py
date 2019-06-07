@@ -92,35 +92,6 @@ def save_len(len):
         return struct.pack('>BL', (RDB_32BITLEN << 6), len)
 
 
-def load_len(data, index):
-    """
-    :param data: str
-    :return: (int, str). the length of the string and the data after the string
-
-    Based on rdbLoadLen() in rdb.c
-    """
-
-    def get_byte(i):
-        return struct.unpack('>B', data[index + i])[0]
-
-    def get_long(start, end):
-        return struct.unpack('>L', data[index + start:index + end])[0]
-
-    len_type = (get_byte(0) & 0xC0) >> 6
-    if len_type == RDB_6BITLEN:
-        length = get_byte(0) & 0x3F
-        index += 1
-    elif len_type == RDB_14BITLEN:
-        length = ((get_byte(0) & 0x3F) << 8) | get_byte(1)
-        index += 2
-    elif len_type == RDB_32BITLEN:
-        length = get_long(1, 5)
-        index += 5
-    else:
-        raise BAD_DATA_FORMAT_ERR
-    return length, index
-
-
 def save_double(number):
     """
     :return: big endian encoded float. 255 represents -inf, 244 +inf, 253 NaN
@@ -139,21 +110,6 @@ def save_double(number):
         return struct.pack('>B', len(string)) + string
 
 
-def load_double(data, index):
-    length = struct.unpack('>B', data[index])[0]
-    index += 1
-    if length == 255:
-        result = float('-inf')
-    elif length == 254:
-        result = float('+inf')
-    elif length == 253:
-        result = float('nan')
-    else:
-        result = float(data[index:index + length])
-        index += length
-    return result, index
-
-
 def get_rdb_version():
     """
     :return: little endian encoded 2-byte RDB version
@@ -162,61 +118,108 @@ def get_rdb_version():
 
 
 def load_object(keyspace, key, payload):
-    data = payload[:-10]  # ignore the RDB header (2 bytes) and the CRC64 checksum (8 bytes)
-    if not data:
-        raise BAD_DATA_FORMAT_ERR
-    obj_type = struct.unpack('<B', data[0])[0]
-    if obj_type == RDB_TYPE_STRING:
-        load_string_object(keyspace, key, data[1:])
-    elif obj_type == RDB_TYPE_SET:
-        load_set_object(keyspace, key, data[1:])
-    elif obj_type == RDB_TYPE_ZSET:
-        load_zset_object(keyspace, key, data[1:])
-    elif obj_type == RDB_TYPE_HASH:
-        load_hash_object(keyspace, key, data[1:])
-    else:
-        raise BAD_DATA_FORMAT_ERR
+    object_loader = ObjectLoader(keyspace, payload)
+    object_loader.load(key)
 
 
-def load_string_object(keyspace, key, data):
-    index = 0
-    length, index = load_len(data, index)
-    obj = data[index:index + length]
-    keyspace.set(key, obj)
+class ObjectLoader(object):
 
+    def __init__(self, keyspace, payload):
+        self.keyspace = keyspace
+        self.payload = payload
+        self.index = 0
 
-def load_set_object(keyspace, key, data):
-    index = 0
-    length, index = load_len(data, index)
-    for _ in xrange(length):
-        elem_length, index = load_len(data, index)
-        elem = data[index:index + elem_length]
-        index += elem_length
-        keyspace.sadd(key, elem)
+    def load(self, key):
+        self.index = 0
+        data = self.payload[:-10]  # ignore the RDB header (2 bytes) and the CRC64 checksum (8 bytes)
+        if not data:
+            raise BAD_DATA_FORMAT_ERR
+        obj_type = self.get_type(data)
+        if obj_type == RDB_TYPE_STRING:
+            self.load_string(key, data[1:])
+        elif obj_type == RDB_TYPE_SET:
+            self.load_set(key, data[1:])
+        elif obj_type == RDB_TYPE_ZSET:
+            self.load_zset(key, data[1:])
+        elif obj_type == RDB_TYPE_HASH:
+            self.load_hash(key, data[1:])
+        else:
+            raise BAD_DATA_FORMAT_ERR
 
+    def load_string(self, key, data):
+        obj = self._read_string(data)
+        self.keyspace.set(key, obj)
 
-def load_zset_object(keyspace, key, data):
-    index = 0
-    length, index = load_len(data, index)
-    for _ in xrange(length):
-        value_length, index = load_len(data, index)
-        value = data[index:index + value_length]
-        index += value_length
-        score, index = load_double(data, index)
-        keyspace.zadd(key, score, value)
+    def load_set(self, key, data):
+        length = self.load_len(data)
+        for _ in xrange(length):
+            elem = self._read_string(data)
+            self.keyspace.sadd(key, elem)
 
+    def load_zset(self, key, data):
+        length = self.load_len(data)
+        for _ in xrange(length):
+            value = self._read_string(data)
+            score = self.load_double(data)
+            self.keyspace.zadd(key, score, value)
 
-def load_hash_object(keyspace, key, data):
-    index = 0
-    length, index = load_len(data, index)
-    for _ in xrange(length):
-        field_length, index = load_len(data, index)
-        field = data[index:index + field_length]
-        index += field_length
-        value_length, index = load_len(data, index)
-        value = data[index:index + value_length]
-        index += value_length
-        keyspace.hset(key, field, value)
+    def load_hash(self, key, data):
+        length = self.load_len(data)
+        for _ in xrange(length):
+            field = self._read_string(data)
+            value = self._read_string(data)
+            self.keyspace.hset(key, field, value)
+
+    def load_double(self, data):
+        length = struct.unpack('>B', data[self.index])[0]
+        self.index += 1
+        if length == 255:
+            result = float('-inf')
+        elif length == 254:
+            result = float('+inf')
+        elif length == 253:
+            result = float('nan')
+        else:
+            result = float(data[self.index:self.index + length])
+            self.index += length
+        return result
+
+    def get_type(self, data):
+        return struct.unpack('<B', data[0])[0]
+
+    def load_len(self, data):
+        """
+        :param data: str
+        :return: (int, str). the length of the string and the data after the string
+
+        Based on rdbLoadLen() in rdb.c
+        """
+
+        def get_byte(i):
+            return struct.unpack('>B', data[self.index + i])[0]
+
+        def get_long(start, end):
+            return struct.unpack('>L', data[self.index + start:self.index + end])[0]
+
+        len_type = (get_byte(0) & 0xC0) >> 6
+        if len_type == RDB_6BITLEN:
+            length = get_byte(0) & 0x3F
+            self.index += 1
+        elif len_type == RDB_14BITLEN:
+            length = ((get_byte(0) & 0x3F) << 8) | get_byte(1)
+            self.index += 2
+        elif len_type == RDB_32BITLEN:
+            length = get_long(1, 5)
+            self.index += 5
+        else:
+            raise BAD_DATA_FORMAT_ERR
+        return length
+
+    def _read_string(self, data):
+        length = self.load_len(data)
+        obj = data[self.index:self.index + length]
+        self.index += length
+        return obj
 
 
 def generate_payload(keyspace, key, key_type):
