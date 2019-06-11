@@ -328,12 +328,11 @@ class Keyspace(object):
 
     def keys(self, pattern):
         db_keys = set()
-        for key, _ in self._db:
-            key_type, _, key_value = KEY_CODEC.decode_key(key)
-            if key_type not in KEY_CODEC.KEY_TYPES:
-                continue
-            if pattern is None or fnmatch.fnmatch(key_value, pattern):
-                db_keys.add(key_value)
+        for key_type in KEY_CODEC.KEY_TYPES:
+            for key in self._db.iterator(prefix=chr(key_type), include_value=False):
+                _, _, key_value = KEY_CODEC.decode_key(key)
+                if pattern is None or fnmatch.fnmatch(key_value, pattern):
+                    db_keys.add(key_value)
         return db_keys
 
     def dbsize(self):
