@@ -27,12 +27,15 @@ ROOT_DIR = None  # defined by `main()`
 def execute_cmd(keyspace, send_fn, cmd, *args):
     try:
         result = run_command(keyspace, cmd, args)
+    # FIXME: these exceptions should all be custom,
+    #  otherwise it's hard to distinguish between expected and unexpected errors.
     except (SyntaxError, CommandNotFound, ValueError, RedisScriptError, KeyError) as exc:
         transmit(send_fn, exc)
-    except Exception:
+    except Exception as exc:
         # no tests cover this part because it's meant for internal errors,
         # such as unexpected bugs in dredis.
         transmit(send_fn, Exception(traceback.format_exc()))
+        logger.exception(str(exc))
     else:
         transmit(send_fn, result)
 
