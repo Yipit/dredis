@@ -138,6 +138,12 @@ def cmd_restore(keyspace, key, ttl, payload, *args):
     return SimpleString('OK')
 
 
+@command('RENAME', arity=3, flags=CMD_WRITE)
+def cmd_rename(keyspace, old_name, new_name):
+    keyspace.rename(old_name, new_name)
+    return SimpleString('OK')
+
+
 """
 ***********************
 * Connection commands *
