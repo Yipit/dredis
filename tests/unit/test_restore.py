@@ -48,16 +48,6 @@ def test_should_raise_an_error_with_bad_object_type(keyspace):
     assert 'Bad data format' in str(exc)
 
 
-def test_should_raise_an_error_with_bad_string_object(keyspace):
-    keyspace.set('test', 'testvalue')
-    partial_payload = '\x00\xff' + keyspace.dump('test')[:-10] + rdb.get_rdb_version()
-    payload = partial_payload + crc64.checksum(partial_payload)
-
-    with pytest.raises(ValueError) as exc:
-        keyspace.restore('test', ttl=0, payload=payload, replace=True)
-    assert 'Bad data format' in str(exc)
-
-
 def test_should_be_able_to_restore_strings(keyspace):
     keyspace.set('test1', 'testvalue')
     payload = keyspace.dump('test1')
