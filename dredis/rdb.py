@@ -32,6 +32,13 @@ RDB_ENC_INT8 = 0
 RDB_ENC_INT16 = 1
 RDB_ENC_INT32 = 2
 
+RDB_OPCODE_AUX = 250
+RDB_OPCODE_RESIZEDB = 251
+RDB_OPCODE_EXPIRETIME_MS = 252
+RDB_OPCODE_EXPIRETIME = 253
+RDB_OPCODE_SELECTDB = 254
+RDB_OPCODE_EOF = 255
+
 RDB_VERSION = 7
 
 BAD_DATA_FORMAT_ERR = ValueError("Bad data format")
@@ -76,6 +83,10 @@ def verify_payload(payload):
         raise bad_payload
 
 
+def load_rdb(keyspace, rdb_content):
+    object_loader = ObjectLoader(keyspace, rdb_content)
+    object_loader.load_rdb()
+
 # NOTE: The classes ObjectLoader and ObjectDumper are symmetrical.
 # any changes to one of their public methods should affect the other class's equivalent method.
 # All of the `ObjectLoader.load*` and `ObjectDumper.dump*` methods are coupled!
@@ -86,16 +97,51 @@ class ObjectLoader(object):
     RDB_HEADER_LENGTH = 2
     CRC64_CHECKSUM_LENGTH = 8
     OBJECT_FOOTER_LENGTH = RDB_HEADER_LENGTH + CRC64_CHECKSUM_LENGTH
+    REDIS_VERSION_HEADER_LENGTH = 9  # "REDIS0007" for example
 
     def __init__(self, keyspace, payload):
         self.keyspace = keyspace
         self.payload = payload
         self.index = 0
 
+    def load_rdb(self):
+        # if redis_version[:5] != "REDIS"
+        # check version
+        db = 0
+        self.index = self.REDIS_VERSION_HEADER_LENGTH
+        while True:
+            obj_type = self.load_type()
+            if obj_type == RDB_OPCODE_AUX:
+                # ignoring aux field=value
+                self._load_string()
+                self._load_string()
+                continue
+            elif obj_type == RDB_OPCODE_RESIZEDB:
+                # ignoring db_size & expires_size
+                self.load_len()
+                self.load_len()
+                continue
+            elif obj_type in (
+                RDB_OPCODE_EXPIRETIME,
+                RDB_OPCODE_EXPIRETIME_MS,
+            ):
+                raise Exception("bad")
+            elif obj_type == RDB_OPCODE_EOF:
+                break
+            elif obj_type == RDB_OPCODE_SELECTDB:
+                # FIXME: at the moment only add keys to the default db
+                self.load_len()
+                continue
+            key = self._load_string()
+            self._load(key, obj_type)
+
     def load(self, key):
         if len(self.payload) < self.OBJECT_FOOTER_LENGTH:
             raise BAD_DATA_FORMAT_ERR
         obj_type = self.load_type()
+        self._load(key, obj_type)
+
+    def _load(self, key, obj_type):
         if obj_type == RDB_TYPE_STRING:
             self.load_string(key)
         elif obj_type == RDB_TYPE_SET:
@@ -209,6 +255,7 @@ class ObjectLoader(object):
         else:
             raise ValueError("Unknown RDB string encoding type %d" % enctype)
         return length
+
 
 class ObjectDumper(object):
 
