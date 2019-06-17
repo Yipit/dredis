@@ -345,4 +345,19 @@ class ObjectDumper(object):
         return struct.pack('<B', RDB_TYPES[key_type])
 
     def _dump_string(self, string):
-        return self.dump_length(len(string)) + string
+        try:
+            int(string)
+        except ValueError:
+            return self.dump_length(len(string)) + string
+        else:
+            return self._dump_encoded_string(int(string))
+
+    def _dump_encoded_string(self, value):
+        if (value >= -(1 << 7)) and (value <= (1 << 7) - 1):
+            return struct.pack('<Bb', (RDB_ENCVAL << 6) | RDB_ENC_INT8, value)
+        elif (value >= -(1 << 15)) and (value <= (1 << 15) - 1):
+            return struct.pack('<Bh', (RDB_ENCVAL << 6) | RDB_ENC_INT16, value)
+        elif (value >= -(1 << 31)) and (value <= (1 << 31) - 1):
+            return struct.pack('<Bi', (RDB_ENCVAL << 6) | RDB_ENC_INT32, value)
+        else:
+            raise ValueError("can't encode %r as integer" % value)
