@@ -1,7 +1,10 @@
+import struct
+
 import pytest
 
 from dredis import crc64, rdb
 from dredis.keyspace import to_float_string
+from dredis.rdb import ObjectLoader
 
 
 def test_should_raise_an_error_with_invalid_payload_size(keyspace):
@@ -119,3 +122,50 @@ def test_restore_should_remove_key_before_adding_new_values(keyspace):
 
     keyspace.restore('hash', 0, payload, replace=True)
     assert keyspace.hgetall('hash') == ['field1', 'value1', 'field2', 'value2']
+
+
+def test_encval_strings(keyspace):
+    """
+    int rdbEncodeInteger(long long value, unsigned char *enc) {
+        if (value >= -(1<<7) && value <= (1<<7)-1) {
+            enc[0] = (RDB_ENCVAL<<6)|RDB_ENC_INT8;
+            enc[1] = value&0xFF;
+            return 2;
+        } else if (value >= -(1<<15) && value <= (1<<15)-1) {
+            enc[0] = (RDB_ENCVAL<<6)|RDB_ENC_INT16;
+            enc[1] = value&0xFF;
+            enc[2] = (value>>8)&0xFF;
+            return 3;
+        } else if (value >= -((long long)1<<31) && value <= ((long long)1<<31)-1) {
+            enc[0] = (RDB_ENCVAL<<6)|RDB_ENC_INT32;
+            enc[1] = value&0xFF;
+            enc[2] = (value>>8)&0xFF;
+            enc[3] = (value>>16)&0xFF;
+            enc[4] = (value>>24)&0xFF;
+            return 5;
+        } else {
+            return 0;
+        }
+    }
+    """
+
+    # string "64" encoded as a signed 8 bit integer
+    int8 = 64
+    enc_8bit = struct.pack('<Bb', (rdb.RDB_ENCVAL << 6) | rdb.RDB_ENC_INT8, int8)
+    object_loader = ObjectLoader(keyspace, enc_8bit)
+    object_loader.load_string('int8')
+    assert keyspace.get('int8') == int8
+
+    # string "250" encoded as a signed 16 bit integer
+    int16 = 250
+    enc_16bit = struct.pack('<Bh', (rdb.RDB_ENCVAL << 6) | rdb.RDB_ENC_INT16, int16)
+    object_loader = ObjectLoader(keyspace, enc_16bit)
+    object_loader.load_string('int16')
+    assert keyspace.get('int16') == int16
+
+    # string "65000" encoded as signed 32 bit integer
+    int32 = 65000
+    enc_32bit = struct.pack('<Bi', (rdb.RDB_ENCVAL << 6) | rdb.RDB_ENC_INT32, int32)
+    object_loader = ObjectLoader(keyspace, enc_32bit)
+    object_loader.load_string('int32')
+    assert keyspace.get('int32') == int32

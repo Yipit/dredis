@@ -27,6 +27,11 @@ RDB_6BITLEN = 0
 RDB_14BITLEN = 1
 RDB_32BITLEN = 2
 
+RDB_ENCVAL = 3
+RDB_ENC_INT8 = 0
+RDB_ENC_INT16 = 1
+RDB_ENC_INT32 = 2
+
 RDB_VERSION = 7
 
 BAD_DATA_FORMAT_ERR = ValueError("Bad data format")
@@ -147,21 +152,15 @@ class ObjectLoader(object):
         Based on rdbLoadLen() in rdb.c
         """
 
-        def get_byte(i):
-            return struct.unpack('>B', self.payload[self.index + i])[0]
-
-        def get_long(start, end):
-            return struct.unpack('>L', self.payload[self.index + start:self.index + end])[0]
-
-        len_type = (get_byte(0) & 0xC0) >> 6
+        len_type = (self._get_byte(0) & 0xC0) >> 6
         if len_type == RDB_6BITLEN:
-            length = get_byte(0) & 0x3F
+            length = self._get_byte(0) & 0x3F
             self.index += 1
         elif len_type == RDB_14BITLEN:
-            length = ((get_byte(0) & 0x3F) << 8) | get_byte(1)
+            length = ((self._get_byte(0) & 0x3F) << 8) | self._get_byte(1)
             self.index += 2
         elif len_type == RDB_32BITLEN:
-            length = get_long(1, 5)
+            length = self._get_long(1, 5)
             self.index += 5
         else:
             raise BAD_DATA_FORMAT_ERR
@@ -173,11 +172,43 @@ class ObjectLoader(object):
         return result
 
     def _load_string(self):
-        length = self.load_len()
-        obj = self.payload[self.index:self.index + length]
-        self.index += length
+        length, is_encoded = self._load_string_len()
+        if is_encoded:
+            obj = self._load_encoded_string(length)
+        else:
+            obj = self.payload[self.index:self.index + length]
+            self.index += length
         return obj
 
+    def _get_byte(self, i):
+        return struct.unpack('>B', self.payload[self.index + i])[0]
+
+    def _get_long(self, start, end):
+        return struct.unpack('>L', self.payload[self.index + start:self.index + end])[0]
+
+    def _load_string_len(self):
+        len_type = (self._get_byte(0) & 0xC0) >> 6
+        if len_type == RDB_ENCVAL:
+            enctype = self._get_byte(0) & 0x3F
+            self.index += 1
+            return enctype, True
+        else:
+            return self.load_len(), False
+
+    def _load_encoded_string(self, enctype):
+        if enctype == RDB_ENC_INT8:
+            length = self._get_byte(0)
+            self.index += 1
+        elif enctype == RDB_ENC_INT16:
+            length = self._get_byte(0) | (self._get_byte(1) << 8)
+            self.index += 2
+        elif enctype == RDB_ENC_INT32:
+            length = self._get_byte(0) | (self._get_byte(1) << 8) | (self._get_byte(2) << 16) | (self._get_byte(3) << 24)
+            self.index += 4
+        # TODO: no support for RDB_ENC_LZF at the moment
+        else:
+            raise ValueError("Unknown RDB string encoding type %d" % enctype)
+        return length
 
 class ObjectDumper(object):
 
