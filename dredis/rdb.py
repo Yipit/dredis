@@ -78,54 +78,56 @@ def verify_payload(payload):
 
 class ObjectLoader(object):
 
+    RDB_HEADER_LENGTH = 2
+    CRC64_CHECKSUM_LENGTH = 8
+    OBJECT_FOOTER_LENGTH = RDB_HEADER_LENGTH + CRC64_CHECKSUM_LENGTH
+
     def __init__(self, keyspace, payload):
         self.keyspace = keyspace
         self.payload = payload
         self.index = 0
 
     def load(self, key):
-        self.index = 0
-        data = self.payload[:-10]  # ignore the RDB header (2 bytes) and the CRC64 checksum (8 bytes)
-        if not data:
+        if len(self.payload) < self.OBJECT_FOOTER_LENGTH:
             raise BAD_DATA_FORMAT_ERR
-        obj_type = self.load_type(data)
+        obj_type = self.load_type()
         if obj_type == RDB_TYPE_STRING:
-            self.load_string(key, data[1:])
+            self.load_string(key)
         elif obj_type == RDB_TYPE_SET:
-            self.load_set(key, data[1:])
+            self.load_set(key)
         elif obj_type == RDB_TYPE_ZSET:
-            self.load_zset(key, data[1:])
+            self.load_zset(key)
         elif obj_type == RDB_TYPE_HASH:
-            self.load_hash(key, data[1:])
+            self.load_hash(key)
         else:
             raise BAD_DATA_FORMAT_ERR
 
-    def load_string(self, key, data):
-        obj = self._load_string(data)
+    def load_string(self, key):
+        obj = self._load_string()
         self.keyspace.set(key, obj)
 
-    def load_set(self, key, data):
-        length = self.load_len(data)
+    def load_set(self, key):
+        length = self.load_len()
         for _ in xrange(length):
-            elem = self._load_string(data)
+            elem = self._load_string()
             self.keyspace.sadd(key, elem)
 
-    def load_zset(self, key, data):
-        length = self.load_len(data)
+    def load_zset(self, key):
+        length = self.load_len()
         for _ in xrange(length):
-            value = self._load_string(data)
-            score = self.load_double(data)
+            value = self._load_string()
+            score = self.load_double()
             self.keyspace.zadd(key, score, value)
 
-    def load_hash(self, key, data):
-        length = self.load_len(data)
+    def load_hash(self, key):
+        length = self.load_len()
         for _ in xrange(length):
-            field = self._load_string(data)
-            value = self._load_string(data)
+            field = self._load_string()
+            value = self._load_string()
             self.keyspace.hset(key, field, value)
 
-    def load_double(self, data):
-        length = struct.unpack('>B', data[self.index])[0]
+    def load_double(self):
+        length = struct.unpack('>B', self.payload[self.index])[0]
         self.index += 1
         if length == 255:
             result = float('-inf')
@@ -134,23 +136,22 @@ class ObjectLoader(object):
         elif length == 253:
             result = float('nan')
         else:
-            result = float(data[self.index:self.index + length])
+            result = float(self.payload[self.index:self.index + length])
             self.index += length
         return result
 
-    def load_len(self, data):
+    def load_len(self):
         """
-        :param data: str
         :return: (int, str). the length of the string and the data after the string
 
         Based on rdbLoadLen() in rdb.c
         """
 
         def get_byte(i):
-            return struct.unpack('>B', data[self.index + i])[0]
+            return struct.unpack('>B', self.payload[self.index + i])[0]
 
         def get_long(start, end):
-            return struct.unpack('>L', data[self.index + start:self.index + end])[0]
+            return struct.unpack('>L', self.payload[self.index + start:self.index + end])[0]
 
         len_type = (get_byte(0) & 0xC0) >> 6
         if len_type == RDB_6BITLEN:
@@ -166,12 +167,14 @@ class ObjectLoader(object):
             raise BAD_DATA_FORMAT_ERR
         return length
 
-    def load_type(self, data):
-        return struct.unpack('<B', data[0])[0]
+    def load_type(self):
+        result = struct.unpack('<B', self.payload[self.index])[0]
+        self.index += 1
+        return result
 
-    def _load_string(self, data):
-        length = self.load_len(data)
-        obj = data[self.index:self.index + length]
+    def _load_string(self):
+        length = self.load_len()
+        obj = self.payload[self.index:self.index + length]
         self.index += length
         return obj
 
