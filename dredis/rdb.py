@@ -116,9 +116,12 @@ class ObjectLoader(object):
         self.index = 0
 
     def load_rdb(self):
-        # if redis_version[:5] != "REDIS"
-        # check version
-        db = 0
+        if not self.payload.startswith("REDIS"):
+            raise ValueError("Wrong signature trying to load DB from file")
+        version = self.payload[len("REDIS"):self.REDIS_VERSION_HEADER_LENGTH]
+        if not version.isdigit() or int(version) > RDB_VERSION:
+            raise ValueError("Can't handle RDB format version %s" % version)
+
         self.index = self.REDIS_VERSION_HEADER_LENGTH
         while True:
             obj_type = self.load_type()

@@ -1,3 +1,5 @@
+import pytest
+
 import dredis
 from dredis import rdb, crc64
 
@@ -22,6 +24,23 @@ def test_load_rdb_with_strings(keyspace):
     assert sorted(keyspace.keys('*')) == sorted(['key1', 'key2'])
     assert keyspace.get('key1') == 'value1'
     assert keyspace.get('key2') == 'value2'
+
+
+def test_load_invalid_rdb(keyspace):
+    with pytest.raises(ValueError) as exc:
+        rdb_content = 'XREDIS0007'
+        rdb.load_rdb(keyspace, rdb_content)
+    assert str(exc).endswith('Wrong signature trying to load DB from file')
+
+    with pytest.raises(ValueError) as exc:
+        rdb_content = 'REDIS000X'
+        rdb.load_rdb(keyspace, rdb_content)
+    assert str(exc).endswith("Can't handle RDB format version 000X")
+
+    with pytest.raises(ValueError) as exc:
+        rdb_content = 'REDIS0011'
+        rdb.load_rdb(keyspace, rdb_content)
+    assert str(exc).endswith("Can't handle RDB format version 0011")
 
 
 def test_save_rdb_with_strings(keyspace):
