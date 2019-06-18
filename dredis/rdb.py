@@ -6,9 +6,10 @@ This module is based on the following Redis files:
 * https://github.com/antirez/redis/blob/3.2.6/src/cluster.c
 
 """
-
+import os
 import struct
 
+import dredis
 from dredis import crc64
 
 RDB_TYPE_STRING = 0
@@ -86,6 +87,16 @@ def verify_payload(payload):
 def load_rdb(keyspace, rdb_content):
     object_loader = ObjectLoader(keyspace, rdb_content)
     object_loader.load_rdb()
+
+
+def dump_rdb(keyspace, filename):
+    object_dumper = ObjectDumper(keyspace)
+    rdb_content = object_dumper.dump_rdb()
+    tmp_filename = 'temp-dump-pid-%d.rdb' % os.getpid()
+    with open(tmp_filename, 'wb') as f:
+        f.write(rdb_content)
+    os.rename(tmp_filename, filename)
+
 
 # NOTE: The classes ObjectLoader and ObjectDumper are symmetrical.
 # any changes to one of their public methods should affect the other class's equivalent method.
@@ -261,6 +272,27 @@ class ObjectDumper(object):
 
     def __init__(self, keyspace):
         self.keyspace = keyspace
+
+    def dump_rdb(self):
+        aux_fields = chr(RDB_OPCODE_AUX).join([
+            'REDIS%04d' % RDB_VERSION,
+            '%cdredis-ver%c%s' % (len("dredis-ver"), len(dredis.__version__), dredis.__version__)
+        ])
+        result = bytearray()
+        result.extend(aux_fields)
+        # TODO: add support to multiple dbs
+        db = 0
+        result.append(RDB_OPCODE_SELECTDB)
+        result += self.dump_length(db)
+        # FIXME: `sorted` may not be worth it. keeping it to ensure consistency of RDB files
+        for key in sorted(self.keyspace.keys('*')):
+            obj_type = self.keyspace.type(key)
+            result.extend(self.dump_type(obj_type))
+            result.extend(self._dump_string(key))
+            result.extend(self.dump(key, obj_type))
+        result.append(RDB_OPCODE_EOF)
+        result.extend(crc64.checksum(result))
+        return result
 
     def dump(self, key, key_type):
         if key_type == 'string':

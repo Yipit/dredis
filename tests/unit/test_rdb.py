@@ -1,4 +1,5 @@
-from dredis import rdb
+import dredis
+from dredis import rdb, crc64
 
 
 def test_load_rdb_with_strings(keyspace):
@@ -21,3 +22,25 @@ def test_load_rdb_with_strings(keyspace):
     assert sorted(keyspace.keys('*')) == sorted(['key1', 'key2'])
     assert keyspace.get('key1') == 'value1'
     assert keyspace.get('key2') == 'value2'
+
+
+def test_save_rdb_with_strings(keyspace):
+    expected_rdb_content = bytes(
+        'REDIS0007'  # "REDIS" + version
+        +
+        ('\xfa\ndredis-ver%c%s' % (len(dredis.__version__), dredis.__version__))  # aux field
+        +
+        '\xfe\x00'  # RDB_OPCODE_SELECTDB, current db
+        # dredis doesn't implement `RDB_OPCODE_RESIZEDB`
+        '\x00\x04key1\x06value1'  # type, length of key, key, length of value, value
+        '\x00\x04key2\x06value2'  # type, length of key, key, length of value, value
+        '\xff'  # RDB_OPCODE_EOF
+    )
+    expected_rdb_content += crc64.checksum(expected_rdb_content)
+    keyspace.set('key1', 'value1')
+    keyspace.set('key2', 'value2')
+
+    filename = 'test-dump.rdb'
+    rdb.dump_rdb(keyspace, filename)
+
+    assert open(filename, 'rb').read() == expected_rdb_content
