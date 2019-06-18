@@ -6,11 +6,15 @@ This module is based on the following Redis files:
 * https://github.com/antirez/redis/blob/3.2.6/src/cluster.c
 
 """
+import logging
 import os
 import struct
 
 import dredis
 from dredis import crc64
+
+
+logger = logging.getLogger(__name__)
 
 RDB_TYPE_STRING = 0
 RDB_TYPE_SET = 2
@@ -139,7 +143,8 @@ class ObjectLoader(object):
                 RDB_OPCODE_EXPIRETIME,
                 RDB_OPCODE_EXPIRETIME_MS,
             ):
-                raise Exception("bad")
+                logger.warning("Key expiration isn't supported. Skipping expiration")
+                continue
             elif obj_type == RDB_OPCODE_EOF:
                 break
             elif obj_type == RDB_OPCODE_SELECTDB:
