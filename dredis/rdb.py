@@ -342,16 +342,17 @@ class ObjectLoader(object):
         Based on rdbLoadLen() in rdb.c
         """
 
-        len_type = (self._get_byte(0) & 0xC0) >> 6
+        len_type = (self._get_unsigned_byte(0) & 0xC0) >> 6
         if len_type == RDB_6BITLEN:
-            length = self._get_byte(0) & 0x3F
+            length = self._get_unsigned_byte(0) & 0x3F
             self.index += 1
         elif len_type == RDB_14BITLEN:
-            length = ((self._get_byte(0) & 0x3F) << 8) | self._get_byte(1)
+            length = ((self._get_unsigned_byte(0) & 0x3F) << 8) | self._get_unsigned_byte(1)
             self.index += 2
         elif len_type == RDB_32BITLEN:
-            length = self._get_long(1, 5)
-            self.index += 5
+            self.index += 1
+            length = self._get_unsigned_int_be()
+            self.index += 4
         else:
             raise BAD_DATA_FORMAT_ERR
         return length
@@ -370,16 +371,25 @@ class ObjectLoader(object):
             self.index += length
         return obj
 
-    def _get_byte(self, i):
-        return struct.unpack('>B', self.payload[self.index + i])[0]
+    def _get_signed_byte(self):
+        return struct.unpack('b', self.payload[self.index])[0]
 
-    def _get_long(self, start, end):
-        return struct.unpack('>L', self.payload[self.index + start:self.index + end])[0]
+    def _get_signed_int(self):
+        return struct.unpack('i', self.payload[self.index:self.index + 4])[0]
+
+    def _get_signed_short(self):
+        return struct.unpack('h', self.payload[self.index:self.index + 2])[0]
+
+    def _get_unsigned_byte(self, i):
+        return struct.unpack('B', self.payload[self.index + i])[0]
+
+    def _get_unsigned_int_be(self):
+        return struct.unpack('>I', self.payload[self.index:self.index + 4])[0]
 
     def _load_string_len(self):
-        len_type = (self._get_byte(0) & 0xC0) >> 6
+        len_type = (self._get_unsigned_byte(0) & 0xC0) >> 6
         if len_type == RDB_ENCVAL:
-            enctype = self._get_byte(0) & 0x3F
+            enctype = self._get_unsigned_byte(0) & 0x3F
             self.index += 1
             return enctype, True
         else:
@@ -387,13 +397,13 @@ class ObjectLoader(object):
 
     def _load_encoded_string(self, enctype):
         if enctype == RDB_ENC_INT8:
-            length = self._get_byte(0)
+            length = self._get_signed_byte()
             self.index += 1
         elif enctype == RDB_ENC_INT16:
-            length = self._get_byte(0) | (self._get_byte(1) << 8)
+            length = self._get_signed_short()
             self.index += 2
         elif enctype == RDB_ENC_INT32:
-            length = self._get_byte(0) | (self._get_byte(1) << 8) | (self._get_byte(2) << 16) | (self._get_byte(3) << 24)
+            length = self._get_signed_int()
             self.index += 4
         elif enctype == RDB_ENC_LZF:
             compressed_len = self.load_len()
