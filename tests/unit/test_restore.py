@@ -144,21 +144,21 @@ def test_encval_strings(keyspace):
     enc_8bit = struct.pack('<Bb', (rdb.RDB_ENCVAL << 6) | rdb.RDB_ENC_INT8, int8)
     object_loader = ObjectLoader(keyspace, enc_8bit)
     object_loader.load_string('int8')
-    assert keyspace.get('int8') == int8
+    assert keyspace.get('int8') == str(int8)
 
     # string "250" encoded as a signed 16 bit integer
     int16 = 250
     enc_16bit = struct.pack('<Bh', (rdb.RDB_ENCVAL << 6) | rdb.RDB_ENC_INT16, int16)
     object_loader = ObjectLoader(keyspace, enc_16bit)
     object_loader.load_string('int16')
-    assert keyspace.get('int16') == int16
+    assert keyspace.get('int16') == str(int16)
 
     # string "65000" encoded as signed 32 bit integer
     int32 = 65000
     enc_32bit = struct.pack('<Bi', (rdb.RDB_ENCVAL << 6) | rdb.RDB_ENC_INT32, int32)
     object_loader = ObjectLoader(keyspace, enc_32bit)
     object_loader.load_string('int32')
-    assert keyspace.get('int32') == int32
+    assert keyspace.get('int32') == str(int32)
 
 
 def test_zset_as_ziplist(keyspace):
