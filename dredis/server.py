@@ -6,11 +6,12 @@ import logging
 import os.path
 import socket
 import tempfile
+import time
 import traceback
 
 import sys
 
-from dredis import __version__
+from dredis import __version__, rdb
 from dredis import db
 from dredis.commands import run_command, SimpleString, CommandNotFound
 from dredis.keyspace import Keyspace
@@ -146,6 +147,7 @@ def main():
                         help='database backend options (e.g., --backend-option map_size=BYTES)')
     parser.add_argument('--debug', action='store_true', help='enable debug logs')
     parser.add_argument('--flushall', action='store_true', default=False, help='run FLUSHALL on startup')
+    parser.add_argument('--rdb', default=None, help='RDB file to seed dredis')
     args = parser.parse_args()
 
     global ROOT_DIR
@@ -174,6 +176,13 @@ def main():
     keyspace = Keyspace()
     if args.flushall:
         keyspace.flushall()
+
+    if args.rdb:
+        logger.info("Loading %s..." % args.rdb)
+        start_time = time.time()
+        with open(args.rdb, 'rb') as f:
+            rdb.load_rdb(keyspace, f.read())
+        logger.info("Finished loading (%.2f seconds)." % (time.time() - start_time))
 
     RedisServer(args.host, args.port)
 

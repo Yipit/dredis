@@ -10,6 +10,8 @@ import logging
 import os
 import struct
 
+import lzf
+
 import dredis
 from dredis import crc64
 
@@ -36,6 +38,7 @@ RDB_ENCVAL = 3
 RDB_ENC_INT8 = 0
 RDB_ENC_INT16 = 1
 RDB_ENC_INT32 = 2
+RDB_ENC_LZF = 3
 
 RDB_OPCODE_AUX = 250
 RDB_OPCODE_RESIZEDB = 251
@@ -120,6 +123,9 @@ class ObjectLoader(object):
         self.index = 0
 
     def load_rdb(self):
+        """
+        inspired heavily by rdb.c:rdbLoad()
+        """
         if not self.payload.startswith("REDIS"):
             raise ValueError("Wrong signature trying to load DB from file")
         version = self.payload[len("REDIS"):self.REDIS_VERSION_HEADER_LENGTH]
@@ -129,7 +135,21 @@ class ObjectLoader(object):
         self.index = self.REDIS_VERSION_HEADER_LENGTH
         while True:
             obj_type = self.load_type()
-            if obj_type == RDB_OPCODE_AUX:
+            if obj_type == RDB_OPCODE_EXPIRETIME:
+                self.index += 4  # rdbLoadTime() reads 4 bytes
+                obj_type = self.load_type()
+                logger.warning("Key expiration isn't supported, skipping expiration (RDB_OPCODE_EXPIRETIME)")
+            elif obj_type == RDB_OPCODE_EXPIRETIME_MS:
+                self.index += 8  # rdbLoadMillisecondTime() reads 8 bytes
+                obj_type = self.load_type()
+                logger.warning("Key expiration isn't supported, skipping expiration (RDB_OPCODE_EXPIRETIME_MS)")
+            elif obj_type == RDB_OPCODE_EOF:
+                break
+            elif obj_type == RDB_OPCODE_SELECTDB:
+                # FIXME: at the moment only add keys to the default db
+                self.load_len()
+                continue
+            elif obj_type == RDB_OPCODE_AUX:
                 # ignoring aux field=value
                 self._load_string()
                 self._load_string()
@@ -137,18 +157,6 @@ class ObjectLoader(object):
             elif obj_type == RDB_OPCODE_RESIZEDB:
                 # ignoring db_size & expires_size
                 self.load_len()
-                self.load_len()
-                continue
-            elif obj_type in (
-                RDB_OPCODE_EXPIRETIME,
-                RDB_OPCODE_EXPIRETIME_MS,
-            ):
-                logger.warning("Key expiration isn't supported. Skipping expiration")
-                continue
-            elif obj_type == RDB_OPCODE_EOF:
-                break
-            elif obj_type == RDB_OPCODE_SELECTDB:
-                # FIXME: at the moment only add keys to the default db
                 self.load_len()
                 continue
             key = self._load_string()
@@ -170,6 +178,7 @@ class ObjectLoader(object):
         elif obj_type == RDB_TYPE_HASH:
             self.load_hash(key)
         else:
+            logger.error("Can't load %r (obj_type=%r)" % (key, obj_type))
             raise BAD_DATA_FORMAT_ERR
 
     def load_string(self, key):
@@ -270,10 +279,16 @@ class ObjectLoader(object):
         elif enctype == RDB_ENC_INT32:
             length = self._get_byte(0) | (self._get_byte(1) << 8) | (self._get_byte(2) << 16) | (self._get_byte(3) << 24)
             self.index += 4
-        # TODO: no support for RDB_ENC_LZF at the moment
+        elif enctype == RDB_ENC_LZF:
+            compressed_len = self.load_len()
+            out_max_len = self.load_len()
+            data = self.payload[self.index:self.index + compressed_len]
+            self.index += compressed_len
+            decompressed_data = lzf.decompress(data, out_max_len)
+            length = decompressed_data
         else:
             raise ValueError("Unknown RDB string encoding type %d" % enctype)
-        return length
+        return bytes(length)
 
 
 class ObjectDumper(object):
