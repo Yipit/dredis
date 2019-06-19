@@ -181,7 +181,7 @@ def main():
         logger.info("Loading %s..." % args.rdb)
         start_time = time.time()
         with open(args.rdb, 'rb') as f:
-            rdb.load_rdb(keyspace, f.read())
+            rdb.load_rdb(keyspace, f)
         logger.info("Finished loading (%.2f seconds)." % (time.time() - start_time))
 
     RedisServer(args.host, args.port)

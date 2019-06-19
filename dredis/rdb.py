@@ -9,6 +9,7 @@ This module is based on the following Redis files:
 import logging
 import os
 import struct
+from io import BytesIO
 
 import lzf
 
@@ -102,8 +103,8 @@ def verify_payload(payload):
         raise bad_payload
 
 
-def load_rdb(keyspace, rdb_content):
-    object_loader = ObjectLoader(keyspace, rdb_content)
+def load_rdb(keyspace, rdb_file):
+    object_loader = ObjectLoader(keyspace, rdb_file)
     object_loader.load_rdb()
 
 
@@ -126,32 +127,32 @@ class ObjectLoader(object):
     RDB_HEADER_LENGTH = 2
     CRC64_CHECKSUM_LENGTH = 8
     OBJECT_FOOTER_LENGTH = RDB_HEADER_LENGTH + CRC64_CHECKSUM_LENGTH
+    REDIS_VERSION_LENGTH = 4
     REDIS_VERSION_HEADER_LENGTH = 9  # "REDIS0007" for example
 
-    def __init__(self, keyspace, payload):
+    def __init__(self, keyspace, rdb_file):
         self.keyspace = keyspace
-        self.payload = payload
-        self.index = 0
+        self.payload = rdb_file
 
     def load_rdb(self):
         """
         inspired heavily by rdb.c:rdbLoad()
         """
-        if not self.payload.startswith("REDIS"):
+        header = self.payload.read(self.REDIS_VERSION_HEADER_LENGTH)
+        if not header.startswith("REDIS"):
             raise ValueError("Wrong signature trying to load DB from file")
-        version = self.payload[len("REDIS"):self.REDIS_VERSION_HEADER_LENGTH]
+        version = header[-self.REDIS_VERSION_LENGTH:]
         if not version.isdigit() or int(version) > RDB_VERSION:
             raise ValueError("Can't handle RDB format version %s" % version)
 
-        self.index = self.REDIS_VERSION_HEADER_LENGTH
         while True:
             obj_type = self.load_type()
             if obj_type == RDB_OPCODE_EXPIRETIME:
-                self.index += 4  # rdbLoadTime() reads 4 bytes
+                self.payload.read(4)  # rdbLoadTime() reads 4 bytes
                 obj_type = self.load_type()
                 logger.warning("Key expiration isn't supported, skipping expiration (RDB_OPCODE_EXPIRETIME)")
             elif obj_type == RDB_OPCODE_EXPIRETIME_MS:
-                self.index += 8  # rdbLoadMillisecondTime() reads 8 bytes
+                self.payload.read(8)  # rdbLoadMillisecondTime() reads 8 bytes
                 obj_type = self.load_type()
                 logger.warning("Key expiration isn't supported, skipping expiration (RDB_OPCODE_EXPIRETIME_MS)")
             elif obj_type == RDB_OPCODE_EOF:
@@ -174,8 +175,6 @@ class ObjectLoader(object):
             self._load(key, obj_type)
 
     def load(self, key):
-        if len(self.payload) < self.OBJECT_FOOTER_LENGTH:
-            raise BAD_DATA_FORMAT_ERR
         obj_type = self.load_type()
         self._load(key, obj_type)
 
@@ -218,65 +217,56 @@ class ObjectLoader(object):
             * The general layout of the ziplist is as follows:
             * <zlbytes><zltail><zllen><entry><entry><zlend>
         """
-        ziplist = self._load_string()
-        zindex = 0
-        zlbytes = struct.unpack('I', ziplist[zindex:zindex+4])[0]  # noqa
-        zindex += 4
-        zltail = struct.unpack('I', ziplist[zindex:zindex+4])[0]  # noqa
-        zindex += 4
-        zllen = struct.unpack('H', ziplist[zindex:zindex + 2])[0]
-        zindex += 2
+        ziplist = BytesIO(self._load_string())
+        zlbytes = struct.unpack('I', ziplist.read(4))[0]  # noqa
+        zltail = struct.unpack('I', ziplist.read(4))[0]  # noqa
+        zllen = struct.unpack('H', ziplist.read(2))[0]
 
         for _ in xrange(zllen // 2):
-            member, zindex = self._read_ziplist_entry(ziplist, zindex)
-            score, zindex = self._read_ziplist_entry(ziplist, zindex)
+            member = self._read_ziplist_entry(ziplist)
+            score = self._read_ziplist_entry(ziplist)
             self.keyspace.zadd(key, score, member)
 
-        zlend = struct.unpack('B', ziplist[zindex])[0]
+        zlend = struct.unpack('B', ziplist.read(1))[0]
         if zlend != ZIP_END:
             raise ValueError("Invalid ziplist end %r (key = %r)" % (zlend, key))
 
-    def _read_ziplist_entry(self, f, zindex):
-        z = [zindex]
+    def _read_ziplist_entry(self, f):
+        """
+        Copied from
+        https://github.com/sripathikrishnan/redis-rdb-tools/blob/543a73e84702e911ddcd31325ecfde77d7fd230b/rdbtools/parser.py#L757-L787
+        """  # noqa
 
         def read_unsigned_char(f):
-            result = struct.unpack('B', f[z[0]])[0]
-            z[0] += 1
+            result = struct.unpack('B', f.read(1))[0]
             return result
 
         def read_signed_char(f):
-            result = struct.unpack('b', f[z[0]])[0]
-            z[0] += 1
+            result = struct.unpack('b', f.read(1))[0]
             return result
 
         def read_unsigned_int(f):
-            result = struct.unpack('I', f[z[0]:z[0]+4])[0]
-            z[0] += 4
+            result = struct.unpack('I', f.read(4))[0]
             return result
 
         def read_unsigned_int_be(f):
-            result = struct.unpack('>I', f[z[0]:z[0]+4])[0]
-            z[0] += 4
+            result = struct.unpack('>I', f.read(4))[0]
             return result
 
         def read_signed_int(f):
-            result = struct.unpack('i', f[z[0]:z[0]+4])[0]
-            z[0] += 4
+            result = struct.unpack('i', f.read(4))[0]
             return result
 
         def read_signed_short(f):
-            result = struct.unpack('h', f[z[0]:z[0]+2])[0]
-            z[0] += 2
+            result = struct.unpack('h', f.read(2))[0]
             return result
 
         def read_signed_long(f):
-            result = struct.unpack('l', f[z[0]:z[0]+8])[0]
-            z[0] += 8
+            result = struct.unpack('l', f.read(8))[0]
             return result
 
         def read_24bit_signed_number(f):
-            s = b'0' + f[z[0]:z[0]+3]
-            z[0] += 3
+            s = b'0' + f.read(3)
             num = struct.unpack('i', s)[0]
             return num >> 8
 
@@ -288,16 +278,13 @@ class ObjectLoader(object):
         entry_header = read_unsigned_char(f)
         if (entry_header >> 6) == 0:
             length = entry_header & 0x3F
-            value = f[z[0]:z[0] + length]
-            z[0] += length
+            value = f.read(length)
         elif (entry_header >> 6) == 1:
             length = ((entry_header & 0x3F) << 8) | read_unsigned_char(f)
-            value = f[z[0]:z[0] + length]
-            z[0] += length
+            value = f.read(length)
         elif (entry_header >> 6) == 2:
             length = read_unsigned_int_be(f)
-            value = f[z[0]:z[0] + length]
-            z[0] += length
+            value = f.read(length)
         elif (entry_header >> 4) == 12:
             value = read_signed_short(f)
         elif (entry_header >> 4) == 13:
@@ -312,7 +299,7 @@ class ObjectLoader(object):
             value = entry_header - 241
         else:
             raise Exception('read_ziplist_entry', 'Invalid entry_header %d for key %s' % (entry_header, self._key))
-        return value, z[0]
+        return value
 
     def load_hash(self, key):
         length = self.load_len()
@@ -322,8 +309,7 @@ class ObjectLoader(object):
             self.keyspace.hset(key, field, value)
 
     def load_double(self):
-        length = struct.unpack('>B', self.payload[self.index])[0]
-        self.index += 1
+        length = struct.unpack('>B', self.payload.read(1))[0]
         if length == 255:
             result = float('-inf')
         elif length == 254:
@@ -331,8 +317,7 @@ class ObjectLoader(object):
         elif length == 253:
             result = float('nan')
         else:
-            result = float(self.payload[self.index:self.index + length])
-            self.index += length
+            result = float(self.payload.read(length))
         return result
 
     def load_len(self):
@@ -341,25 +326,21 @@ class ObjectLoader(object):
 
         Based on rdbLoadLen() in rdb.c
         """
-
-        len_type = (self._get_unsigned_byte(0) & 0xC0) >> 6
+        buff = [self._get_unsigned_byte()]
+        len_type = (buff[0] & 0xC0) >> 6
         if len_type == RDB_6BITLEN:
-            length = self._get_unsigned_byte(0) & 0x3F
-            self.index += 1
+            length = buff[0] & 0x3F
         elif len_type == RDB_14BITLEN:
-            length = ((self._get_unsigned_byte(0) & 0x3F) << 8) | self._get_unsigned_byte(1)
-            self.index += 2
+            buff.append(self._get_unsigned_byte())
+            length = ((buff[0] & 0x3F) << 8) | buff[1]
         elif len_type == RDB_32BITLEN:
-            self.index += 1
             length = self._get_unsigned_int_be()
-            self.index += 4
         else:
             raise BAD_DATA_FORMAT_ERR
         return length
 
     def load_type(self):
-        result = struct.unpack('<B', self.payload[self.index])[0]
-        self.index += 1
+        result = struct.unpack('<B', self.payload.read(1))[0]
         return result
 
     def _load_string(self):
@@ -367,49 +348,45 @@ class ObjectLoader(object):
         if is_encoded:
             obj = self._load_encoded_string(length)
         else:
-            obj = self.payload[self.index:self.index + length]
-            self.index += length
+            obj = self.payload.read(length)
         return obj
 
     def _get_signed_byte(self):
-        return struct.unpack('b', self.payload[self.index])[0]
+        return struct.unpack('b', self.payload.read(1))[0]
 
     def _get_signed_int(self):
-        return struct.unpack('i', self.payload[self.index:self.index + 4])[0]
+        return struct.unpack('i', self.payload.read(4))[0]
 
     def _get_signed_short(self):
-        return struct.unpack('h', self.payload[self.index:self.index + 2])[0]
+        return struct.unpack('h', self.payload.read(2))[0]
 
-    def _get_unsigned_byte(self, i):
-        return struct.unpack('B', self.payload[self.index + i])[0]
+    def _get_unsigned_byte(self):
+        return struct.unpack('B', self.payload.read(1))[0]
 
     def _get_unsigned_int_be(self):
-        return struct.unpack('>I', self.payload[self.index:self.index + 4])[0]
+        return struct.unpack('>I', self.payload.read(4))[0]
 
     def _load_string_len(self):
-        len_type = (self._get_unsigned_byte(0) & 0xC0) >> 6
+        first_byte = self._get_unsigned_byte()
+        len_type = (first_byte & 0xC0) >> 6
         if len_type == RDB_ENCVAL:
-            enctype = self._get_unsigned_byte(0) & 0x3F
-            self.index += 1
+            enctype = first_byte & 0x3F
             return enctype, True
         else:
+            self.payload.seek(-1, 1)  # go back one byte
             return self.load_len(), False
 
     def _load_encoded_string(self, enctype):
         if enctype == RDB_ENC_INT8:
             length = self._get_signed_byte()
-            self.index += 1
         elif enctype == RDB_ENC_INT16:
             length = self._get_signed_short()
-            self.index += 2
         elif enctype == RDB_ENC_INT32:
             length = self._get_signed_int()
-            self.index += 4
         elif enctype == RDB_ENC_LZF:
             compressed_len = self.load_len()
             out_max_len = self.load_len()
-            data = self.payload[self.index:self.index + compressed_len]
-            self.index += compressed_len
+            data = self.payload.read(compressed_len)
             decompressed_data = lzf.decompress(data, out_max_len)
             length = decompressed_data
         else:

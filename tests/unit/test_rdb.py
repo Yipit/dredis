@@ -1,3 +1,5 @@
+from io import BytesIO
+
 import pytest
 
 import dredis
@@ -5,7 +7,7 @@ from dredis import rdb, crc64
 
 
 def test_load_rdb_with_strings(keyspace):
-    rdb_content = (
+    rdb_file = BytesIO(
         'REDIS0007'  # "REDIS" + version
         '\xfa\tredis-ver\x053.2.6'  # aux field
         '\xfa\nredis-bits\xc0@'  # aux field
@@ -19,7 +21,7 @@ def test_load_rdb_with_strings(keyspace):
         ')\xd4\xff\x8c\x833W\x8a'  # checksum
     )
 
-    rdb.load_rdb(keyspace, rdb_content)
+    rdb.load_rdb(keyspace, rdb_file)
 
     assert sorted(keyspace.keys('*')) == sorted(['key1', 'key2'])
     assert keyspace.get('key1') == 'value1'
@@ -28,18 +30,18 @@ def test_load_rdb_with_strings(keyspace):
 
 def test_load_invalid_rdb(keyspace):
     with pytest.raises(ValueError) as exc:
-        rdb_content = 'XREDIS0007'
-        rdb.load_rdb(keyspace, rdb_content)
+        rdb_file = BytesIO('XREDIS0007')
+        rdb.load_rdb(keyspace, rdb_file)
     assert str(exc).endswith('Wrong signature trying to load DB from file')
 
     with pytest.raises(ValueError) as exc:
-        rdb_content = 'REDIS000X'
-        rdb.load_rdb(keyspace, rdb_content)
+        rdb_file = BytesIO('REDIS000X')
+        rdb.load_rdb(keyspace, rdb_file)
     assert str(exc).endswith("Can't handle RDB format version 000X")
 
     with pytest.raises(ValueError) as exc:
-        rdb_content = 'REDIS0011'
-        rdb.load_rdb(keyspace, rdb_content)
+        rdb_file = BytesIO('REDIS0011')
+        rdb.load_rdb(keyspace, rdb_file)
     assert str(exc).endswith("Can't handle RDB format version 0011")
 
 

@@ -1,5 +1,6 @@
 import collections
 import fnmatch
+from io import BytesIO
 
 from dredis import rdb
 from dredis.db import DB_MANAGER, KEY_CODEC
@@ -448,7 +449,7 @@ class Keyspace(object):
             else:
                 raise KeyError('BUSYKEY Target key name already exists')
         rdb.verify_payload(payload)
-        rdb.load_object(self, key, payload)
+        rdb.load_object(self, key, BytesIO(payload))
 
 
 class ScoreRange(object):

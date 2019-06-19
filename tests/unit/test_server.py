@@ -48,7 +48,7 @@ def test_transform_error():
 
 
 def test_rdb_load(keyspace):
-    rdb.load_rdb(keyspace, open(FIXTURE_DUMP, 'rb').read())
+    rdb.load_rdb(keyspace, open(FIXTURE_DUMP, 'rb'))
 
     new_keyspace = Keyspace()
     new_keyspace.select(1)
