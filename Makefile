@@ -30,7 +30,7 @@ integration: setup
 	@py.test -v tests/integration
 
 lint: setup
-	@flake8 .
+	@flake8 --exclude tests/fixtures .
 
 server:
 	python -m dredis.server $(TEST_OPTIONS)

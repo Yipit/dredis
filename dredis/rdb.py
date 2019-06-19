@@ -220,9 +220,9 @@ class ObjectLoader(object):
         """
         ziplist = self._load_string()
         zindex = 0
-        zlbytes = struct.unpack('I', ziplist[zindex:zindex+4])[0]
+        zlbytes = struct.unpack('I', ziplist[zindex:zindex+4])[0]  # noqa
         zindex += 4
-        zltail = struct.unpack('I', ziplist[zindex:zindex+4])[0]
+        zltail = struct.unpack('I', ziplist[zindex:zindex+4])[0]  # noqa
         zindex += 4
         zllen = struct.unpack('H', ziplist[zindex:zindex + 2])[0]
         zindex += 2
