@@ -159,3 +159,30 @@ def test_encval_strings(keyspace):
     object_loader = ObjectLoader(keyspace, enc_32bit)
     object_loader.load_string('int32')
     assert keyspace.get('int32') == int32
+
+
+def test_zset_as_ziplist(keyspace):
+    payload = (
+        "\x0c\x1a\x1a\x00"  # zlbytes
+        "\x00\x00\x16\x00"  # zltail
+        "\x00\x00"  # zllen
+        "\x02"
+        "\x00"
+        "\x00"  # previous length
+
+        "\n"  # header and length
+        "test value"  # value = "test value"
+
+        "\x0c"  # previous length
+        "\xfe"  # header
+        "{"  # score = 123
+
+        "\xff"  # end of ziplist
+        "\a\x00\xeb\x1b\x1bim\xc5\n\x93"  # checksum
+    )
+    keyspace.restore('zset', ttl=0, payload=payload, replace=False)
+
+    assert keyspace.zrange('zset', 0, -1, with_scores=True) == [
+        "test value",
+        "123",
+    ]

@@ -23,6 +23,17 @@ RDB_TYPE_SET = 2
 RDB_TYPE_ZSET = 3
 RDB_TYPE_HASH = 4
 
+RDB_TYPE_ZSET_ZIPLIST = 12
+# the following types are not supported yet:
+# RDB_TYPE_HASH_ZIPMAP = 9
+# RDB_TYPE_LIST_ZIPLIST = 10
+# RDB_TYPE_SET_INTSET = 11
+# RDB_TYPE_HASH_ZIPLIST = 13
+# RDB_TYPE_LIST_QUICKLIST = 14
+
+ZIP_END = 255
+ZIP_BIGLEN = 254
+
 RDB_TYPES = {
     'string': RDB_TYPE_STRING,
     'set': RDB_TYPE_SET,
@@ -177,6 +188,8 @@ class ObjectLoader(object):
             self.load_zset(key)
         elif obj_type == RDB_TYPE_HASH:
             self.load_hash(key)
+        elif obj_type == RDB_TYPE_ZSET_ZIPLIST:
+            self.load_zset_ziplist(key)
         else:
             logger.error("Can't load %r (obj_type=%r)" % (key, obj_type))
             raise BAD_DATA_FORMAT_ERR
@@ -197,6 +210,109 @@ class ObjectLoader(object):
             value = self._load_string()
             score = self.load_double()
             self.keyspace.zadd(key, score, value)
+
+    def load_zset_ziplist(self, key):
+        """
+        From ziplist.c:
+            * ZIPLIST OVERALL LAYOUT:
+            * The general layout of the ziplist is as follows:
+            * <zlbytes><zltail><zllen><entry><entry><zlend>
+        """
+        ziplist = self._load_string()
+        zindex = 0
+        zlbytes = struct.unpack('I', ziplist[zindex:zindex+4])[0]
+        zindex += 4
+        zltail = struct.unpack('I', ziplist[zindex:zindex+4])[0]
+        zindex += 4
+        zllen = struct.unpack('H', ziplist[zindex:zindex + 2])[0]
+        zindex += 2
+
+        for _ in xrange(zllen // 2):
+            member, zindex = self._read_ziplist_entry(ziplist, zindex)
+            score, zindex = self._read_ziplist_entry(ziplist, zindex)
+            self.keyspace.zadd(key, score, member)
+
+        zlend = struct.unpack('B', ziplist[zindex])[0]
+        if zlend != ZIP_END:
+            raise ValueError("Invalid ziplist end %r (key = %r)" % (zlend, key))
+
+    def _read_ziplist_entry(self, f, zindex):
+        z = [zindex]
+
+        def read_unsigned_char(f):
+            result = struct.unpack('B', f[z[0]])[0]
+            z[0] += 1
+            return result
+
+        def read_signed_char(f):
+            result = struct.unpack('b', f[z[0]])[0]
+            z[0] += 1
+            return result
+
+        def read_unsigned_int(f):
+            result = struct.unpack('I', f[z[0]:z[0]+4])[0]
+            z[0] += 4
+            return result
+
+        def read_unsigned_int_be(f):
+            result = struct.unpack('>I', f[z[0]:z[0]+4])[0]
+            z[0] += 4
+            return result
+
+        def read_signed_int(f):
+            result = struct.unpack('i', f[z[0]:z[0]+4])[0]
+            z[0] += 4
+            return result
+
+        def read_signed_short(f):
+            result = struct.unpack('h', f[z[0]:z[0]+2])[0]
+            z[0] += 2
+            return result
+
+        def read_signed_long(f):
+            result = struct.unpack('l', f[z[0]:z[0]+8])[0]
+            z[0] += 8
+            return result
+
+        def read_24bit_signed_number(f):
+            s = b'0' + f[z[0]:z[0]+3]
+            z[0] += 3
+            num = struct.unpack('i', s)[0]
+            return num >> 8
+
+        length = 0
+        value = None
+        prev_length = read_unsigned_char(f)
+        if prev_length == ZIP_BIGLEN:
+            prev_length = read_unsigned_int(f)
+        entry_header = read_unsigned_char(f)
+        if (entry_header >> 6) == 0:
+            length = entry_header & 0x3F
+            value = f[z[0]:z[0] + length]
+            z[0] += length
+        elif (entry_header >> 6) == 1:
+            length = ((entry_header & 0x3F) << 8) | read_unsigned_char(f)
+            value = f[z[0]:z[0] + length]
+            z[0] += length
+        elif (entry_header >> 6) == 2:
+            length = read_unsigned_int_be(f)
+            value = f[z[0]:z[0] + length]
+            z[0] += length
+        elif (entry_header >> 4) == 12:
+            value = read_signed_short(f)
+        elif (entry_header >> 4) == 13:
+            value = read_signed_int(f)
+        elif (entry_header >> 4) == 14:
+            value = read_signed_long(f)
+        elif (entry_header == 240):
+            value = read_24bit_signed_number(f)
+        elif (entry_header == 254):
+            value = read_signed_char(f)
+        elif (entry_header >= 241 and entry_header <= 253):
+            value = entry_header - 241
+        else:
+            raise Exception('read_ziplist_entry', 'Invalid entry_header %d for key %s' % (entry_header, self._key))
+        return value, z[0]
 
     def load_hash(self, key):
         length = self.load_len()
