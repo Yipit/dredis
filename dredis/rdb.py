@@ -25,11 +25,11 @@ RDB_TYPE_ZSET = 3
 RDB_TYPE_HASH = 4
 
 RDB_TYPE_ZSET_ZIPLIST = 12
+RDB_TYPE_HASH_ZIPLIST = 13
 # the following types are not supported yet:
 # RDB_TYPE_HASH_ZIPMAP = 9
 # RDB_TYPE_LIST_ZIPLIST = 10
 # RDB_TYPE_SET_INTSET = 11
-# RDB_TYPE_HASH_ZIPLIST = 13
 # RDB_TYPE_LIST_QUICKLIST = 14
 
 ZIP_END = 255
@@ -189,6 +189,8 @@ class ObjectLoader(object):
             self.load_hash(key)
         elif obj_type == RDB_TYPE_ZSET_ZIPLIST:
             self.load_zset_ziplist(key)
+        elif obj_type == RDB_TYPE_HASH_ZIPLIST:
+            self.load_hash_ziplist(key)
         else:
             logger.error("Can't load %r (obj_type=%r)" % (key, obj_type))
             raise BAD_DATA_FORMAT_ERR
@@ -210,7 +212,7 @@ class ObjectLoader(object):
             score = self.load_double()
             self.keyspace.zadd(key, score, value)
 
-    def load_zset_ziplist(self, key):
+    def _load_ziplist(self, key):
         """
         From ziplist.c:
             * ZIPLIST OVERALL LAYOUT:
@@ -222,14 +224,34 @@ class ObjectLoader(object):
         zltail = struct.unpack('I', ziplist.read(4))[0]  # noqa
         zllen = struct.unpack('H', ziplist.read(2))[0]
 
-        for _ in xrange(zllen // 2):
-            member = self._read_ziplist_entry(ziplist)
-            score = self._read_ziplist_entry(ziplist)
-            self.keyspace.zadd(key, score, member)
+        for _ in xrange(zllen):
+            yield self._read_ziplist_entry(ziplist)
 
         zlend = struct.unpack('B', ziplist.read(1))[0]
         if zlend != ZIP_END:
             raise ValueError("Invalid ziplist end %r (key = %r)" % (zlend, key))
+
+    def load_zset_ziplist(self, key):
+        ziplist = self._load_ziplist(key)
+        while True:
+            try:
+                member = next(ziplist)
+                score = next(ziplist)
+            except StopIteration:
+                break
+            else:
+                self.keyspace.zadd(key, score, member)
+
+    def load_hash_ziplist(self, key):
+        ziplist = self._load_ziplist(key)
+        while True:
+            try:
+                field = next(ziplist)
+                value = next(ziplist)
+            except StopIteration:
+                break
+            else:
+                self.keyspace.hset(key, field, value)
 
     def _read_ziplist_entry(self, f):
         """

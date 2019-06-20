@@ -19,7 +19,7 @@ MAX_SCORE = 2 ** 16
 MAX_STRING_LENGTH = 1000
 
 
-def random_string(max_length=MAX_STRING_LENGTH):
+def random_string(max_length):
     return ''.join(random.choice(string.printable) for _ in range(int(random.random() * max_length)))
 
 
@@ -35,12 +35,12 @@ def random_integer():
     return random_sign() * int(random.random() * MAX_INTEGER)
 
 
-def random_value():
+def random_value(max_length=MAX_STRING_LENGTH):
     return random.choice([
         # strings should happen more often
-        random_string(),
-        random_string(),
-        random_string(),
+        random_string(max_length),
+        random_string(max_length),
+        random_string(max_length),
 
         random_integer(),
     ])
@@ -77,7 +77,7 @@ def add_zsets(r):
 def add_hashes(r):
     print("Adding hashes...")
     for _ in xrange(SMALL):
-        r.hset('hash_small', random_string(max_length=30), random_value())
+        r.hset('hash_small', random_string(max_length=30), random_value(max_length=30))
     for _ in xrange(LARGE):
         r.hset('hash_large', random_string(max_length=30), random_value())
 

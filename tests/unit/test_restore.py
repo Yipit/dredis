@@ -186,3 +186,26 @@ def test_zset_as_ziplist(keyspace):
         "test value",
         "123",
     ]
+
+
+def test_hash_as_ziplist(keyspace):
+    payload = (
+        "\r"
+        "\x1b\x1b\x00\x00"  # zlbytes
+        "\x00\x12\x00\x00"  # zltail
+        "\x00\x02"  # zzlen
+        "\x00\x00"  # previous length
+
+        "\x06"  # header and length
+        "field1"  # field name
+
+        "\b"  # previous length
+        "\x06"  # header and length
+        "value1"  # field value
+
+        "\xff"  # end of ziplist
+        "\a\x00\xbd5\x1dA\xc2a\xf1!"  # checksum
+    )
+    keyspace.restore('testhash', ttl=0, payload=payload, replace=False)
+
+    assert keyspace.hgetall('testhash') == ["field1", "value1"]
