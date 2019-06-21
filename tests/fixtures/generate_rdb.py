@@ -54,16 +54,14 @@ def add_strings(r):
         r.set(key, value)
 
 
-
 def add_sets(r):
     print("Adding sets...")
     for _ in xrange(SMALL):
         r.sadd('set_small', random_value())
     for _ in xrange(LARGE):
         r.sadd('set_large', random_value())
-    # # int sets are not supported yet
-    # for _ in xrange(SMALL):
-    #     r.sadd('intset', random_integer())
+    for _ in xrange(SMALL):
+        r.sadd('intset', random_integer())
 
 
 def add_zsets(r):

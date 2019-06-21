@@ -24,13 +24,17 @@ RDB_TYPE_SET = 2
 RDB_TYPE_ZSET = 3
 RDB_TYPE_HASH = 4
 
+RDB_TYPE_SET_INTSET = 11
 RDB_TYPE_ZSET_ZIPLIST = 12
 RDB_TYPE_HASH_ZIPLIST = 13
 # the following types are not supported yet:
 # RDB_TYPE_HASH_ZIPMAP = 9
 # RDB_TYPE_LIST_ZIPLIST = 10
-# RDB_TYPE_SET_INTSET = 11
 # RDB_TYPE_LIST_QUICKLIST = 14
+
+INTSET_ENC_INT16 = 2
+INTSET_ENC_INT32 = 4
+INTSET_ENC_INT64 = 8
 
 ZIP_END = 255
 ZIP_BIGLEN = 254
@@ -183,6 +187,8 @@ class ObjectLoader(object):
             self.load_string(key)
         elif obj_type == RDB_TYPE_SET:
             self.load_set(key)
+        elif obj_type == RDB_TYPE_SET_INTSET:
+            self.load_intset(key)
         elif obj_type == RDB_TYPE_ZSET:
             self.load_zset(key)
         elif obj_type == RDB_TYPE_HASH:
@@ -204,6 +210,24 @@ class ObjectLoader(object):
         for _ in xrange(length):
             elem = self._load_string()
             self.keyspace.sadd(key, elem)
+
+    def load_intset(self, key):
+        """
+        based on intset.h and https://github.com/sripathikrishnan/redis-rdb-tools/blob/543a73e84702e911ddcd31325ecfde77d7fd230b/rdbtools/parser.py#L665-L681
+        """  # noqa
+        intset = BytesIO(self._load_string())
+        encoding = read_unsigned_int(intset)
+        length = read_unsigned_int(intset)
+        for _ in xrange(length):
+            if encoding == INTSET_ENC_INT16:
+                entry = read_signed_short(intset)
+            elif encoding == INTSET_ENC_INT32:
+                entry = read_signed_int(intset)
+            elif encoding == INTSET_ENC_INT64:
+                entry = read_signed_long(intset)
+            else:
+                raise ValueError('Invalid encoding %r for intset (key = %r)' % (encoding, key))
+            self.keyspace.sadd(key, entry)
 
     def load_zset(self, key):
         length = self.load_len()
@@ -258,40 +282,6 @@ class ObjectLoader(object):
         Copied from
         https://github.com/sripathikrishnan/redis-rdb-tools/blob/543a73e84702e911ddcd31325ecfde77d7fd230b/rdbtools/parser.py#L757-L787
         """  # noqa
-
-        def read_unsigned_char(f):
-            result = struct.unpack('B', f.read(1))[0]
-            return result
-
-        def read_signed_char(f):
-            result = struct.unpack('b', f.read(1))[0]
-            return result
-
-        def read_unsigned_int(f):
-            result = struct.unpack('I', f.read(4))[0]
-            return result
-
-        def read_unsigned_int_be(f):
-            result = struct.unpack('>I', f.read(4))[0]
-            return result
-
-        def read_signed_int(f):
-            result = struct.unpack('i', f.read(4))[0]
-            return result
-
-        def read_signed_short(f):
-            result = struct.unpack('h', f.read(2))[0]
-            return result
-
-        def read_signed_long(f):
-            result = struct.unpack('l', f.read(8))[0]
-            return result
-
-        def read_24bit_signed_number(f):
-            s = b'0' + f.read(3)
-            num = struct.unpack('i', s)[0]
-            return num >> 8
-
         length = 0
         value = None
         prev_length = read_unsigned_char(f)
@@ -384,6 +374,9 @@ class ObjectLoader(object):
 
     def _get_unsigned_byte(self):
         return struct.unpack('B', self.payload.read(1))[0]
+
+    def _get_unsigned_int(self):
+        return struct.unpack('I', self.payload.read(4))[0]
 
     def _get_unsigned_int_be(self):
         return struct.unpack('>I', self.payload.read(4))[0]
@@ -541,3 +534,44 @@ class ObjectDumper(object):
             return struct.pack('<Bi', (RDB_ENCVAL << 6) | RDB_ENC_INT32, value)
         else:
             raise ValueError("can't encode %r as integer" % value)
+
+
+def read_unsigned_char(f):
+    result = struct.unpack('B', f.read(1))[0]
+    return result
+
+
+def read_signed_char(f):
+    result = struct.unpack('b', f.read(1))[0]
+    return result
+
+
+def read_unsigned_int(f):
+    result = struct.unpack('I', f.read(4))[0]
+    return result
+
+
+def read_unsigned_int_be(f):
+    result = struct.unpack('>I', f.read(4))[0]
+    return result
+
+
+def read_signed_int(f):
+    result = struct.unpack('i', f.read(4))[0]
+    return result
+
+
+def read_signed_short(f):
+    result = struct.unpack('h', f.read(2))[0]
+    return result
+
+
+def read_signed_long(f):
+    result = struct.unpack('l', f.read(8))[0]
+    return result
+
+
+def read_24bit_signed_number(f):
+    s = b'0' + f.read(3)
+    num = struct.unpack('i', s)[0]
+    return num >> 8
