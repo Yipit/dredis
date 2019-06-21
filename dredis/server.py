@@ -11,8 +11,8 @@ import traceback
 
 import sys
 
-from dredis import __version__, rdb
-from dredis import db
+from dredis import __version__
+from dredis import db, rdb
 from dredis.commands import run_command, SimpleString, CommandNotFound
 from dredis.keyspace import Keyspace
 from dredis.lua import RedisScriptError
@@ -23,11 +23,12 @@ logger = logging.getLogger('dredis')
 
 KEYSPACES = {}
 ROOT_DIR = None  # defined by `main()`
+READONLY_SERVER = False
 
 
 def execute_cmd(keyspace, send_fn, cmd, *args):
     try:
-        result = run_command(keyspace, cmd, args)
+        result = run_command(keyspace, cmd, args, readonly=READONLY_SERVER)
     # FIXME: these exceptions should all be custom,
     #  otherwise it's hard to distinguish between expected and unexpected errors.
     except (SyntaxError, CommandNotFound, ValueError, RedisScriptError, KeyError) as exc:
@@ -149,6 +150,7 @@ def main():
     # boolean arguments
     parser.add_argument('--debug', action='store_true', help='enable debug logs')
     parser.add_argument('--flushall', action='store_true', default=False, help='run FLUSHALL on startup')
+    parser.add_argument('--readonly', action='store_true', help='accept read-only commands')
     args = parser.parse_args()
 
     global ROOT_DIR
@@ -163,6 +165,10 @@ def main():
         setup_logging(logging.DEBUG)
     else:
         setup_logging(logging.INFO)
+
+    if args.readonly:
+        global READONLY_SERVER
+        READONLY_SERVER = True
 
     db_backend_options = {}
     if args.backend_option:
@@ -191,6 +197,7 @@ def main():
     logger.info("Port: {}".format(args.port))
     logger.info("Root directory: {}".format(ROOT_DIR))
     logger.info('PID: {}'.format(os.getpid()))
+    logger.info('Readonly: {}'.format(READONLY_SERVER))
     logger.info('Ready to accept connections')
 
     try:
