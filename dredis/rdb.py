@@ -249,7 +249,7 @@ class ObjectLoader(object):
         zllen = read_unsigned_short(ziplist)
 
         for _ in xrange(zllen):
-            yield self._read_ziplist_entry(ziplist, key)
+            yield bytes(self._read_ziplist_entry(ziplist, key))
 
         zlend = read_unsigned_char(ziplist)
         if zlend != ZIP_END:
