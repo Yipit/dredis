@@ -77,6 +77,12 @@ def cmd_dbsize(keyspace):
     return keyspace.dbsize()
 
 
+@command('SAVE', arity=1)
+def cmd_save(keyspace):
+    keyspace.save()
+    return SimpleString('OK')
+
+
 """
 ****************
 * Key commands *

@@ -43,7 +43,7 @@ stop-testserver:
 	@-kill `cat $(PID)` 2> /dev/null
 	@-rm $(PID)
 
-setup:
+setup: clean
 	@pip install -r development.txt --quiet
 
 start-redistestserver:
@@ -75,3 +75,4 @@ performance-stats:
 clean:
 	rm -rf build/ dist/
 	find . -name '*.pyc' -delete
+	rm -f dump_*.rdb

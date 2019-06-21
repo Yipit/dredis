@@ -1,3 +1,5 @@
+import glob
+
 from tests.helpers import fresh_redis
 
 
@@ -44,3 +46,13 @@ def test_dbsize():
     r0.set('test', 'value')
     assert r0.dbsize() == 1
     assert r1.dbsize() == 0
+
+
+def test_save_creates_an_rdb_file():
+    r = fresh_redis()
+    rdb_files_before = set(glob.glob('../../dump_*.rdb'))
+
+    r.set('test', 'value')
+
+    assert r.save()
+    assert len((set(glob.glob('../../dump_*.rdb')) - rdb_files_before)) == 1
