@@ -338,15 +338,15 @@ class ObjectLoader(object):
 
         Based on rdbLoadLen() in rdb.c
         """
-        buff = [self._get_unsigned_byte()]
+        buff = [read_unsigned_char(self.payload)]
         len_type = (buff[0] & 0xC0) >> 6
         if len_type == RDB_6BITLEN:
             length = buff[0] & 0x3F
         elif len_type == RDB_14BITLEN:
-            buff.append(self._get_unsigned_byte())
+            buff.append(read_unsigned_char(self.payload))
             length = ((buff[0] & 0x3F) << 8) | buff[1]
         elif len_type == RDB_32BITLEN:
-            length = self._get_unsigned_int_be()
+            length = read_unsigned_int_be(self.payload)
         else:
             raise BAD_DATA_FORMAT_ERR
         return length
@@ -363,26 +363,8 @@ class ObjectLoader(object):
             obj = self.payload.read(length)
         return obj
 
-    def _get_signed_byte(self):
-        return struct.unpack('b', self.payload.read(1))[0]
-
-    def _get_signed_int(self):
-        return struct.unpack('i', self.payload.read(4))[0]
-
-    def _get_signed_short(self):
-        return struct.unpack('h', self.payload.read(2))[0]
-
-    def _get_unsigned_byte(self):
-        return struct.unpack('B', self.payload.read(1))[0]
-
-    def _get_unsigned_int(self):
-        return struct.unpack('I', self.payload.read(4))[0]
-
-    def _get_unsigned_int_be(self):
-        return struct.unpack('>I', self.payload.read(4))[0]
-
     def _load_string_len(self):
-        first_byte = self._get_unsigned_byte()
+        first_byte = read_unsigned_char(self.payload)
         len_type = (first_byte & 0xC0) >> 6
         if len_type == RDB_ENCVAL:
             enctype = first_byte & 0x3F
@@ -393,11 +375,11 @@ class ObjectLoader(object):
 
     def _load_encoded_string(self, enctype):
         if enctype == RDB_ENC_INT8:
-            length = self._get_signed_byte()
+            length = read_signed_char(self.payload)
         elif enctype == RDB_ENC_INT16:
-            length = self._get_signed_short()
+            length = read_signed_short(self.payload)
         elif enctype == RDB_ENC_INT32:
-            length = self._get_signed_int()
+            length = read_signed_int(self.payload)
         elif enctype == RDB_ENC_LZF:
             compressed_len = self.load_len()
             out_max_len = self.load_len()
