@@ -31,7 +31,8 @@ To know about all of the options, use `--help`:
 $ dredis --help
 usage: dredis [-h] [-v] [--host HOST] [--port PORT] [--dir DIR]
               [--backend {lmdb,leveldb,memory}]
-              [--backend-option BACKEND_OPTION] [--debug] [--flushall]
+              [--backend-option BACKEND_OPTION] [--rdb RDB] [--debug]
+              [--flushall]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -45,6 +46,7 @@ optional arguments:
   --backend-option BACKEND_OPTION
                         database backend options (e.g., --backend-option
                         map_size=BYTES)
+  --rdb RDB             RDB file to seed dredis
   --debug               enable debug logs
   --flushall            run FLUSHALL on startup
 ```

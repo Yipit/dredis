@@ -145,9 +145,10 @@ def main():
                         help='key/value database backend (defaults to %(default)s)')
     parser.add_argument('--backend-option', action='append',
                         help='database backend options (e.g., --backend-option map_size=BYTES)')
+    parser.add_argument('--rdb', default=None, help='RDB file to seed dredis')
+    # boolean arguments
     parser.add_argument('--debug', action='store_true', help='enable debug logs')
     parser.add_argument('--flushall', action='store_true', default=False, help='run FLUSHALL on startup')
-    parser.add_argument('--rdb', default=None, help='RDB file to seed dredis')
     args = parser.parse_args()
 
     global ROOT_DIR
