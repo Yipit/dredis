@@ -1,4 +1,5 @@
 import glob
+import os.path
 
 from tests.helpers import fresh_redis
 
@@ -50,9 +51,9 @@ def test_dbsize():
 
 def test_save_creates_an_rdb_file():
     r = fresh_redis()
-    rdb_files_before = set(glob.glob('../../dump_*.rdb'))
+    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))  # 2 directory levels up
+    rdb_files_before = set(glob.glob(os.path.join(root_dir, 'dump_*.rdb')))
 
     r.set('test', 'value')
-
     assert r.save()
-    assert len((set(glob.glob('../../dump_*.rdb')) - rdb_files_before)) == 1
+    assert len(set(glob.glob(os.path.join(root_dir, 'dump_*.rdb'))) - rdb_files_before) == 1
