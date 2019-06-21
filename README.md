@@ -197,7 +197,8 @@ Use DNS routing or a network load balancer to route requests properly.
 
 ### Backups
 
-The command `SAVE` creates a snapshot in the same format as Redis's RDB version 7 (compatible with Redis 3.x). We recommend you to run `SAVE` on a secondary `dredis` process, otherwise the server will hang during the snapshot.
+The command `SAVE` creates a snapshot in the same format as Redis's RDB version 7 (compatible with Redis 3.x).
+We recommend you to run `SAVE` on a secondary `dredis` process, otherwise the server will hang during the snapshot (consistency guarantees are higher with LMDB as the backend).
 The command `BGSAVE` may be supported in the future.
 
 Other backups solutions involve backing up the files created by the backend.
