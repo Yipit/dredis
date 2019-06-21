@@ -1,3 +1,4 @@
+import os
 from io import BytesIO
 
 import pytest
@@ -62,6 +63,11 @@ def test_save_rdb_with_strings(keyspace):
     keyspace.set('key2', 'value2')
 
     filename = 'test-dump.rdb'
-    rdb.dump_rdb(keyspace, filename)
+    try:
+        rdb.dump_rdb(keyspace, filename)
+        content = open(filename, 'rb').read()
+    finally:
+        # cleanup to avoid extra test file
+        os.remove(filename)
 
-    assert open(filename, 'rb').read() == expected_rdb_content
+    assert content == expected_rdb_content
