@@ -249,7 +249,7 @@ class ObjectLoader(object):
         zllen = read_unsigned_short(ziplist)
 
         for _ in xrange(zllen):
-            yield self._read_ziplist_entry(ziplist)
+            yield self._read_ziplist_entry(ziplist, key)
 
         zlend = read_unsigned_char(ziplist)
         if zlend != ZIP_END:
@@ -277,9 +277,9 @@ class ObjectLoader(object):
             else:
                 self.keyspace.hset(key, field, value)
 
-    def _read_ziplist_entry(self, f):
+    def _read_ziplist_entry(self, f, key):
         """
-        Copied from
+        Copied and adapted from
         https://github.com/sripathikrishnan/redis-rdb-tools/blob/543a73e84702e911ddcd31325ecfde77d7fd230b/rdbtools/parser.py#L757-L787
         """  # noqa
         length = 0
@@ -310,7 +310,7 @@ class ObjectLoader(object):
         elif (entry_header >= 241 and entry_header <= 253):
             value = entry_header - 241
         else:
-            raise Exception('read_ziplist_entry', 'Invalid entry_header %d for key %s' % (entry_header, self._key))
+            raise ValueError('Invalid ziplist entry_header %d for key %s' % (entry_header, key))
         return value
 
     def load_hash(self, key):
