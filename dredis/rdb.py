@@ -244,14 +244,14 @@ class ObjectLoader(object):
             * <zlbytes><zltail><zllen><entry><entry><zlend>
         """
         ziplist = BytesIO(self._load_string())
-        zlbytes = struct.unpack('I', ziplist.read(4))[0]  # noqa
-        zltail = struct.unpack('I', ziplist.read(4))[0]  # noqa
-        zllen = struct.unpack('H', ziplist.read(2))[0]
+        zlbytes = read_unsigned_int(ziplist)  # noqa
+        zltail = read_unsigned_int(ziplist)  # noqa
+        zllen = read_unsigned_short(ziplist)
 
         for _ in xrange(zllen):
             yield self._read_ziplist_entry(ziplist)
 
-        zlend = struct.unpack('B', ziplist.read(1))[0]
+        zlend = read_unsigned_char(ziplist)
         if zlend != ZIP_END:
             raise ValueError("Invalid ziplist end %r (key = %r)" % (zlend, key))
 
@@ -321,7 +321,7 @@ class ObjectLoader(object):
             self.keyspace.hset(key, field, value)
 
     def load_double(self):
-        length = struct.unpack('>B', self.payload.read(1))[0]
+        length = read_unsigned_char(self.payload)
         if length == 255:
             result = float('-inf')
         elif length == 254:
@@ -352,7 +352,7 @@ class ObjectLoader(object):
         return length
 
     def load_type(self):
-        result = struct.unpack('<B', self.payload.read(1))[0]
+        result = read_unsigned_char(self.payload)
         return result
 
     def _load_string(self):
@@ -546,6 +546,10 @@ def read_signed_int(f):
 def read_signed_short(f):
     result = struct.unpack('h', f.read(2))[0]
     return result
+
+
+def read_unsigned_short(f):
+    return struct.unpack('H', f.read(2))[0]
 
 
 def read_signed_long(f):
