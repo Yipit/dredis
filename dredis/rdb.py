@@ -75,8 +75,8 @@ def get_rdb_version():
     return struct.pack('<BB', RDB_VERSION & 0xff, (RDB_VERSION >> 8) & 0xff)
 
 
-def load_object(keyspace, key, payload):
-    object_loader = ObjectLoader(keyspace, payload)
+def load_object(keyspace, key, rdb_file):
+    object_loader = ObjectLoader(keyspace, rdb_file)
     object_loader.load(key)
 
 
@@ -136,13 +136,13 @@ class ObjectLoader(object):
 
     def __init__(self, keyspace, rdb_file):
         self.keyspace = keyspace
-        self.payload = rdb_file
+        self.file = rdb_file
 
     def load_rdb(self):
         """
         inspired heavily by rdb.c:rdbLoad()
         """
-        header = self.payload.read(self.REDIS_VERSION_HEADER_LENGTH)
+        header = self.file.read(self.REDIS_VERSION_HEADER_LENGTH)
         if not header.startswith("REDIS"):
             raise ValueError("Wrong signature trying to load DB from file")
         version = header[-self.REDIS_VERSION_LENGTH:]
@@ -152,11 +152,11 @@ class ObjectLoader(object):
         while True:
             obj_type = self.load_type()
             if obj_type == RDB_OPCODE_EXPIRETIME:
-                self.payload.read(4)  # rdbLoadTime() reads 4 bytes
+                self.file.read(4)  # rdbLoadTime() reads 4 bytes
                 obj_type = self.load_type()
                 logger.warning("Key expiration isn't supported, skipping expiration (RDB_OPCODE_EXPIRETIME)")
             elif obj_type == RDB_OPCODE_EXPIRETIME_MS:
-                self.payload.read(8)  # rdbLoadMillisecondTime() reads 8 bytes
+                self.file.read(8)  # rdbLoadMillisecondTime() reads 8 bytes
                 obj_type = self.load_type()
                 logger.warning("Key expiration isn't supported, skipping expiration (RDB_OPCODE_EXPIRETIME_MS)")
             elif obj_type == RDB_OPCODE_EOF:
@@ -321,7 +321,7 @@ class ObjectLoader(object):
             self.keyspace.hset(key, field, value)
 
     def load_double(self):
-        length = read_unsigned_char(self.payload)
+        length = read_unsigned_char(self.file)
         if length == 255:
             result = float('-inf')
         elif length == 254:
@@ -329,7 +329,7 @@ class ObjectLoader(object):
         elif length == 253:
             result = float('nan')
         else:
-            result = float(self.payload.read(length))
+            result = float(self.file.read(length))
         return result
 
     def load_len(self):
@@ -338,21 +338,21 @@ class ObjectLoader(object):
 
         Based on rdbLoadLen() in rdb.c
         """
-        buff = [read_unsigned_char(self.payload)]
+        buff = [read_unsigned_char(self.file)]
         len_type = (buff[0] & 0xC0) >> 6
         if len_type == RDB_6BITLEN:
             length = buff[0] & 0x3F
         elif len_type == RDB_14BITLEN:
-            buff.append(read_unsigned_char(self.payload))
+            buff.append(read_unsigned_char(self.file))
             length = ((buff[0] & 0x3F) << 8) | buff[1]
         elif len_type == RDB_32BITLEN:
-            length = read_unsigned_int_be(self.payload)
+            length = read_unsigned_int_be(self.file)
         else:
             raise BAD_DATA_FORMAT_ERR
         return length
 
     def load_type(self):
-        result = read_unsigned_char(self.payload)
+        result = read_unsigned_char(self.file)
         return result
 
     def _load_string(self):
@@ -360,30 +360,30 @@ class ObjectLoader(object):
         if is_encoded:
             obj = self._load_encoded_string(length)
         else:
-            obj = self.payload.read(length)
+            obj = self.file.read(length)
         return obj
 
     def _load_string_len(self):
-        first_byte = read_unsigned_char(self.payload)
+        first_byte = read_unsigned_char(self.file)
         len_type = (first_byte & 0xC0) >> 6
         if len_type == RDB_ENCVAL:
             enctype = first_byte & 0x3F
             return enctype, True
         else:
-            self.payload.seek(-1, 1)  # go back one byte
+            self.file.seek(-1, 1)  # go back one byte
             return self.load_len(), False
 
     def _load_encoded_string(self, enctype):
         if enctype == RDB_ENC_INT8:
-            length = read_signed_char(self.payload)
+            length = read_signed_char(self.file)
         elif enctype == RDB_ENC_INT16:
-            length = read_signed_short(self.payload)
+            length = read_signed_short(self.file)
         elif enctype == RDB_ENC_INT32:
-            length = read_signed_int(self.payload)
+            length = read_signed_int(self.file)
         elif enctype == RDB_ENC_LZF:
             compressed_len = self.load_len()
             out_max_len = self.load_len()
-            data = self.payload.read(compressed_len)
+            data = self.file.read(compressed_len)
             decompressed_data = lzf.decompress(data, out_max_len)
             length = decompressed_data
         else:
