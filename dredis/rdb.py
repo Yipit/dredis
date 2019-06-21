@@ -375,20 +375,19 @@ class ObjectLoader(object):
 
     def _load_encoded_string(self, enctype):
         if enctype == RDB_ENC_INT8:
-            length = read_signed_char(self.file)
+            result = read_signed_char(self.file)
         elif enctype == RDB_ENC_INT16:
-            length = read_signed_short(self.file)
+            result = read_signed_short(self.file)
         elif enctype == RDB_ENC_INT32:
-            length = read_signed_int(self.file)
+            result = read_signed_int(self.file)
         elif enctype == RDB_ENC_LZF:
             compressed_len = self.load_len()
             out_max_len = self.load_len()
             data = self.file.read(compressed_len)
-            decompressed_data = lzf.decompress(data, out_max_len)
-            length = decompressed_data
+            result = lzf.decompress(data, out_max_len)
         else:
             raise ValueError("Unknown RDB string encoding type %d" % enctype)
-        return bytes(length)
+        return bytes(result)
 
 
 class ObjectDumper(object):
