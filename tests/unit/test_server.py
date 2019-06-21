@@ -1,16 +1,5 @@
-from dredis import rdb
-from dredis.keyspace import Keyspace
 from dredis.server import transmit, transform
 import mock
-import os.path
-
-from tests.fixtures import reproduce_dump
-
-FIXTURE_DUMP = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)),
-    'fixtures',
-    'dump.rdb',
-)
 
 
 def test_transmit_integer():
@@ -45,25 +34,3 @@ def test_transform_nested_array():
 
 def test_transform_error():
     assert transform(Exception('test')) == '-ERR test\r\n'
-
-
-def test_rdb_load(keyspace):
-    rdb.load_rdb(keyspace, open(FIXTURE_DUMP, 'rb'))
-
-    new_keyspace = Keyspace()
-    new_keyspace.select(1)
-    reproduce_dump.run(new_keyspace)
-
-    assert new_keyspace.keys('*') == keyspace.keys('*')
-
-    for key in new_keyspace.keys('string_*'):
-        assert new_keyspace.get(key) == keyspace.get(key)
-
-    for key in new_keyspace.keys('set_*'):
-        assert new_keyspace.smembers(key) == keyspace.smembers(key)
-
-    for key in new_keyspace.keys('zset_*'):
-        assert new_keyspace.zrange(key, 0, -1, with_scores=True) == keyspace.zrange(key, 0, -1, with_scores=True)
-
-    for key in new_keyspace.keys('hash_*'):
-        assert new_keyspace.hgetall(key) == keyspace.hgetall(key)

@@ -1,10 +1,20 @@
 import os
+import os.path
 from io import BytesIO
 
 import pytest
 
 import dredis
 from dredis import rdb, crc64
+from dredis.keyspace import Keyspace
+from tests.fixtures import reproduce_dump
+
+
+FIXTURE_DUMP = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),
+    'fixtures',
+    'dump.rdb',
+)
 
 
 def test_load_rdb_with_strings(keyspace):
@@ -71,3 +81,25 @@ def test_save_rdb_with_strings(keyspace):
         os.remove(filename)
 
     assert content == expected_rdb_content
+
+
+def test_rdb_load(keyspace):
+    rdb.load_rdb(keyspace, open(FIXTURE_DUMP, 'rb'))
+
+    new_keyspace = Keyspace()
+    new_keyspace.select(1)
+    reproduce_dump.run(new_keyspace)
+
+    assert new_keyspace.keys('*') == keyspace.keys('*')
+
+    for key in new_keyspace.keys('string_*'):
+        assert new_keyspace.get(key) == keyspace.get(key)
+
+    for key in new_keyspace.keys('set_*'):
+        assert new_keyspace.smembers(key) == keyspace.smembers(key)
+
+    for key in new_keyspace.keys('zset_*'):
+        assert new_keyspace.zrange(key, 0, -1, with_scores=True) == keyspace.zrange(key, 0, -1, with_scores=True)
+
+    for key in new_keyspace.keys('hash_*'):
+        assert new_keyspace.hgetall(key) == keyspace.hgetall(key)
