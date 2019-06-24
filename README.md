@@ -31,7 +31,8 @@ To know about all of the options, use `--help`:
 $ dredis --help
 usage: dredis [-h] [-v] [--host HOST] [--port PORT] [--dir DIR]
               [--backend {lmdb,leveldb,memory}]
-              [--backend-option BACKEND_OPTION] [--debug] [--flushall]
+              [--backend-option BACKEND_OPTION] [--rdb RDB] [--debug]
+              [--flushall]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -45,6 +46,7 @@ optional arguments:
   --backend-option BACKEND_OPTION
                         database backend options (e.g., --backend-option
                         map_size=BYTES)
+  --rdb RDB             RDB file to seed dredis
   --debug               enable debug logs
   --flushall            run FLUSHALL on startup
 ```
@@ -109,6 +111,7 @@ COMMAND\*                                    | Server
 FLUSHALL                                     | Server
 FLUSHDB                                      | Server
 DBSIZE                                       | Server
+SAVE                                         | Server
 DEL key [key ...]                            | Keys
 TYPE key                                     | Keys
 KEYS pattern                                 | Keys
@@ -194,10 +197,15 @@ Use DNS routing or a network load balancer to route requests properly.
 
 ### Backups
 
-There are many solutions to back up files. DRedis will have no impact when backups are performed because it's done from the outside (different from Redis, which uses `fork()` to snapshot the data).
+The command `SAVE` creates a snapshot in the same format as Redis's RDB version 7 (compatible with Redis 3.x).
+We recommend you to run `SAVE` on a secondary `dredis` process, otherwise the server will hang during the snapshot (consistency guarantees are higher with LMDB as the backend).
+The command `BGSAVE` may be supported in the future.
+
+Other backups solutions involve backing up the files created by the backend.
 A straightforward approach is to have periodic backups to an object storage such as Amazon S3 orr use a block storage solution and perform periodic backups (e.g., AWS EBS).
 
-The commands SAVE or BGSAVE may be supported in the future.
+If you use `SAVE` from a secondary process or backup the data directory, there shouldn't be any significant impact on the main server.
+
 
 ## Why Python
 

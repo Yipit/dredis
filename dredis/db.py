@@ -186,7 +186,7 @@ class MemoryBackend(object):
         return self._db.get(key, default)
 
     def put(self, key, value):
-        self._db[key] = value
+        self._db[key] = bytes(value)
 
     def delete(self, key):
         try:

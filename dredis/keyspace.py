@@ -1,5 +1,7 @@
 import collections
+import datetime
 import fnmatch
+from io import BytesIO
 
 from dredis import rdb
 from dredis.db import DB_MANAGER, KEY_CODEC
@@ -8,6 +10,8 @@ from dredis.utils import to_float
 
 DEFAULT_REDIS_DB = '0'
 NUMBER_OF_REDIS_DATABASES = 16
+
+RDB_FILENAME_FORMAT = 'dump_%Y-%m-%dT%H:%M:%S.rdb'
 
 
 def to_float_string(f):
@@ -34,6 +38,10 @@ class Keyspace(object):
 
     def select(self, db):
         self._set_db(db)
+
+    def save(self):
+        filename = datetime.datetime.utcnow().strftime(RDB_FILENAME_FORMAT)
+        rdb.dump_rdb(self, filename)
 
     def incrby(self, key, increment=1):
         number = self.get(key)
@@ -448,7 +456,7 @@ class Keyspace(object):
             else:
                 raise KeyError('BUSYKEY Target key name already exists')
         rdb.verify_payload(payload)
-        rdb.load_object(self, key, payload)
+        rdb.load_object(self, key, BytesIO(payload))
 
 
 class ScoreRange(object):
