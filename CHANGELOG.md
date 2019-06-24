@@ -1,3 +1,18 @@
+## Not released yet
+
+* Add more storage backends (https://github.com/Yipit/dredis/pull/23)
+  - New CLI arguments: `--backend` and `--backend-option`
+  - Add [LMDB](http://www.lmdb.tech/doc/) as a backend (performed better than LevelDB on Linux with the ext4 filesystem)
+  - Add memory backend (for tests & development)
+* Make `KEYS` faster by looking at fewer backend keys (https://github.com/Yipit/dredis/pull/31)
+* Add `DUMP` and `RESTORE` commands (https://github.com/Yipit/dredis/pull/27 and https://github.com/Yipit/dredis/pull/28)
+  - Based on the RDB version 7 implementation
+* Add `SAVE` command and `--rdb` CLI option (https://github.com/Yipit/dredis/pull/32)
+  - `SAVE` creates an RDB dump (e.g., `dump_2019-06-21T15:55:09.rdb`)
+  - `--rdb` seeds dredis with a redis RDB file
+  - Only RDB version 7 and older are supported
+* Add `--read-only` CLI option to accept read-only commands (https://github.com/Yipit/dredis/pull/33)
+
 ## 1.0.2
 
 * Set TCP_NODELAY flag to client sockets (https://github.com/Yipit/dredis/pull/16)
