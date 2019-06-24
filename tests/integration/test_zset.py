@@ -23,7 +23,7 @@ def test_zadd_with_multiple_parameters():
     assert r.zcard('myzset') == 3
 
 
-def test_zset_zrange_with_positive_integers():
+def test_zset_zrange_with_positive_indexes():
     r = fresh_redis()
     r.zadd('myzset', 0, 'myvalue1')
     r.zadd('myzset', 1, 'myvalue2')
@@ -31,7 +31,7 @@ def test_zset_zrange_with_positive_integers():
     assert r.zrange('myzset', 0, 100) == ['myvalue1', 'myvalue2']
 
 
-def test_zset_zrange_with_negative_numbers():
+def test_zset_zrange_with_negative_indexes():
     r = fresh_redis()
     r.zadd('myzset', 0, 'myvalue1')
     r.zadd('myzset', 1, 'myvalue2')
@@ -352,3 +352,18 @@ def test_deleting_a_zset_should_not_impact_other_zsets():
 
     assert r.keys('*') == ['myzset2']
     assert r.zrange('myzset2', 0, 10) == ['test2']
+
+
+def test_order_of_zrange_with_negative_scores():
+    r = fresh_redis()
+
+    pairs = [
+        ('test1', -2.5),
+        ('test2', -1.1),
+        ('test3', 0.0),
+        ('test4', 1.2),
+        ('test5', 3.5),
+    ]
+    for member, score in pairs:
+        r.zadd('myzset', score, member)
+    assert r.zrange('myzset', 0, -1, withscores=True) == pairs
