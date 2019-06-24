@@ -5,6 +5,10 @@ from dredis.utils import to_float
 
 logger = logging.getLogger(__name__)
 
+# Command flags
+CMD_WRITE = 1
+CMD_READONLY = 2
+
 
 REDIS_COMMANDS = {}
 SYNTAXERR = SyntaxError('syntax error')
@@ -25,7 +29,13 @@ def _check_arity(expected_arity, passed_arity, cmd_name):
         return
 
 
-def command(cmd_name, arity):
+def command(cmd_name, arity, flags):
+    """
+    :param cmd_name: the name of the Redis command
+    :param arity: the number of expected arguments (the command name counts as one argument)
+    :param flags: integer representing all command flags (readonly, write, etc.)
+    :return: new decorated function that checks the arity and the write flag
+    """
     def decorator(fn):
         @wraps(fn)
         def newfn(keyspace, *args, **kwargs):
@@ -34,6 +44,7 @@ def command(cmd_name, arity):
             _check_arity(arity, passed_arity, cmd_name)
             return fn(keyspace, *args, **kwargs)
         newfn.arity = arity
+        newfn.flags = flags
         REDIS_COMMANDS[cmd_name] = newfn
         return newfn
     return decorator
@@ -50,7 +61,7 @@ class SimpleString(str):
 """
 
 
-@command('COMMAND', arity=0)
+@command('COMMAND', arity=0, flags=CMD_READONLY)
 def cmd_command(keyspace):
     result = []
     for cmd in REDIS_COMMANDS:
@@ -58,26 +69,26 @@ def cmd_command(keyspace):
     return result
 
 
-@command('FLUSHALL', arity=-1)
+@command('FLUSHALL', arity=-1, flags=CMD_WRITE)
 def cmd_flushall(keyspace, *args):
     # TODO: we don't support ASYNC flushes
     keyspace.flushall()
     return SimpleString('OK')
 
 
-@command('FLUSHDB', arity=-1)
+@command('FLUSHDB', arity=-1, flags=CMD_WRITE)
 def cmd_flushdb(keyspace, *args):
     # TODO: we don't support ASYNC flushes
     keyspace.flushdb()
     return SimpleString('OK')
 
 
-@command('DBSIZE', arity=1)
+@command('DBSIZE', arity=1, flags=CMD_READONLY)
 def cmd_dbsize(keyspace):
     return keyspace.dbsize()
 
 
-@command('SAVE', arity=1)
+@command('SAVE', arity=1, flags=CMD_READONLY)
 def cmd_save(keyspace):
     keyspace.save()
     return SimpleString('OK')
@@ -90,32 +101,32 @@ def cmd_save(keyspace):
 """
 
 
-@command('DEL', arity=-2)
+@command('DEL', arity=-2, flags=CMD_WRITE)
 def cmd_del(keyspace, *keys):
     return keyspace.delete(*keys)
 
 
-@command('TYPE', arity=2)
+@command('TYPE', arity=2, flags=CMD_READONLY)
 def cmd_type(keyspace, key):
     return keyspace.type(key)
 
 
-@command('KEYS', arity=2)
+@command('KEYS', arity=2, flags=CMD_READONLY)
 def cmd_keys(keyspace, pattern):
     return keyspace.keys(pattern)
 
 
-@command('EXISTS', arity=-2)
+@command('EXISTS', arity=-2, flags=CMD_READONLY)
 def cmd_exists(keyspace, *keys):
     return keyspace.exists(*keys)
 
 
-@command('DUMP', arity=2)
+@command('DUMP', arity=2, flags=CMD_READONLY)
 def cmd_dump(keyspace, key):
     return keyspace.dump(key)
 
 
-@command('RESTORE', arity=-4)
+@command('RESTORE', arity=-4, flags=CMD_WRITE)
 def cmd_restore(keyspace, key, ttl, payload, *args):
     replace = False
     if args:
@@ -134,12 +145,12 @@ def cmd_restore(keyspace, key, ttl, payload, *args):
 """
 
 
-@command('PING', arity=-1)
+@command('PING', arity=-1, flags=CMD_READONLY)
 def cmd_ping(keyspace, message=SimpleString('PONG')):
     return message
 
 
-@command('SELECT', arity=2)
+@command('SELECT', arity=2, flags=CMD_READONLY)
 def cmd_select(keyspace, db):
     keyspace.select(db)
     return SimpleString('OK')
@@ -152,7 +163,7 @@ def cmd_select(keyspace, db):
 """
 
 
-@command('SET', arity=-3)
+@command('SET', arity=-3, flags=CMD_WRITE)
 def cmd_set(keyspace, key, value, *args):
     if len(args):
         raise SyntaxError('No support for EX|PX and NX|XX at the moment.')
@@ -160,22 +171,22 @@ def cmd_set(keyspace, key, value, *args):
     return SimpleString('OK')
 
 
-@command('GET', arity=2)
+@command('GET', arity=2, flags=CMD_READONLY)
 def cmd_get(keyspace, key):
     return keyspace.get(key)
 
 
-@command('INCR', arity=2)
+@command('INCR', arity=2, flags=CMD_WRITE)
 def cmd_incr(keyspace, key):
     return keyspace.incrby(key, 1)
 
 
-@command('INCRBY', arity=3)
+@command('INCRBY', arity=3, flags=CMD_WRITE)
 def cmd_incrby(keyspace, key, increment):
     return keyspace.incrby(key, int(increment))
 
 
-@command('GETRANGE', arity=4)
+@command('GETRANGE', arity=4, flags=CMD_READONLY)
 def cmd_getrange(keyspace, key, start, end):
     return keyspace.getrange(key, int(start), int(end))
 
@@ -187,7 +198,7 @@ def cmd_getrange(keyspace, key, start, end):
 """
 
 
-@command('SADD', arity=-3)
+@command('SADD', arity=-3, flags=CMD_WRITE)
 def cmd_sadd(keyspace, key, *values):
     count = 0
     for value in values:
@@ -195,17 +206,17 @@ def cmd_sadd(keyspace, key, *values):
     return count
 
 
-@command('SMEMBERS', arity=2)
+@command('SMEMBERS', arity=2, flags=CMD_READONLY)
 def cmd_smembers(keyspace, key):
     return keyspace.smembers(key)
 
 
-@command('SCARD', arity=2)
+@command('SCARD', arity=2, flags=CMD_READONLY)
 def cmd_scard(keyspace, key):
     return keyspace.scard(key)
 
 
-@command('SISMEMBER', arity=3)
+@command('SISMEMBER', arity=3, flags=CMD_READONLY)
 def cmd_sismember(keyspace, key, value):
     return int(keyspace.sismember(key, value))
 
@@ -217,7 +228,7 @@ def cmd_sismember(keyspace, key, value):
 """
 
 
-@command('EVAL', arity=-3)
+@command('EVAL', arity=-3, flags=CMD_WRITE)
 def cmd_eval(keyspace, script, numkeys, *args):
     numkeys = int(numkeys)
     keys = args[:numkeys]
@@ -232,7 +243,7 @@ def cmd_eval(keyspace, script, numkeys, *args):
 """
 
 
-@command('ZADD', arity=-4)
+@command('ZADD', arity=-4, flags=CMD_WRITE)
 def cmd_zadd(keyspace, key, *flat_pairs):
     if len(flat_pairs) % 2 != 0:
         raise SYNTAXERR
@@ -245,7 +256,7 @@ def cmd_zadd(keyspace, key, *flat_pairs):
     return count
 
 
-@command('ZRANGE', arity=-4)
+@command('ZRANGE', arity=-4, flags=CMD_READONLY)
 def cmd_zrange(keyspace, key, start, stop, *args):
     with_scores = False
     if args:
@@ -256,32 +267,32 @@ def cmd_zrange(keyspace, key, start, stop, *args):
     return keyspace.zrange(key, int(start), int(stop), with_scores)
 
 
-@command('ZCARD', arity=2)
+@command('ZCARD', arity=2, flags=CMD_READONLY)
 def cmd_zcard(keyspace, key):
     return keyspace.zcard(key)
 
 
-@command('ZREM', arity=-3)
+@command('ZREM', arity=-3, flags=CMD_WRITE)
 def cmd_zrem(keyspace, key, *members):
     return keyspace.zrem(key, *members)
 
 
-@command('ZSCORE', arity=3)
+@command('ZSCORE', arity=3, flags=CMD_READONLY)
 def cmd_zscore(keyspace, key, member):
     return keyspace.zscore(key, member)
 
 
-@command('ZRANK', arity=3)
+@command('ZRANK', arity=3, flags=CMD_READONLY)
 def cmd_zrank(keyspace, key, member):
     return keyspace.zrank(key, member)
 
 
-@command('ZCOUNT', arity=4)
+@command('ZCOUNT', arity=4, flags=CMD_READONLY)
 def cmd_zcount(keyspace, key, min_score, max_score):
     return keyspace.zcount(key, min_score, max_score)
 
 
-@command('ZRANGEBYSCORE', arity=-4)
+@command('ZRANGEBYSCORE', arity=-4, flags=CMD_READONLY)
 def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
     withscores = False
     offset = 0
@@ -313,7 +324,7 @@ def _validate_zset_score(score):
         raise SyntaxError("min or max is not a float")
 
 
-@command('ZUNIONSTORE', arity=-4)
+@command('ZUNIONSTORE', arity=-4, flags=CMD_WRITE)
 def cmd_zunionstore(keyspace, destination, numkeys, *args):
     keys = []
     weights = []
@@ -339,7 +350,7 @@ def cmd_zunionstore(keyspace, destination, numkeys, *args):
 """
 
 
-@command('HSET', arity=-4)
+@command('HSET', arity=-4, flags=CMD_WRITE)
 def cmd_hset(keyspace, key, *pairs):
     if len(pairs) % 2 != 0:
         # HSET is going to replace HMSET,
@@ -351,42 +362,42 @@ def cmd_hset(keyspace, key, *pairs):
     return count
 
 
-@command('HDEL', arity=-3)
+@command('HDEL', arity=-3, flags=CMD_WRITE)
 def cmd_hdel(keyspace, key, *fields):
     return keyspace.hdel(key, *fields)
 
 
-@command('HSETNX', arity=4)
+@command('HSETNX', arity=4, flags=CMD_WRITE)
 def cmd_hsetnx(keyspace, key, field, value):
     return keyspace.hsetnx(key, field, value)
 
 
-@command('HGET', arity=3)
+@command('HGET', arity=3, flags=CMD_READONLY)
 def cmd_hget(keyspace, key, value):
     return keyspace.hget(key, value)
 
 
-@command('HKEYS', arity=2)
+@command('HKEYS', arity=2, flags=CMD_READONLY)
 def cmd_hkeys(keyspace, key):
     return keyspace.hkeys(key)
 
 
-@command('HVALS', arity=2)
+@command('HVALS', arity=2, flags=CMD_READONLY)
 def cmd_hvals(keyspace, key):
     return keyspace.hvals(key)
 
 
-@command('HLEN', arity=2)
+@command('HLEN', arity=2, flags=CMD_READONLY)
 def cmd_hlen(keyspace, key):
     return keyspace.hlen(key)
 
 
-@command('HINCRBY', arity=4)
+@command('HINCRBY', arity=4, flags=CMD_WRITE)
 def cmd_hincrby(keyspace, key, field, increment):
     return keyspace.hincrby(key, field, increment)
 
 
-@command('HGETALL', arity=2)
+@command('HGETALL', arity=2, flags=CMD_READONLY)
 def cmd_hgetall(keyspace, key):
     return keyspace.hgetall(key)
 
@@ -395,11 +406,15 @@ class CommandNotFound(Exception):
     """Exception to flag not found Redis command"""
 
 
-def run_command(keyspace, cmd, args):
+def run_command(keyspace, cmd, args, readonly=False):
     logger.debug('[run_command] cmd={}, args={}'.format(repr(cmd), repr(args)))
 
     str_args = map(str, args)
     if cmd.upper() not in REDIS_COMMANDS:
         raise CommandNotFound("unknown command '{}'".format(cmd))
     else:
-        return REDIS_COMMANDS[cmd.upper()](keyspace, *str_args)
+        cmd_fn = REDIS_COMMANDS[cmd.upper()]
+        if readonly and cmd_fn.flags & CMD_WRITE:
+            raise ValueError("Can't execute %r in readonly mode" % cmd)
+        else:
+            return cmd_fn(keyspace, *str_args)

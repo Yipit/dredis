@@ -32,7 +32,7 @@ $ dredis --help
 usage: dredis [-h] [-v] [--host HOST] [--port PORT] [--dir DIR]
               [--backend {lmdb,leveldb,memory}]
               [--backend-option BACKEND_OPTION] [--rdb RDB] [--debug]
-              [--flushall]
+              [--flushall] [--readonly]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -49,6 +49,7 @@ optional arguments:
   --rdb RDB             RDB file to seed dredis
   --debug               enable debug logs
   --flushall            run FLUSHALL on startup
+  --readonly            accept read-only commands
 ```
 
 
