@@ -1,5 +1,7 @@
 ## Not released yet
 
+## 1.1.0
+
 * Add more storage backends (https://github.com/Yipit/dredis/pull/23)
   - New CLI arguments: `--backend` and `--backend-option`
   - Add [LMDB](http://www.lmdb.tech/doc/) as a backend (performed better than LevelDB on Linux with the ext4 filesystem)
