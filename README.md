@@ -223,3 +223,11 @@ The project will migrate to Python 3 soon.
 Also, [other projects use the name redisk](https://github.com/search?q=redisk&type=Repositories).
 
 [@nadlerjessie](https://github.com/nadlerjessie) suggested we pronounce dredis as "Doctor Redis".
+
+
+## Releasing dredis
+
+1. Make sure you have all important changes in the top section of `CHANGELOG.md`
+1. Make sure your PyPI credentials are correct in `~/.pypirc`
+1. Run `make release`
+1. Enter the new version (e.g., `1.0.0`)

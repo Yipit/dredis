@@ -60,8 +60,7 @@ redis_server:
 
 release:
 	rm -rf dist build
-	python setup.py sdist bdist_wheel
-	twine upload dist/*
+	./release.sh
 
 test-performance:
 	@py.test -vvvvv -s tests-performance
