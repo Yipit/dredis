@@ -458,6 +458,16 @@ class Keyspace(object):
         rdb.verify_payload(payload)
         rdb.load_object(self, key, BytesIO(payload))
 
+    def rename(self, old_name, new_name):
+        if self.exists(old_name):
+            if old_name == new_name:
+                return
+            dump = self.dump(old_name)
+            self.restore(new_name, ttl=0, payload=dump, replace=True)
+            self.delete(old_name)
+        else:
+            raise ValueError("no such key")
+
 
 class ScoreRange(object):
 

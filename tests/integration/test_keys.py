@@ -111,3 +111,48 @@ def test_restore_with_valid_params():
     with pytest.raises(redis.ResponseError) as exc:
         r.execute_command('RESTORE', 'str1', '0', 'payload', 'repl')
     assert str(exc.value) == "syntax error"
+
+
+def test_rename():
+    r = fresh_redis()
+
+    r.set('mystr', 'test')
+    r.sadd('myset', 'a', 'b', 'c')
+    r.hset('myhash', 'field1', 'value1')
+    r.hset('myhash', 'field2', 'value2')
+    r.zadd('myzet', a=0, b=1)
+
+    assert r.rename('mystr', 'mystr2')
+    assert r.rename('myset', 'myset2')
+    assert r.rename('myhash', 'myhash2')
+    assert r.rename('myzet', 'myzset2')
+
+    assert r.get('mystr2') == 'test'
+    assert r.smembers('myset2') == set(['a', 'b', 'c'])
+    assert r.hgetall('myhash2') == {'field1': 'value1', 'field2': 'value2'}
+    assert r.zrange('myzset2', 0, -1, withscores=True) == [('a', 0), ('b', 1)]
+
+
+def test_rename_when_key_doesnt_exist():
+    r = fresh_redis()
+
+    with pytest.raises(redis.ResponseError) as exc:
+        r.rename('notfound', 'newname')
+    assert str(exc.value) == 'no such key'
+
+
+def test_rename_when_new_key_already_exists():
+    r = fresh_redis()
+
+    r.set('mystr1', 'testvalue')
+    r.set('mystr2', 'another testvalue')
+    assert r.rename('mystr1', 'mystr2')
+    assert r.get('mystr2') == 'testvalue'
+
+
+def test_rename_with_same_name():
+    r = fresh_redis()
+
+    r.set('str', 'test')
+
+    assert r.rename('str', 'str')
