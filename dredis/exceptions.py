@@ -28,3 +28,9 @@ class BusyKeyError(DredisError):
 
     def __init__(self):
         self.msg = 'BUSYKEY Target key name already exists'
+
+
+class NoKeyError(DredisError):
+
+    def __init__(self):
+        self.msg = "NOKEY no such key"

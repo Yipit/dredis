@@ -5,7 +5,7 @@ from io import BytesIO
 
 from dredis import rdb
 from dredis.db import DB_MANAGER, KEY_CODEC
-from dredis.exceptions import DredisError, BusyKeyError
+from dredis.exceptions import DredisError, BusyKeyError, NoKeyError
 from dredis.lua import LuaRunner
 from dredis.utils import to_float
 
@@ -470,7 +470,7 @@ class Keyspace(object):
             self.restore(new_name, ttl=0, payload=dump, replace=True)
             self.delete(old_name)
         else:
-            raise ValueError("no such key")
+            raise NoKeyError()
 
     def auth(self, password):
         if not self.requirepass:
