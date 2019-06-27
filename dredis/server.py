@@ -13,8 +13,8 @@ import sys
 
 from dredis import __version__
 from dredis import db, rdb
-from dredis.commands import run_command, SimpleString, CommandNotFound
-from dredis.exceptions import DredisError
+from dredis.commands import run_command, SimpleString
+from dredis.exceptions import DredisError, CommandNotFound
 from dredis.keyspace import Keyspace
 from dredis.lua import RedisScriptError
 from dredis.parser import Parser

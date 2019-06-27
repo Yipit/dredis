@@ -11,3 +11,7 @@ class AuthenticationRequiredError(DredisError):
 
     def __init__(self):
         self.msg = 'NOAUTH Authentication required.'
+
+
+class CommandNotFound(DredisError):
+    """Exception to flag not found Redis command"""

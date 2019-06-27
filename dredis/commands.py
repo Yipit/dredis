@@ -1,7 +1,7 @@
 import logging
 from functools import wraps
 
-from dredis.exceptions import AuthenticationRequiredError
+from dredis.exceptions import AuthenticationRequiredError, CommandNotFound
 from dredis.utils import to_float
 
 logger = logging.getLogger(__name__)
@@ -413,10 +413,6 @@ def cmd_hincrby(keyspace, key, field, increment):
 @command('HGETALL', arity=2, flags=CMD_READONLY)
 def cmd_hgetall(keyspace, key):
     return keyspace.hgetall(key)
-
-
-class CommandNotFound(Exception):
-    """Exception to flag not found Redis command"""
 
 
 def run_command(keyspace, cmd, args, readonly=False):
