@@ -14,6 +14,7 @@ import sys
 from dredis import __version__
 from dredis import db, rdb
 from dredis.commands import run_command, SimpleString, CommandNotFound
+from dredis.exceptions import DredisError
 from dredis.keyspace import Keyspace
 from dredis.lua import RedisScriptError
 from dredis.parser import Parser
@@ -21,9 +22,9 @@ from dredis.path import Path
 
 logger = logging.getLogger('dredis')
 
-KEYSPACES = {}
 ROOT_DIR = None  # defined by `main()`
 READONLY_SERVER = False
+REQUIREPASS = None
 
 
 def execute_cmd(keyspace, send_fn, cmd, *args):
@@ -31,7 +32,7 @@ def execute_cmd(keyspace, send_fn, cmd, *args):
         result = run_command(keyspace, cmd, args, readonly=READONLY_SERVER)
     # FIXME: these exceptions should all be custom,
     #  otherwise it's hard to distinguish between expected and unexpected errors.
-    except (SyntaxError, CommandNotFound, ValueError, RedisScriptError, KeyError) as exc:
+    except (DredisError, SyntaxError, CommandNotFound, ValueError, RedisScriptError, KeyError) as exc:
         transmit(send_fn, exc)
     except Exception as exc:
         # no tests cover this part because it's meant for internal errors,
@@ -58,6 +59,8 @@ def transform(obj):
             result.append('*{}\r\n'.format(len(elem)))
             for element in elem:
                 _transform(element)
+        elif isinstance(elem, DredisError):
+            result.append('-{}\r\n'.format(str(elem)))
         elif isinstance(elem, Exception):
             result.append('-ERR {}\r\n'.format(str(elem)))
         else:
@@ -76,6 +79,7 @@ class CommandHandler(asyncore.dispatcher):
     def __init__(self, *args, **kwargs):
         asyncore.dispatcher.__init__(self, *args, **kwargs)
         self._parser = Parser(self.recv)  # contains client message buffer
+        self.keyspace = Keyspace(password=REQUIREPASS)
 
     def handle_read(self):
         try:
@@ -96,14 +100,6 @@ class CommandHandler(asyncore.dispatcher):
     def handle_close(self):
         logger.debug("closing {}".format(self.addr))
         self.close()
-        if self.addr in KEYSPACES:
-            del KEYSPACES[self.addr]
-
-    @property
-    def keyspace(self):
-        if self.addr not in KEYSPACES:
-            KEYSPACES[self.addr] = Keyspace()
-        return KEYSPACES[self.addr]
 
 
 class RedisServer(asyncore.dispatcher):
@@ -151,6 +147,8 @@ def main():
     parser.add_argument('--debug', action='store_true', help='enable debug logs')
     parser.add_argument('--flushall', action='store_true', default=False, help='run FLUSHALL on startup')
     parser.add_argument('--readonly', action='store_true', help='accept read-only commands')
+    parser.add_argument('--requirepass', default=None,
+                        help='require clients to issue AUTH <password> before processing any other commands')
     args = parser.parse_args()
 
     global ROOT_DIR
@@ -169,6 +167,10 @@ def main():
     if args.readonly:
         global READONLY_SERVER
         READONLY_SERVER = True
+
+    if args.requirepass:
+        global REQUIREPASS
+        REQUIREPASS = args.requirepass
 
     db_backend_options = {}
     if args.backend_option:
