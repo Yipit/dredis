@@ -119,6 +119,7 @@ KEYS pattern                                 | Keys
 EXISTS key [key ...]                         | Keys
 DUMP key                                     | Keys
 RESTORE key ttl serialized-value [REPLACE]\**| Keys
+RENAME key newkey                            | Keys
 PING [msg]                                   | Connection
 SELECT db                                    | Connection
 SET key value                                | Strings
