@@ -1,5 +1,7 @@
 ## Not released yet
 
+## 2.0.0
+
 * Add RENAME command (https://github.com/Yipit/dredis/pull/36)
 * Fix negative score order in sorted sets (backward incompatible change: https://github.com/Yipit/dredis/pull/35)
 
