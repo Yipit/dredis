@@ -4,6 +4,7 @@ import lmdb
 import plyvel
 
 from dredis.path import Path
+from dredis.utils import FLOAT_CODEC
 
 
 class KeyCodec(object):
@@ -20,12 +21,11 @@ class KeyCodec(object):
 
     # type_id | key_length
     KEY_PREFIX_FORMAT = '>BI'
-    KEY_PREFIX_LENGTH = struct.calcsize(KEY_PREFIX_FORMAT)
-    ZSET_SCORE_FORMAT = '>d'
-    ZSET_SCORE_FORMAT_LENGTH = struct.calcsize(ZSET_SCORE_FORMAT)
-
     KEY_PREFIX_STRUCT = struct.Struct(KEY_PREFIX_FORMAT)
-    ZSET_SCORE_STRUCT = struct.Struct(ZSET_SCORE_FORMAT)
+    KEY_PREFIX_LENGTH = KEY_PREFIX_STRUCT.size
+
+    ZSET_SCORE_STRUCT = FLOAT_CODEC.STRUCT
+    ZSET_SCORE_FORMAT_LENGTH = ZSET_SCORE_STRUCT.size
 
     # the key format using <key length + key> was inspired by the `blackwidow` project:
     # https://github.com/KernelMaker/blackwidow/blob/5abe9a3e3f035dd0d81f514e598f29c1db679a28/src/zsets_data_key_format.h#L44-L53
@@ -65,7 +65,8 @@ class KeyCodec(object):
         return self.get_key(key, self.ZSET_VALUE_TYPE) + bytes(value)
 
     def encode_zset_score(self, key, value, score):
-        return self.get_key(key, self.ZSET_SCORE_TYPE) + self.ZSET_SCORE_STRUCT.pack(float(score)) + bytes(value)
+        score = float(score)
+        return self.get_key(key, self.ZSET_SCORE_TYPE) + FLOAT_CODEC.encode(score) + bytes(value)
 
     def decode_key(self, key):
         type_id, key_length = self.KEY_PREFIX_STRUCT.unpack(key[:self.KEY_PREFIX_LENGTH])
@@ -74,7 +75,8 @@ class KeyCodec(object):
 
     def decode_zset_score(self, ldb_key):
         _, length, key_name = self.decode_key(ldb_key)
-        return self.ZSET_SCORE_STRUCT.unpack(key_name[length:length + self.ZSET_SCORE_FORMAT_LENGTH])[0]
+        score_bytes = key_name[length:length + self.ZSET_SCORE_FORMAT_LENGTH]
+        return FLOAT_CODEC.decode(score_bytes)
 
     def decode_zset_value(self, ldb_key):
         _, length, key_name = self.decode_key(ldb_key)
