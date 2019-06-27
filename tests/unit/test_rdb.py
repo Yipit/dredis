@@ -6,6 +6,7 @@ import pytest
 
 import dredis
 from dredis import rdb, crc64
+from dredis.exceptions import DredisError
 from dredis.keyspace import Keyspace
 from tests.fixtures import reproduce_dump
 
@@ -40,17 +41,17 @@ def test_load_rdb_with_strings(keyspace):
 
 
 def test_load_invalid_rdb(keyspace):
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(DredisError) as exc:
         rdb_file = BytesIO('XREDIS0007')
         rdb.load_rdb(keyspace, rdb_file)
     assert str(exc).endswith('Wrong signature trying to load DB from file')
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(DredisError) as exc:
         rdb_file = BytesIO('REDIS000X')
         rdb.load_rdb(keyspace, rdb_file)
     assert str(exc).endswith("Can't handle RDB format version 000X")
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(DredisError) as exc:
         rdb_file = BytesIO('REDIS0011')
         rdb.load_rdb(keyspace, rdb_file)
     assert str(exc).endswith("Can't handle RDB format version 0011")

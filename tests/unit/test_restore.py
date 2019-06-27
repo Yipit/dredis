@@ -4,14 +4,14 @@ from io import BytesIO
 import pytest
 
 from dredis import crc64, rdb
-from dredis.exceptions import BusyKeyError
+from dredis.exceptions import BusyKeyError, DredisError
 from dredis.keyspace import to_float_string
 from dredis.rdb import ObjectLoader
 
 
 def test_should_raise_an_error_with_invalid_payload_size(keyspace):
     data = 'testvalue'
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(DredisError) as exc:
         keyspace.restore('test', ttl=0, payload=data, replace=False)
     assert 'DUMP payload version or checksum are wrong' in str(exc)
 
@@ -20,7 +20,7 @@ def test_should_raise_an_error_with_incompatible_rdb_version(keyspace):
     data = '\x00'
     rdb_version = '\x08\x00'
     checksum = 'a' * 8
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(DredisError) as exc:
         keyspace.restore('test', ttl=0, payload=data + rdb_version + checksum, replace=False)
     assert 'DUMP payload version or checksum are wrong' in str(exc)
 
@@ -28,7 +28,7 @@ def test_should_raise_an_error_with_incompatible_rdb_version(keyspace):
 def test_should_throw_an_error_with_invalid_checksum(keyspace):
     keyspace.set('test1', 'testvalue')
     payload = keyspace.dump('test1')[:-3] + 'bad'
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(DredisError) as exc:
         keyspace.restore('test2', ttl=0, payload=payload, replace=False)
     assert 'DUMP payload version or checksum are wrong' in str(exc)
 
@@ -45,7 +45,7 @@ def test_should_raise_an_error_with_bad_object_type(keyspace):
     partial_payload = 'X' + keyspace.dump('test')[:-10] + rdb.get_rdb_version()
     payload = partial_payload + crc64.checksum(partial_payload)
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(DredisError) as exc:
         keyspace.restore('test', ttl=0, payload=payload, replace=True)
     assert 'Bad data format' in str(exc)
 

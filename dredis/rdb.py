@@ -15,7 +15,7 @@ import lzf
 
 import dredis
 from dredis import crc64
-
+from dredis.exceptions import DredisError
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ RDB_OPCODE_EOF = 255
 
 RDB_VERSION = 7
 
-BAD_DATA_FORMAT_ERR = ValueError("Bad data format")
+BAD_DATA_FORMAT_ERR = DredisError("Bad data format")
 
 
 def get_rdb_version():
@@ -96,7 +96,7 @@ def generate_payload(keyspace, key):
 
 
 def verify_payload(payload):
-    bad_payload = ValueError('DUMP payload version or checksum are wrong')
+    bad_payload = DredisError('DUMP payload version or checksum are wrong')
     if len(payload) < 10:
         raise bad_payload
     data, footer = payload[:-10], payload[-10:]
@@ -144,10 +144,10 @@ class ObjectLoader(object):
         """
         header = self.file.read(self.REDIS_VERSION_HEADER_LENGTH)
         if not header.startswith("REDIS"):
-            raise ValueError("Wrong signature trying to load DB from file")
+            raise DredisError("Wrong signature trying to load DB from file")
         version = header[-self.REDIS_VERSION_LENGTH:]
         if not version.isdigit() or int(version) > RDB_VERSION:
-            raise ValueError("Can't handle RDB format version %s" % version)
+            raise DredisError("Can't handle RDB format version %s" % version)
 
         while True:
             obj_type = self.load_type()
@@ -226,7 +226,7 @@ class ObjectLoader(object):
             elif encoding == INTSET_ENC_INT64:
                 entry = read_signed_long(intset)
             else:
-                raise ValueError('Invalid encoding %r for intset (key = %r)' % (encoding, key))
+                raise DredisError('Invalid encoding %r for intset (key = %r)' % (encoding, key))
             self.keyspace.sadd(key, entry)
 
     def load_zset(self, key):
@@ -253,7 +253,7 @@ class ObjectLoader(object):
 
         zlend = read_unsigned_char(ziplist)
         if zlend != ZIP_END:
-            raise ValueError("Invalid ziplist end %r (key = %r)" % (zlend, key))
+            raise DredisError("Invalid ziplist end %r (key = %r)" % (zlend, key))
 
     def load_zset_ziplist(self, key):
         ziplist = self._load_ziplist(key)
@@ -310,7 +310,7 @@ class ObjectLoader(object):
         elif (entry_header >= 241 and entry_header <= 253):
             value = entry_header - 241
         else:
-            raise ValueError('Invalid ziplist entry_header %d for key %s' % (entry_header, key))
+            raise DredisError('Invalid ziplist entry_header %d for key %s' % (entry_header, key))
         return value
 
     def load_hash(self, key):
@@ -386,7 +386,7 @@ class ObjectLoader(object):
             data = self.file.read(compressed_len)
             result = lzf.decompress(data, out_max_len)
         else:
-            raise ValueError("Unknown RDB string encoding type %d" % enctype)
+            raise DredisError("Unknown RDB string encoding type %d" % enctype)
         return bytes(result)
 
 
@@ -425,7 +425,7 @@ class ObjectDumper(object):
             return self.dump_hash(key)
         if key_type == 'zset':
             return self.dump_zset(key)
-        raise ValueError("Can't convert %r" % key_type)
+        raise DredisError("Can't convert %r" % key_type)
 
     def dump_string(self, key):
         string = self.keyspace.get(key)
@@ -514,7 +514,7 @@ class ObjectDumper(object):
         elif (value >= -(1 << 31)) and (value <= (1 << 31) - 1):
             return struct.pack('<Bi', (RDB_ENCVAL << 6) | RDB_ENC_INT32, value)
         else:
-            raise ValueError("can't encode %r as integer" % value)
+            raise DredisError("can't encode %r as integer" % value)
 
 
 def read_unsigned_char(f):
