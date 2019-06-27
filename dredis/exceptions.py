@@ -34,3 +34,10 @@ class NoKeyError(DredisError):
 
     def __init__(self):
         self.msg = "NOKEY no such key"
+
+
+class RedisScriptError(DredisError):
+    """Indicate error from calls to redis.call()"""
+
+    def __init__(self, msg):
+        self.msg = msg  # Lua errors don't have the ERR prefix

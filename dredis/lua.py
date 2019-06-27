@@ -3,11 +3,7 @@ import json
 from lupa._lupa import LuaRuntime
 
 from dredis.commands import run_command, SimpleString
-from dredis.exceptions import CommandNotFound
-
-
-class RedisScriptError(Exception):
-    """Indicate error from calls to redis.call()"""
+from dredis.exceptions import CommandNotFound, RedisScriptError, DredisError
 
 
 class RedisLua(object):
@@ -21,7 +17,7 @@ class RedisLua(object):
             result = run_command(self._keyspace, cmd, args)
         except CommandNotFound:
             raise RedisScriptError('@user_script: Unknown Redis command called from Lua script')
-        except Exception as exc:
+        except DredisError as exc:
             raise RedisScriptError(str(exc))
         else:
             return self._convert_redis_types_to_lua_types(result)
@@ -97,7 +93,7 @@ class LuaRunner(object):
             """
             if isinstance(value, self._lua_table_type):
                 if 'err' in value:
-                    raise ValueError(value['err'])
+                    raise RedisScriptError(value['err'])
                 elif 'ok' in value:
                     return value['ok']
                 else:

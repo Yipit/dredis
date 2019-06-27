@@ -14,9 +14,8 @@ import sys
 from dredis import __version__
 from dredis import db, rdb
 from dredis.commands import run_command, SimpleString
-from dredis.exceptions import DredisError, CommandNotFound
+from dredis.exceptions import DredisError, RedisScriptError
 from dredis.keyspace import Keyspace
-from dredis.lua import RedisScriptError
 from dredis.parser import Parser
 from dredis.path import Path
 
@@ -30,9 +29,7 @@ REQUIREPASS = None
 def execute_cmd(keyspace, send_fn, cmd, *args):
     try:
         result = run_command(keyspace, cmd, args, readonly=READONLY_SERVER)
-    # FIXME: these exceptions should all be custom,
-    #  otherwise it's hard to distinguish between expected and unexpected errors.
-    except (DredisError, SyntaxError, CommandNotFound, ValueError, RedisScriptError, KeyError) as exc:
+    except (DredisError, RedisScriptError) as exc:
         transmit(send_fn, exc)
     except Exception as exc:
         # no tests cover this part because it's meant for internal errors,
