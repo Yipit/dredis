@@ -1,7 +1,7 @@
 import logging
 from functools import wraps
 
-from dredis.exceptions import AuthenticationRequiredError, CommandNotFound, DredisSyntaxError
+from dredis.exceptions import AuthenticationRequiredError, CommandNotFound, DredisSyntaxError, DredisError
 from dredis.utils import to_float
 
 logger = logging.getLogger(__name__)
@@ -425,6 +425,6 @@ def run_command(keyspace, cmd, args, readonly=False):
         if keyspace.requirepass and not keyspace.authenticated and cmd_fn != cmd_auth:
             raise AuthenticationRequiredError()
         if readonly and cmd_fn.flags & CMD_WRITE:
-            raise ValueError("Can't execute %r in readonly mode" % cmd)
+            raise DredisError("Can't execute %r in readonly mode" % cmd)
         else:
             return cmd_fn(keyspace, *str_args)
