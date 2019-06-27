@@ -1,7 +1,7 @@
 import logging
 from functools import wraps
 
-from dredis.exceptions import AuthenticationRequiredError, CommandNotFound
+from dredis.exceptions import AuthenticationRequiredError, CommandNotFound, DredisSyntaxError
 from dredis.utils import to_float
 
 logger = logging.getLogger(__name__)
@@ -12,11 +12,10 @@ CMD_READONLY = 2
 
 
 REDIS_COMMANDS = {}
-SYNTAXERR = SyntaxError('syntax error')
 
 
 def _check_arity(expected_arity, passed_arity, cmd_name):
-    syntax_err = SyntaxError("wrong number of arguments for '{}' command".format(cmd_name.lower()))
+    syntax_err = DredisSyntaxError("wrong number of arguments for '{}' command".format(cmd_name.lower()))
     if expected_arity < 0:  # minimum arity
         if passed_arity < -expected_arity:
             raise syntax_err
@@ -134,7 +133,7 @@ def cmd_restore(keyspace, key, ttl, payload, *args):
         if len(args) == 1 and args[0].lower() == 'replace':
             replace = True
         else:
-            raise SYNTAXERR
+            raise DredisSyntaxError()
     keyspace.restore(key, ttl, payload, replace)
     return SimpleString('OK')
 
@@ -179,7 +178,7 @@ def cmd_select(keyspace, db):
 @command('SET', arity=-3, flags=CMD_WRITE)
 def cmd_set(keyspace, key, value, *args):
     if len(args):
-        raise SyntaxError('No support for EX|PX and NX|XX at the moment.')
+        raise DredisSyntaxError('No support for EX|PX and NX|XX at the moment.')
     keyspace.set(key, value)
     return SimpleString('OK')
 
@@ -259,7 +258,7 @@ def cmd_eval(keyspace, script, numkeys, *args):
 @command('ZADD', arity=-4, flags=CMD_WRITE)
 def cmd_zadd(keyspace, key, *flat_pairs):
     if len(flat_pairs) % 2 != 0:
-        raise SYNTAXERR
+        raise DredisSyntaxError()
 
     count = 0
     pairs = zip(flat_pairs[0::2], flat_pairs[1::2])  # [1, 2, 3, 4] -> [(1,2), (3,4)]
@@ -276,7 +275,7 @@ def cmd_zrange(keyspace, key, start, stop, *args):
         if args[0].lower() == 'withscores':
             with_scores = True
         else:
-            raise SYNTAXERR
+            raise DredisSyntaxError()
     return keyspace.zrange(key, int(start), int(stop), with_scores)
 
 
@@ -319,7 +318,7 @@ def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
             offset = int(args.pop(0))
             count = int(args.pop(0))
         else:
-            raise SYNTAXERR
+            raise DredisSyntaxError()
 
     _validate_zset_score(min_score)
     _validate_zset_score(max_score)
@@ -334,7 +333,7 @@ def _validate_zset_score(score):
     try:
         to_float(clean_score)
     except ValueError:
-        raise SyntaxError("min or max is not a float")
+        raise DredisSyntaxError("min or max is not a float")
 
 
 @command('ZUNIONSTORE', arity=-4, flags=CMD_WRITE)
@@ -350,7 +349,7 @@ def cmd_zunionstore(keyspace, destination, numkeys, *args):
         else:
             keys.append(arg)
     if len(weights) > len(keys):
-        raise SYNTAXERR
+        raise DredisSyntaxError()
     ones = [1] * (len(keys) - len(weights))  # fill in with default weight of 1
     weights = weights + ones
     return keyspace.zunionstore(destination, keys, weights)
@@ -368,7 +367,7 @@ def cmd_hset(keyspace, key, *pairs):
     if len(pairs) % 2 != 0:
         # HSET is going to replace HMSET,
         # see https://github.com/antirez/redis/pull/5334#issuecomment-419194180 for more details
-        raise SyntaxError('wrong number of arguments for HMSET')
+        raise DredisSyntaxError('wrong number of arguments for HMSET')
     count = 0
     for field, value in zip(pairs[0::2], pairs[1::2]):
         count += keyspace.hset(key, field, value)
