@@ -72,6 +72,6 @@ performance-stats:
 	python -c 'import pstats ; pstats.Stats("$(STATS_FILE)").sort_stats("$(STATS_METRIC)").print_stats()' | less
 
 clean:
-	rm -rf build/ dist/
+	rm -rf build/ dist/ dredis.egg-info/
 	find . -name '*.pyc' -delete
 	rm -f dump_*.rdb
