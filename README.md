@@ -109,47 +109,47 @@ None.
 Command signature                            | Type
 ---------------------------------------------|-----
 COMMAND\*                                    | Server
+DBSIZE                                       | Server
 FLUSHALL                                     | Server
 FLUSHDB                                      | Server
-DBSIZE                                       | Server
 SAVE                                         | Server
 DEL key [key ...]                            | Keys
-TYPE key                                     | Keys
-KEYS pattern                                 | Keys
-EXISTS key [key ...]                         | Keys
 DUMP key                                     | Keys
-RESTORE key ttl serialized-value [REPLACE]\**| Keys
+EXISTS key [key ...]                         | Keys
+KEYS pattern                                 | Keys
 RENAME key newkey                            | Keys
+RESTORE key ttl serialized-value [REPLACE]\**| Keys
+TYPE key                                     | Keys
 PING [msg]                                   | Connection
 SELECT db                                    | Connection
-SET key value                                | Strings
 GET key                                      | Strings
+GETRANGE key start end                       | Strings
 INCR key                                     | Strings
 INCRBY key increment                         | Strings
-GETRANGE key start end                       | Strings
+SET key value                                | Strings
 SADD key value [value ..]                    | Sets
-SMEMBERS key                                 | Sets
 SCARD key                                    | Sets
 SISMEMBER key value                          | Sets
+SMEMBERS key                                 | Sets
 EVAL script numkeys [key ...] [arg ...]      | Scripting
 ZADD key score member [score member ...]     | Sorted Sets
-ZRANGE key start top [WITHSCORES]            | Sorted Sets
 ZCARD key                                    | Sorted Sets
+ZCOUNT key min_score max_score               | Sorted Sets
+ZRANGE key start top [WITHSCORES]            | Sorted Sets
+ZRANGEBYSCORE key min_score max_score [WITHSCORES] [LIMIT offset count] | Sorted Sets
+ZRANK key member                             | Sorted Sets
 ZREM key member [member ...]                 | Sorted Sets
 ZSCORE key member                            | Sorted Sets
-ZRANK key member                             | Sorted Sets
-ZCOUNT key min_score max_score               | Sorted Sets
-ZRANGEBYSCORE key min_score max_score [WITHSCORES] [LIMIT offset count] | Sorted Sets
 ZUNIONSTORE destination numkeys key [key ...] [WEIGHTS weight [weight ...]] | Sorted Sets
-HSET key field value [field value ...]       | Hashes
 HDEL key field [field ...]                   | Hashes
-HSETNX key field value                       | Hashes
 HGET key value                               | Hashes
-HKEYS key                                    | Hashes
-HVALS value                                  | Hashes
-HLEN key                                     | Hashes
-HINCRBY key field increment                  | Hashes
 HGETALL key                                  | Hashes
+HINCRBY key field increment                  | Hashes
+HKEYS key                                    | Hashes
+HLEN key                                     | Hashes
+HSET key field value [field value ...]       | Hashes
+HSETNX key field value                       | Hashes
+HVALS value                                  | Hashes
 
 \* `COMMAND`'s reply is incompatible at the moment, it returns a flat array with command names (their arity, flags, positions, or step count are not returned).
 \** `RESTORE` doesn't work with Redis strings compressed with LZF or encoded as `OBJ_ENCODING_INT`; also doesn't work with sets encoded as `OBJ_ENCODING_INTSET`, nor hashes and sorted sets encoded as `OBJ_ENCODING_ZIPLIST`.
