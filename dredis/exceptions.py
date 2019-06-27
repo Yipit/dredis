@@ -22,3 +22,9 @@ class DredisSyntaxError(DredisError):
 
     def __init__(self, msg='syntax error'):
         super(DredisSyntaxError, self).__init__(msg)
+
+
+class BusyKeyError(DredisError):
+
+    def __init__(self):
+        self.msg = 'BUSYKEY Target key name already exists'

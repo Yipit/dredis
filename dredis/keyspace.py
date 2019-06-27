@@ -5,7 +5,7 @@ from io import BytesIO
 
 from dredis import rdb
 from dredis.db import DB_MANAGER, KEY_CODEC
-from dredis.exceptions import DredisError
+from dredis.exceptions import DredisError, BusyKeyError
 from dredis.lua import LuaRunner
 from dredis.utils import to_float
 
@@ -458,7 +458,7 @@ class Keyspace(object):
             if replace:
                 self.delete(key)
             else:
-                raise KeyError('BUSYKEY Target key name already exists')
+                raise BusyKeyError()
         rdb.verify_payload(payload)
         rdb.load_object(self, key, BytesIO(payload))
 

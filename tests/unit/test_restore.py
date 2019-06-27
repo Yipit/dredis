@@ -4,6 +4,7 @@ from io import BytesIO
 import pytest
 
 from dredis import crc64, rdb
+from dredis.exceptions import BusyKeyError
 from dredis.keyspace import to_float_string
 from dredis.rdb import ObjectLoader
 
@@ -34,7 +35,7 @@ def test_should_throw_an_error_with_invalid_checksum(keyspace):
 
 def test_should_raise_an_error_when_key_exists_and_replace_is_false(keyspace):
     keyspace.set('test', 'testvalue')
-    with pytest.raises(KeyError) as exc:
+    with pytest.raises(BusyKeyError) as exc:
         keyspace.restore('test', ttl=0, payload='testvalue1', replace=False)
     assert 'BUSYKEY Target key name already exists' in str(exc)
 
