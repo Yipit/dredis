@@ -14,7 +14,7 @@ import sys
 from dredis import __version__
 from dredis import db, rdb
 from dredis.commands import run_command, SimpleString
-from dredis.exceptions import DredisError, RedisScriptError
+from dredis.exceptions import DredisError
 from dredis.keyspace import Keyspace
 from dredis.parser import Parser
 from dredis.path import Path
@@ -29,7 +29,7 @@ REQUIREPASS = None
 def execute_cmd(keyspace, send_fn, cmd, *args):
     try:
         result = run_command(keyspace, cmd, args, readonly=READONLY_SERVER)
-    except (DredisError, RedisScriptError) as exc:
+    except DredisError as exc:
         transmit(send_fn, exc)
     except Exception as exc:
         # no tests cover this part because it's meant for internal errors,

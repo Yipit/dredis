@@ -18,7 +18,7 @@ class RedisLua(object):
         except CommandNotFound:
             raise RedisScriptError('@user_script: Unknown Redis command called from Lua script')
         except DredisError as exc:
-            raise RedisScriptError(str(exc))
+            raise RedisScriptError(exc.msg)
         else:
             return self._convert_redis_types_to_lua_types(result)
 
