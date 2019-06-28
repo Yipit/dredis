@@ -1,6 +1,7 @@
 import logging
 from functools import wraps
 
+from dredis.exceptions import AuthenticationRequiredError
 from dredis.utils import to_float
 
 logger = logging.getLogger(__name__)
@@ -149,6 +150,12 @@ def cmd_rename(keyspace, old_name, new_name):
 * Connection commands *
 ***********************
 """
+
+
+@command('AUTH', arity=2, flags=CMD_READONLY)
+def cmd_auth(keyspace, password):
+    keyspace.auth(password)
+    return SimpleString('OK')
 
 
 @command('PING', arity=-1, flags=CMD_READONLY)
@@ -420,6 +427,8 @@ def run_command(keyspace, cmd, args, readonly=False):
         raise CommandNotFound("unknown command '{}'".format(cmd))
     else:
         cmd_fn = REDIS_COMMANDS[cmd.upper()]
+        if keyspace.requirepass and not keyspace.authenticated and cmd_fn != cmd_auth:
+            raise AuthenticationRequiredError()
         if readonly and cmd_fn.flags & CMD_WRITE:
             raise ValueError("Can't execute %r in readonly mode" % cmd)
         else:

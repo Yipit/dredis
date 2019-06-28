@@ -5,6 +5,7 @@ from io import BytesIO
 
 from dredis import rdb
 from dredis.db import DB_MANAGER, KEY_CODEC
+from dredis.exceptions import DredisError
 from dredis.lua import LuaRunner
 from dredis.utils import to_float
 
@@ -22,10 +23,13 @@ def to_float_string(f):
 
 class Keyspace(object):
 
-    def __init__(self):
+    def __init__(self, password=None):
         self._lua_runner = LuaRunner(self)
         self._current_db = DEFAULT_REDIS_DB
         self._set_db(self._current_db)
+        self._password = password
+        self.requirepass = password is not None
+        self.authenticated = False
 
     def _set_db(self, db):
         self._current_db = str(db)
@@ -467,6 +471,15 @@ class Keyspace(object):
             self.delete(old_name)
         else:
             raise ValueError("no such key")
+
+    def auth(self, password):
+        if not self.requirepass:
+            raise DredisError("client sent AUTH, but no password is set")
+        if self._password != password:
+            self.authenticated = False
+            raise DredisError("invalid password")
+        else:
+            self.authenticated = True
 
 
 class ScoreRange(object):

@@ -120,6 +120,7 @@ KEYS pattern                                 | Keys
 RENAME key newkey                            | Keys
 RESTORE key ttl serialized-value [REPLACE]\**| Keys
 TYPE key                                     | Keys
+AUTH                                         | Connection
 PING [msg]                                   | Connection
 SELECT db                                    | Connection
 GET key                                      | Strings
