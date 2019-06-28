@@ -1,5 +1,7 @@
 ## Not released yet
 
+* Add AUTH support (https://github.com/Yipit/dredis/pull/37)
+
 ## 2.0.0
 
 * Add RENAME command (https://github.com/Yipit/dredis/pull/36)
