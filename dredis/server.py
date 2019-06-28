@@ -59,7 +59,7 @@ def transform(obj):
         elif isinstance(elem, DredisError):
             result.append('-{}\r\n'.format(str(elem)))
         elif isinstance(elem, Exception):
-            result.append('-ERR {}\r\n'.format(str(elem)))
+            result.append('-INTERNALERROR {}\r\n'.format(str(elem)))
         else:
             assert False, 'couldnt catch a response for {} (type {})'.format(repr(elem), type(elem))
 
