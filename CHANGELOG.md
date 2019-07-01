@@ -1,5 +1,7 @@
 ## Not released yet
 
+## 2.1.0
+
 * Add AUTH support (https://github.com/Yipit/dredis/pull/37)
 
 ## 2.0.0
