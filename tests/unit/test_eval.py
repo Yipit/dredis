@@ -1,7 +1,7 @@
 import pytest
 
 from dredis.keyspace import Keyspace
-from dredis.lua import RedisScriptError
+from dredis.exceptions import RedisScriptError
 
 
 def test_eval_with_error_call():
@@ -15,5 +15,5 @@ def test_eval_with_error_call():
 def test_eval_with_error_pcall():
     k = Keyspace()
 
-    with pytest.raises(ValueError, message='ERR Error running script: @user_script: Unknown Redis command called from Lua script'):
+    with pytest.raises(RedisScriptError, message='Error running script: @user_script: Unknown Redis command called from Lua script'):
         k.eval("""return redis.pcall('cmd_not_found')""", [], [])

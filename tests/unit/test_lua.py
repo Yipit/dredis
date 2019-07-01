@@ -1,8 +1,9 @@
 import pytest
 
 from lupa._lupa import LuaRuntime
+
 from dredis.keyspace import Keyspace
-from dredis.lua import RedisScriptError
+from dredis.exceptions import RedisScriptError
 from dredis.lua import LuaRunner, RedisLua
 
 
@@ -17,12 +18,12 @@ def test_lua_return_redis_types_run():
 def test_lua_table_with_error_run():
     k = Keyspace()
     runner = LuaRunner(k)
-    lua_script_err = """return {err='This is a ValueError'}"""
+    lua_script_err = """return {err='This is an error'}"""
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(RedisScriptError) as e:
         runner.run(lua_script_err, [], [])
 
-    assert str(e.value) == 'This is a ValueError'
+    assert str(e.value) == 'This is an error'
 
 
 def test_lua_table_with_ok_run():

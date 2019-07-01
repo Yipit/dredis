@@ -13,10 +13,9 @@ import sys
 
 from dredis import __version__
 from dredis import db, rdb
-from dredis.commands import run_command, SimpleString, CommandNotFound
+from dredis.commands import run_command, SimpleString
 from dredis.exceptions import DredisError
 from dredis.keyspace import Keyspace
-from dredis.lua import RedisScriptError
 from dredis.parser import Parser
 from dredis.path import Path
 
@@ -30,9 +29,7 @@ REQUIREPASS = None
 def execute_cmd(keyspace, send_fn, cmd, *args):
     try:
         result = run_command(keyspace, cmd, args, readonly=READONLY_SERVER)
-    # FIXME: these exceptions should all be custom,
-    #  otherwise it's hard to distinguish between expected and unexpected errors.
-    except (DredisError, SyntaxError, CommandNotFound, ValueError, RedisScriptError, KeyError) as exc:
+    except DredisError as exc:
         transmit(send_fn, exc)
     except Exception as exc:
         # no tests cover this part because it's meant for internal errors,
@@ -62,7 +59,7 @@ def transform(obj):
         elif isinstance(elem, DredisError):
             result.append('-{}\r\n'.format(str(elem)))
         elif isinstance(elem, Exception):
-            result.append('-ERR {}\r\n'.format(str(elem)))
+            result.append('-INTERNALERROR {}\r\n'.format(str(elem)))
         else:
             assert False, 'couldnt catch a response for {} (type {})'.format(repr(elem), type(elem))
 

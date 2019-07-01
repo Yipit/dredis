@@ -33,4 +33,4 @@ def test_transform_nested_array():
 
 
 def test_transform_error():
-    assert transform(Exception('test')) == '-ERR test\r\n'
+    assert transform(Exception('test')) == '-INTERNALERROR test\r\n'
