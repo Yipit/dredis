@@ -51,7 +51,6 @@ def save_rdb(output_dir, db_backend_options):
 
 def copy_dirs(input_basedir, db_backend_options):
     lmdb_options = {
-        'map_size': 1 * 2 ** 30,  # 1GB
         'readonly': True,
     }
     lmdb_options.update(db_backend_options)
