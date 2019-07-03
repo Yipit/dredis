@@ -56,7 +56,7 @@ def copy_dirs(input_basedir, db_backend_options):
     }
     lmdb_options.update(db_backend_options)
     output_basedir = datetime.datetime.utcnow().strftime('lmdb-backup_%Y-%m-%dT%H:%M:%S')
-    for dbid in range(16):
+    for dbid in range(db.NUMBER_OF_REDIS_DATABASES):
         env_dirname = Path(input_basedir).join(str(dbid))
         env = lmdb.open(bytes(env_dirname), **lmdb_options)
         output_dir = Path(output_basedir).join(str(dbid))
