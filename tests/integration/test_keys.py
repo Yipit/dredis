@@ -136,9 +136,8 @@ def test_rename():
 def test_rename_when_key_doesnt_exist():
     r = fresh_redis()
 
-    with pytest.raises(redis.ResponseError) as exc:
+    with pytest.raises(redis.ResponseError, match='no such key'):
         r.rename('notfound', 'newname')
-    assert str(exc.value) == 'NOKEY no such key'
 
 
 def test_rename_when_new_key_already_exists():
