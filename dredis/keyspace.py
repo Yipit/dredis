@@ -4,13 +4,10 @@ import fnmatch
 from io import BytesIO
 
 from dredis import rdb
-from dredis.db import DB_MANAGER, KEY_CODEC
+from dredis.db import DB_MANAGER, KEY_CODEC, DEFAULT_REDIS_DB
 from dredis.exceptions import DredisError, BusyKeyError, NoKeyError
 from dredis.lua import LuaRunner
 from dredis.utils import to_float
-
-DEFAULT_REDIS_DB = '0'
-NUMBER_OF_REDIS_DATABASES = 16
 
 RDB_FILENAME_FORMAT = 'dump_%Y-%m-%dT%H:%M:%S.rdb'
 

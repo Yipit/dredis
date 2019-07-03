@@ -6,6 +6,9 @@ import plyvel
 from dredis.path import Path
 from dredis.utils import FLOAT_CODEC
 
+NUMBER_OF_REDIS_DATABASES = 16
+DEFAULT_REDIS_DB = '0'
+
 
 class KeyCodec(object):
 
@@ -253,7 +256,7 @@ class DBManager(object):
     def setup_dbs(self, root_dir, backend, backend_options):
         self._db_backend = backend
         self._db_backend_options = backend_options
-        for db_id_ in range(16):
+        for db_id_ in range(NUMBER_OF_REDIS_DATABASES):
             db_id = str(db_id_)
             directory = Path(root_dir).join(db_id)
             self._assign_db(db_id, directory)
