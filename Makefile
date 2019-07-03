@@ -74,4 +74,4 @@ performance-stats:
 clean:
 	rm -rf build/ dist/ dredis.egg-info/
 	find . -name '*.pyc' -delete
-	rm -f dump_*.rdb
+	rm -f dump*.rdb
