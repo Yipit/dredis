@@ -81,7 +81,10 @@ def test_dump():
     r = fresh_redis()
 
     r.set('str', 'test')
-    assert r.dump('str') == b'\x00\x04test\x07\x00~\xa2zSd;e_'
+    assert r.dump('str') in [
+        b'\x00\x04test\x07\x00~\xa2zSd;e_',  # RDB 7 (dredis & redis 3.x)
+        b'\x00\x04test\t\x00Qb\xfel8w\xd3\xf4',  # RDB 9 (redis 5.x) (`make fulltests-real-redis`)
+    ]
 
 
 def test_restore():
@@ -136,9 +139,8 @@ def test_rename():
 def test_rename_when_key_doesnt_exist():
     r = fresh_redis()
 
-    with pytest.raises(redis.ResponseError) as exc:
+    with pytest.raises(redis.ResponseError, match='no such key'):
         r.rename('notfound', 'newname')
-    assert str(exc.value) == 'NOKEY no such key'
 
 
 def test_rename_when_new_key_already_exists():

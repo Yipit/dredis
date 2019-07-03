@@ -43,7 +43,6 @@ class BusyKeyError(DredisError):
 
 class NoKeyError(DredisError):
 
-    PREFIX = 'NOKEY'
     DEFAULT_MSG = "no such key"
 
 

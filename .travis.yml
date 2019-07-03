@@ -6,4 +6,4 @@ install: make setup
 env:
   - TEST_SUITE=fulltests
   - TEST_SUITE=fulltests-real-redis
-script: make $(TEST_SUITE)
+script: make $TEST_SUITE
