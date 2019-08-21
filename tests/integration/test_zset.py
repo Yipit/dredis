@@ -1,3 +1,5 @@
+import random
+
 import pytest
 import redis
 
@@ -367,3 +369,93 @@ def test_order_of_zrange_with_negative_scores():
     for member, score in pairs:
         r.zadd('myzset', score, member)
     assert r.zrange('myzset', 0, -1, withscores=True) == pairs
+
+
+def test_zscan_with_all_elements_returned():
+    r = fresh_redis()
+
+    pairs = [
+        ('test1', 1),
+        ('test2', 2),
+        ('test3', 3),
+        ('test4', 4),
+        ('test5', 5),
+    ]
+    pairs_copy = pairs[:]
+    random.shuffle(pairs)
+    for member, score in pairs:
+        r.zadd('myzset', score, member)
+
+    cursor, elements = r.zscan('myzset', 0)
+    assert cursor == 0
+    assert elements == pairs_copy
+
+
+def test_zscan_with_a_subset_of_elements_returned():
+    r = fresh_redis()
+
+    pairs = [
+        ('test1', 1),
+        ('test2', 2),
+        ('test3', 3),
+        ('test4', 4),
+        ('test5', 5),
+    ]
+    pairs_copy = pairs[:]
+
+    random.shuffle(pairs)
+    for member, score in pairs:
+        r.zadd('myzset', score, member)
+
+    cursor1, elems1 = r.zscan('myzset', 0, count=20)
+    assert cursor1 == 0
+    assert elems1 == pairs_copy
+
+    cursor2, elems2 = r.zscan('myzset', 0, count=2)
+    assert cursor2 != 0
+    assert elems2 == [
+        ('test1', 1),
+        ('test2', 2)
+    ]
+
+
+def test_zscan_with_a_subset_of_matching_elements_returned():
+    r = fresh_redis()
+
+    pairs = [
+        ('a-test1', 1),
+        ('b-test2', 2),
+        ('a-test3', 3),
+        ('a-test4', 4),
+        ('b-test5', 5),
+    ]
+
+    random.shuffle(pairs)
+    for member, score in pairs:
+        r.zadd('myzset', score, member)
+
+    cursor1, elems1 = r.zscan('myzset', 0, match='a-*', count=2)
+    assert cursor1 != 0
+    assert elems1 == [
+        ('a-test1', 1),
+        ('a-test3', 3),
+    ]
+    cursor2, elems2 = r.zscan('myzset', cursor1, match='a-*')
+    assert cursor2 == 0
+    assert elems2 == [
+        ('a-test4', 4),
+    ]
+
+
+def test_zscan_invalid_cursor():
+    r = fresh_redis()
+    with pytest.raises(redis.ResponseError) as exc:
+        r.zscan('myzset', 'a1')
+    assert str(exc.value) == "invalid cursor"
+
+
+def test_zscan_invalid_count():
+    r = fresh_redis()
+    with pytest.raises(redis.ResponseError) as exc:
+        r.zscan('myzset', 0, count='a')
+    assert str(exc.value) == "value is not an integer or out of range"

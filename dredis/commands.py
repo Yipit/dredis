@@ -346,6 +346,33 @@ def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
     return members
 
 
+@command('ZSCAN', arity=-3, flags=CMD_READONLY)
+def cmd_zscan(keyspace, key, cursor, *args):
+    match = None
+    count = 10
+    args = list(args)
+    try:
+        cursor = int(cursor)
+    except ValueError:
+        raise DredisError("invalid cursor")
+    while args:
+        arg = args.pop(0)
+        if len(args) < 1:
+            raise DredisSyntaxError()
+        else:
+            if arg.lower() == 'match':
+                match = args.pop(0)
+            elif arg.lower() == 'count':
+                try:
+                    count = int(args.pop(0))
+                except ValueError:
+                    raise DredisError("value is not an integer or out of range")
+            else:
+                raise DredisSyntaxError()
+    new_cursor, members = keyspace.zscan(key, cursor, match, count)
+    return [new_cursor, members]
+
+
 def _validate_zset_score(score):
     clean_score = score.strip('(').lower().replace('nan', 'invalid')
     try:

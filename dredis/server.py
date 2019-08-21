@@ -15,7 +15,7 @@ from dredis import __version__
 from dredis import db, rdb
 from dredis.commands import run_command, SimpleString
 from dredis.exceptions import DredisError
-from dredis.keyspace import Keyspace
+from dredis.keyspace import Keyspace, to_float_string
 from dredis.parser import Parser
 from dredis.path import Path
 
@@ -48,6 +48,9 @@ def transform(obj):
             result.append('$-1\r\n')
         elif isinstance(elem, int):
             result.append(':{}\r\n'.format(elem))
+        elif isinstance(elem, float):
+            elem_as_string = to_float_string(elem)
+            result.append('${}\r\n{}\r\n'.format(len(elem_as_string), elem_as_string))
         elif isinstance(elem, SimpleString):
             result.append('+{}\r\n'.format(elem))
         elif isinstance(elem, basestring):
