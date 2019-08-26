@@ -1,6 +1,7 @@
 import collections
 import datetime
 import fnmatch
+import time
 from io import BytesIO
 
 from dredis import rdb
@@ -16,6 +17,40 @@ def to_float_string(f):
     # copied from the redis source:
     # https://github.com/antirez/redis/blob/c8391388c221b9255a7b6536c3f43438f36b8e2b/src/networking.c#L500-L524
     return "{:.17g}".format(float(f))
+
+
+class Cursors(object):
+    """
+    Limit the size of cursors to limit memory consumption
+    """
+
+    def __init__(self, max_size):
+        self._keys = collections.deque(maxlen=max_size)
+        self._data = {}
+        self._max_size = max_size
+        # starting at something > 1 to to avoid collisions when the process gets restarted
+        self._cursor_id = int(time.time() * 1000)
+
+    def add(self, db, key, value):
+        if len(self._data) >= self._max_size:
+            key_to_remove = self._keys.popleft()
+            del self._data[key_to_remove]
+        self._cursor_id += 1
+        cursor_key = self._get_cursor_key(db, key, self._cursor_id)
+        self._data[cursor_key] = value
+        self._keys.append(cursor_key)
+        return self._cursor_id
+
+    def get(self, db, key, cursor):
+        cursor_key = self._get_cursor_key(db, key, cursor)
+        return self._data[cursor_key]
+
+    def _get_cursor_key(self, db, key, cursor_id):
+        return (db, key, cursor_id)
+
+
+CURSOR_MAX_SIZE = 1024
+ZSET_CURSORS = Cursors(CURSOR_MAX_SIZE)
 
 
 class Keyspace(object):
@@ -211,6 +246,29 @@ class Keyspace(object):
             return result
         else:
             return to_float_string(result)
+
+    def zscan(self, key, cursor, match, count):
+        members = []
+        new_cursor = 0
+        if cursor == 0:
+            db_key_from_cursor = KEY_CODEC.get_min_zset_score(key)
+        else:
+            try:
+                db_key_from_cursor = ZSET_CURSORS.get(self._current_db, key, cursor)
+            except KeyError:
+                return [new_cursor, members]
+
+        for i, (db_key, _) in enumerate(self._get_db_iterator(db_key_from_cursor)):
+            db_score = KEY_CODEC.decode_zset_score(db_key)
+            db_value = KEY_CODEC.decode_zset_value(db_key)
+            # store the next element at the cursor
+            if i > count:
+                new_cursor = ZSET_CURSORS.add(self._current_db, key, db_key)
+                break
+            if match is None or fnmatch.fnmatch(db_value, match):
+                members.append(db_value)
+                members.append(db_score)
+        return [new_cursor, members]
 
     def eval(self, script, keys, argv):
         return self._lua_runner.run(script, keys, argv)
