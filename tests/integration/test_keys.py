@@ -158,3 +158,24 @@ def test_rename_with_same_name():
     r.set('str', 'test')
 
     assert r.rename('str', 'str')
+
+
+def test_expire_command_exists_but_is_noop():
+    r = fresh_redis()
+
+    r.set('str', 'test')
+    assert r.expire('str', 1) == 1
+    assert r.expire('another-str', 1) == 0
+
+
+def test_ttl_command():
+    r = fresh_redis()
+
+    r.set('str', 'test')
+
+    assert r.ttl('str') == -1
+    assert r.ttl('another-str') == -2
+
+    # TODO: after implementing proper key expiration, the following test should work
+    #  r.expire('str', 1)
+    #  assert r.ttl('str') == 1
