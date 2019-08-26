@@ -258,10 +258,11 @@ class Keyspace(object):
             except KeyError:
                 return [new_cursor, members]
 
-        for db_key, _ in self._get_db_iterator(db_key_from_cursor):
+        for i, (db_key, _) in enumerate(self._get_db_iterator(db_key_from_cursor)):
             db_score = KEY_CODEC.decode_zset_score(db_key)
             db_value = KEY_CODEC.decode_zset_value(db_key)
-            if len(members) / 2 == count:
+            # store the next element at the cursor
+            if i > count:
                 new_cursor = ZSET_CURSORS.add(self._current_db, key, db_key)
                 break
             if match is None or fnmatch.fnmatch(db_value, match):
