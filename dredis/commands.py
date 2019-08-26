@@ -152,6 +152,16 @@ def cmd_expire(keyspace, key, ttl):
     else:
         return 0
 
+
+@command('TTL', arity=2, flags=CMD_READONLY)
+def cmd_ttl(keyspace, key):
+    # FIXME: this is a static command because key expiration is not implemented
+    if keyspace.exists(key):
+        return -1
+    else:
+        return -2
+
+
 """
 ***********************
 * Connection commands *

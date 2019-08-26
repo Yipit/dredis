@@ -166,3 +166,16 @@ def test_expire_command_exists_but_is_noop():
     r.set('str', 'test')
     assert r.expire('str', 1) == 1
     assert r.expire('another-str', 1) == 0
+
+
+def test_ttl_command_exists_but_is_key_expiration_isnt_implemented():
+    r = fresh_redis()
+
+    r.set('str', 'test')
+
+    assert r.ttl('str') == -1
+    assert r.ttl('another-str') == -2
+
+    # TODO: after implementing proper key expiration, the following test should work
+    #  r.expire('str', 1)
+    #  assert r.ttl('str') == 1
