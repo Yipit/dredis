@@ -253,24 +253,21 @@ class Keyspace(object):
         if cursor == 0:
             db_key_from_cursor = KEY_CODEC.get_min_zset_score(key)
         else:
-            db_key_from_cursor = self._get_from_cursor(cursor, key)
+            try:
+                db_key_from_cursor = ZSET_CURSORS.get(self._current_db, key, cursor)
+            except KeyError:
+                return [new_cursor, members]
 
         for db_key, _ in self._get_db_iterator(db_key_from_cursor):
             db_score = KEY_CODEC.decode_zset_score(db_key)
             db_value = KEY_CODEC.decode_zset_value(db_key)
             if len(members) / 2 == count:
-                new_cursor = self._add_cursor(key, db_key)
+                new_cursor = ZSET_CURSORS.add(self._current_db, key, db_key)
                 break
             if match is None or fnmatch.fnmatch(db_value, match):
                 members.append(db_value)
                 members.append(db_score)
         return [new_cursor, members]
-
-    def _get_from_cursor(self, cursor, key):
-        return ZSET_CURSORS.get(self._current_db, key, cursor)
-
-    def _add_cursor(self, key, db_key):
-        return ZSET_CURSORS.add(self._current_db, key, db_key)
 
     def eval(self, script, keys, argv):
         return self._lua_runner.run(script, keys, argv)

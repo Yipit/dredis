@@ -459,3 +459,9 @@ def test_zscan_invalid_count():
     with pytest.raises(redis.ResponseError) as exc:
         r.zscan('myzset', 0, count='a')
     assert str(exc.value) == "value is not an integer or out of range"
+
+
+def test_zscan_with_a_cursor_that_doesnt_exist():
+    r = fresh_redis()
+
+    assert r.zscan('myzset', 123) == (0, [])
