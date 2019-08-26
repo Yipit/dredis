@@ -168,7 +168,7 @@ def test_expire_command_exists_but_is_noop():
     assert r.expire('another-str', 1) == 0
 
 
-def test_ttl_command_exists_but_is_key_expiration_isnt_implemented():
+def test_ttl_command():
     r = fresh_redis()
 
     r.set('str', 'test')

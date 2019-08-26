@@ -116,9 +116,11 @@ SAVE                                         | Server
 DEL key [key ...]                            | Keys
 DUMP key                                     | Keys
 EXISTS key [key ...]                         | Keys
+EXPIRE key ttl\**                            | Keys
 KEYS pattern                                 | Keys
 RENAME key newkey                            | Keys
-RESTORE key ttl serialized-value [REPLACE]\**| Keys
+RESTORE key ttl serialized-value [REPLACE]\***| Keys
+TTL key                                      | Keys
 TYPE key                                     | Keys
 AUTH                                         | Connection
 PING [msg]                                   | Connection
@@ -152,9 +154,11 @@ HSET key field value [field value ...]       | Hashes
 HSETNX key field value                       | Hashes
 HVALS value                                  | Hashes
 
-\* `COMMAND`'s reply is incompatible at the moment, it returns a flat array with command names (their arity, flags, positions, or step count are not returned).
-\** `RESTORE` doesn't work with Redis strings compressed with LZF or encoded as `OBJ_ENCODING_INT`; also doesn't work with sets encoded as `OBJ_ENCODING_INTSET`, nor hashes and sorted sets encoded as `OBJ_ENCODING_ZIPLIST`.
+Footnotes:
 
+* \*`COMMAND`'s reply is incompatible at the moment, it returns a flat array with command names (their arity, flags, positions, or step count are not returned).
+* \**`EXPIRE` doesn't set key expiration yet, it's a no-op command
+* \***`RESTORE` doesn't work with Redis strings compressed with LZF or encoded as `OBJ_ENCODING_INT`; also doesn't work with sets encoded as `OBJ_ENCODING_INTSET`, nor hashes and sorted sets encoded as `OBJ_ENCODING_ZIPLIST`.
 
 ## How is DRedis implemented
 
