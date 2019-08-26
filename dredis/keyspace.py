@@ -233,7 +233,7 @@ class Keyspace(object):
             db_value = KEY_CODEC.decode_zset_value(db_key)
             result.append(db_value)
             if with_scores:
-                result.append(to_float_string(db_score))
+                result.append(db_score)
 
         return result
 
@@ -241,11 +241,7 @@ class Keyspace(object):
         return int(self._db.get(KEY_CODEC.encode_zset(key), '0'))
 
     def zscore(self, key, member):
-        result = self._db.get(KEY_CODEC.encode_zset_value(key, member))
-        if result is None:
-            return result
-        else:
-            return to_float_string(result)
+        return self._db.get(KEY_CODEC.encode_zset_value(key, member))
 
     def zscan(self, key, cursor, match, count):
         members = []
@@ -325,7 +321,7 @@ class Keyspace(object):
                     db_value = KEY_CODEC.decode_zset_value(db_key)
                     result.append(db_value)
                     if withscores:
-                        result.append(to_float_string(db_score))
+                        result.append(db_score)
         return result
 
     def zcount(self, key, min_score, max_score):

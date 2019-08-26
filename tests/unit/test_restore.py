@@ -5,7 +5,6 @@ import pytest
 
 from dredis import crc64, rdb
 from dredis.exceptions import BusyKeyError, DredisError
-from dredis.keyspace import to_float_string
 from dredis.rdb import ObjectLoader
 
 
@@ -87,8 +86,7 @@ def test_should_be_able_to_restore_sorted_sets(keyspace):
     # using a `dict` to avoid ordered comparision of `flat_pairs`
     flat_pairs_dict = {}
     for i in range(0, len(flat_pairs), 2):
-        # keyspace.zrange() returns scores as strings
-        flat_pairs_dict[flat_pairs[i]] = to_float_string(flat_pairs[i + 1])
+        flat_pairs_dict[flat_pairs[i]] = flat_pairs[i + 1]
     zrange = keyspace.zrange('zset2', 0, -1, with_scores=True)
     assert dict(zip(zrange[::2], zrange[1::2])) == flat_pairs_dict
 
@@ -185,7 +183,7 @@ def test_zset_as_ziplist(keyspace):
 
     assert keyspace.zrange('zset', 0, -1, with_scores=True) == [
         "test value",
-        "123",
+        123,
     ]
 
 

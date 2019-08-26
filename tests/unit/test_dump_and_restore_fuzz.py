@@ -1,8 +1,6 @@
 import random
 import string
 
-from dredis.keyspace import to_float_string
-
 
 def _get_random_string():
     return ''.join(random.choice(string.printable) for _ in range(int(random.random() * MAX_LENGTH)))
@@ -47,7 +45,7 @@ def test_dump_and_restore_fuzzy_sorted_sets(keyspace):
     fuzzy_sorted_set = {}
     for score, value in zip(FUZZY_FLOATS, FUZZY_STRINGS):
         keyspace.zadd(key1, score=score, value=value)
-        fuzzy_sorted_set[value] = to_float_string(score)
+        fuzzy_sorted_set[value] = score
 
     keyspace.restore(key2, 0, keyspace.dump(key1), replace=True)
 
