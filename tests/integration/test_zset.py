@@ -381,42 +381,35 @@ def test_zscan_with_all_elements_returned():
         ('test4', 4),
         ('test5', 5),
     ]
-    pairs_copy = pairs[:]
     random.shuffle(pairs)
     for member, score in pairs:
         r.zadd('myzset', score, member)
 
     cursor, elements = r.zscan('myzset', 0)
     assert cursor == 0
-    assert elements == pairs_copy
+    assert sorted(elements) == sorted(pairs)
 
 
 def test_zscan_with_a_subset_of_elements_returned():
     r = fresh_redis()
 
-    pairs = [
-        ('test1', 1),
-        ('test2', 2),
-        ('test3', 3),
-        ('test4', 4),
-        ('test5', 5),
-    ]
-    pairs_copy = pairs[:]
+    # adding 200 elements to prevent real Redis from using a compact data structure
+    # and returning all elements regardless of `COUNT`
+    pairs = [('test{}'.format(i), i) for i in range(200)]
 
     random.shuffle(pairs)
     for member, score in pairs:
         r.zadd('myzset', score, member)
 
-    cursor1, elems1 = r.zscan('myzset', 0, count=20)
+    cursor1, elems1 = r.zscan('myzset', 0, count=len(pairs) + 100)
     assert cursor1 == 0
-    assert elems1 == pairs_copy
+    assert sorted(elems1) == sorted(pairs)
 
     cursor2, elems2 = r.zscan('myzset', 0, count=2)
     assert cursor2 != 0
-    assert elems2 == [
-        ('test1', 1),
-        ('test2', 2)
-    ]
+    # Redis doesn't guarantee the order of the returned elements
+    for e in elems2:
+        assert e in pairs
 
 
 def test_zscan_with_a_subset_of_matching_elements_returned():
@@ -429,22 +422,28 @@ def test_zscan_with_a_subset_of_matching_elements_returned():
         ('a-test4', 4),
         ('b-test5', 5),
     ]
-
+    # adding 200 elements to prevent real Redis from using a compact data structure
+    # and returning all elements regardless of `COUNT`
+    pairs.extend([('c-test{}'.format(i), i) for i in range(6, 200)])
     random.shuffle(pairs)
     for member, score in pairs:
         r.zadd('myzset', score, member)
 
-    cursor1, elems1 = r.zscan('myzset', 0, match='a-*', count=2)
-    assert cursor1 != 0
-    assert elems1 == [
+    # MATCH is applied just before the elements are returned to the client, which means that you may need
+    # multiple iterations to find a matching subset of elements
+    cursor1 = 0
+    matching_elems_found = []
+    while True:
+        cursor1, elems1 = r.zscan('myzset', cursor1, match='a-*', count=2)
+        assert len(elems1) <= 2
+        matching_elems_found.extend(elems1)
+        if cursor1 == 0:
+            break
+    assert sorted(matching_elems_found) == sorted([
         ('a-test1', 1),
         ('a-test3', 3),
-    ]
-    cursor2, elems2 = r.zscan('myzset', cursor1, match='a-*')
-    assert cursor2 == 0
-    assert elems2 == [
         ('a-test4', 4),
-    ]
+    ])
 
 
 def test_zscan_invalid_cursor():
@@ -456,6 +455,7 @@ def test_zscan_invalid_cursor():
 
 def test_zscan_invalid_count():
     r = fresh_redis()
+    r.zadd('myzset', 0, 'test')
     with pytest.raises(redis.ResponseError) as exc:
         r.zscan('myzset', 0, count='a')
     assert str(exc.value) == "value is not an integer or out of range"
