@@ -1,5 +1,9 @@
 ## Not released yet
 
+* Add support to ZSCAN (https://github.com/Yipit/dredis/pull/43)
+* Add static version of TTL and no-op version of EXPIRE (https://github.com/Yipit/dredis/pull/44)
+* Add contrib/snapshot_lmdb.py and remove contrib/dredis-snapshot (https://github.com/Yipit/dredis/pull/40)
+
 ## 2.1.0
 
 * Add AUTH support (https://github.com/Yipit/dredis/pull/37)
