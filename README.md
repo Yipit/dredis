@@ -142,6 +142,7 @@ ZRANGE key start top [WITHSCORES]            | Sorted Sets
 ZRANGEBYSCORE key min_score max_score [WITHSCORES] [LIMIT offset count] | Sorted Sets
 ZRANK key member                             | Sorted Sets
 ZREM key member [member ...]                 | Sorted Sets
+ZSCAN key cursor [MATCH pattern] [COUNT count]|Sorted Sets
 ZSCORE key member                            | Sorted Sets
 ZUNIONSTORE destination numkeys key [key ...] [WEIGHTS weight [weight ...]] | Sorted Sets
 HDEL key field [field ...]                   | Hashes
