@@ -158,3 +158,11 @@ def test_rename_with_same_name():
     r.set('str', 'test')
 
     assert r.rename('str', 'str')
+
+
+def test_expire_command_exists_but_is_noop():
+    r = fresh_redis()
+
+    r.set('str', 'test')
+    assert r.expire('str', 1) == 1
+    assert r.expire('another-str', 1) == 0

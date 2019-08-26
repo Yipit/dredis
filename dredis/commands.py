@@ -144,6 +144,14 @@ def cmd_rename(keyspace, old_name, new_name):
     return SimpleString('OK')
 
 
+@command('EXPIRE', arity=3, flags=CMD_WRITE)
+def cmd_expire(keyspace, key, ttl):
+    # FIXME: this is a no-op command!
+    if keyspace.exists(key):
+        return 1
+    else:
+        return 0
+
 """
 ***********************
 * Connection commands *
