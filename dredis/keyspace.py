@@ -51,6 +51,7 @@ class Cursors(object):
 
 CURSOR_MAX_SIZE = 1024
 ZSET_CURSORS = Cursors(CURSOR_MAX_SIZE)
+HASH_CURSORS = Cursors(CURSOR_MAX_SIZE)
 
 
 class Keyspace(object):
@@ -498,6 +499,29 @@ class Keyspace(object):
                 result.append(field)
                 result.append(db_value)
         return result
+
+    def hscan(self, key, cursor, match, count):
+        members = []
+        new_cursor = 0
+        if cursor == 0:
+            db_key_from_cursor = KEY_CODEC.get_min_hash_field(key)
+        else:
+            try:
+                db_key_from_cursor = HASH_CURSORS.get(self._current_db, key, cursor)
+            except KeyError:
+                return [new_cursor, members]
+
+        for i, (db_key, db_value) in enumerate(self._get_db_iterator(db_key_from_cursor)):
+            _, length, field_key = KEY_CODEC.decode_key(db_key)
+            field = field_key[length:]
+            # store the next element at the cursor
+            if i == count:
+                new_cursor = HASH_CURSORS.add(self._current_db, key, db_key)
+                break
+            if match is None or fnmatch.fnmatch(field, match):
+                members.append(field)
+                members.append(db_value)
+        return [new_cursor, members]
 
     @property
     def _db(self):

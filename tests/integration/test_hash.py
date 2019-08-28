@@ -108,3 +108,95 @@ def test_hset_should_accept_multiple_key_value_pairs():
     with pytest.raises(redis.ResponseError) as exc:
         r.execute_command('HSET', 'myhash', 'k1', 'v1', 'k2')
     assert str(exc.value) == 'wrong number of arguments for HMSET'
+
+
+def test_hscan_with_all_elements_returned():
+    r = fresh_redis()
+
+    pairs = [
+        ('test1', 'a'),
+        ('test2', 'b'),
+        ('test3', 'c'),
+        ('test4', 'd'),
+        ('test5', 'e'),
+    ]
+    for key, value in pairs:
+        r.hset('myhash', key, value)
+
+    cursor, elements = r.hscan('myhash', 0)
+    assert cursor == 0
+    assert elements == dict(pairs)
+
+
+def test_hscan_with_a_subset_of_elements_returned():
+    r = fresh_redis()
+
+    # adding 200 elements to prevent real Redis from using a compact data structure
+    # and returning all elements regardless of `COUNT`
+    pairs = {'key{}'.format(i): 'value{}'.format(i) for i in range(200)}
+    for key, value in pairs.items():
+        r.hset('myhash', key, value)
+
+    cursor1, elems1 = r.hscan('myhash', 0, count=len(pairs) + 100)
+    assert cursor1 == 0
+    assert elems1 == dict(pairs)
+
+    cursor2, elems2 = r.hscan('myhash', 0, count=2)
+    assert cursor2 != 0
+
+    for k, v in elems2.items():
+        assert k in pairs
+        assert pairs[k] == v
+
+
+def test_hscan_with_a_subset_of_matching_elements_returned():
+    r = fresh_redis()
+
+    pairs = {
+        'a-test1': 'a',
+        'b-test2': 'b',
+        'a-test3': 'c',
+        'a-test4': 'd',
+        'b-test5': 'e',
+    }
+    # adding 200 elements to prevent real Redis from using a compact data structure
+    # and returning all elements regardless of `COUNT`
+    pairs.update({'c-test{}'.format(i): 'c-value-{}'.format(i) for i in range(6, 200)})
+    for key, value in pairs.items():
+        r.hset('myhash', key, value)
+
+    # MATCH is applied just before the elements are returned to the client, which means that you may need
+    # multiple iterations to find a matching subset of elements
+    cursor1 = 0
+    matching_elems_found = {}
+    while True:
+        cursor1, elems1 = r.hscan('myhash', cursor1, match='a-*', count=2)
+        assert len(elems1) <= 2
+        matching_elems_found.update(elems1)
+        if cursor1 == 0:
+            break
+    assert matching_elems_found == {
+        'a-test1': 'a',
+        'a-test3': 'c',
+        'a-test4': 'd',
+    }
+
+
+def test_hscan_invalid_cursor():
+    r = fresh_redis()
+    with pytest.raises(redis.ResponseError) as exc:
+        r.hscan('myhash', 'a1')
+    assert str(exc.value) == "invalid cursor"
+
+
+def test_hscan_invalid_count():
+    r = fresh_redis()
+    r.hset('myhash', 'test-key', 'test-value')
+    with pytest.raises(redis.ResponseError) as exc:
+        r.hscan('myhash', 0, count='a')
+    assert str(exc.value) == "value is not an integer or out of range"
+
+
+def test_hscan_with_a_cursor_that_doesnt_exist():
+    r = fresh_redis()
+    assert r.hscan('myhash', 123) == (0, {})
