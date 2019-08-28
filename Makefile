@@ -3,7 +3,8 @@ export PYTHONPATH=.
 DEBUG ?= --debug
 FLUSHALL_ON_STARTUP ?= --flushall
 PORT ?= --port 6377
-TEST_OPTIONS = $(DEBUG) $(FLUSHALL_ON_STARTUP) $(PORT)
+BACKEND ?= --backend leveldb
+TEST_OPTIONS = $(DEBUG) $(FLUSHALL_ON_STARTUP) $(PORT) $(BACKEND)
 PID = dredis-test-server.pid
 REDIS_PID = redis-test-server.pid
 
