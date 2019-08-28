@@ -411,6 +411,15 @@ def test_zscan_with_a_subset_of_elements_returned():
     for e in elems2:
         assert e in pairs
 
+    found_elems = []
+    cursor3 = 0
+    while True:
+        cursor3, elems3 = r.zscan('myzset', cursor3, count=1)
+        found_elems.extend(elems3)
+        if cursor3 == 0:
+            break
+    assert sorted(pairs) == sorted(found_elems)
+
 
 def test_zscan_with_a_subset_of_matching_elements_returned():
     r = fresh_redis()

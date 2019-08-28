@@ -159,10 +159,10 @@ class LMDBBackend(object):
     def close(self):
         self._env.close()
 
-    def iterator(self, prefix='', include_value=True):
+    def iterator(self, prefix='', start='', include_value=True):
         with self._env.begin() as t:
             c = t.cursor()
-            if prefix and not c.set_range(prefix):
+            if start and not c.set_range(start):
                 return
             for k, v in c:
                 if not k.startswith(prefix):
@@ -212,8 +212,10 @@ class MemoryBackend(object):
         if exc_type is None:
             return True
 
-    def iterator(self, prefix='', include_value=True):
+    def iterator(self, prefix='', start='', include_value=True):
         for k, v in self:
+            if k < start:
+                continue
             if not k.startswith(prefix):
                 continue
             if include_value:
