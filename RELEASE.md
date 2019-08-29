@@ -1,14 +1,6 @@
 ## Steps to release a new version
 
 1. Update `dredis/__init__.py` with the new version
-1. Update `CHANGELOG.md` to have new features, bugfixes, backward incompatible changes, etc 
-1. Commit the previous changes using the following format:
-    ```text
-    Release 1.0.0
-    
-    * changelog entry 1
-    * changelog entry 2
-    ...
-    ```
-1. Push the changes to Github (`git push`)
-1. Create a git tag, push it to Github, upload new version to PyPI (`git tag NEW_VERSION && git push --tags && make release`)
+1. Update `CHANGELOG.md` section "Not released yet" to have new features, bugfixes, backward incompatible changes, etc. 
+1. Commit & push the changelog updates
+1. Run `make release` and enter the new version. This command will update the changelog, commit, create a git tag, and upload to PyPI
