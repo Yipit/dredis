@@ -1,5 +1,7 @@
 ## Not released yet
 
+## 2.3.0
+
 * Add support to HSCAN (https://github.com/Yipit/dredis/pull/47)
 
 ## 2.2.0
