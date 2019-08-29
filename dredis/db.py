@@ -160,6 +160,10 @@ class LMDBBackend(object):
         self._env.close()
 
     def iterator(self, prefix=None, start=None, include_value=True):
+        # LMDB doesn't have native prefix support, we must call `set_range()` to start it at the proper position,
+        # otherwise it'd require extra iterations to filter by prefix.
+        if start is None:
+            start = prefix
         with self._env.begin() as t:
             c = t.cursor()
             if start is not None and not c.set_range(start):
