@@ -186,12 +186,7 @@ class Keyspace(object):
                 batch.delete(db_key)
 
     def _get_db_iterator(self, key_prefix=None, start=None):
-        options = {}
-        if key_prefix:
-            options['prefix'] = key_prefix
-        if start:
-            options['start'] = start
-        for db_key, db_value in self._db.iterator(**options):
+        for db_key, db_value in self._db.iterator(prefix=key_prefix, start=start):
             yield db_key, db_value
 
     def zadd(self, key, score, value):
