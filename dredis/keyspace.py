@@ -49,7 +49,7 @@ class Cursors(object):
         return (db, key, cursor_id)
 
 
-CURSOR_MAX_SIZE = 1024
+CURSOR_MAX_SIZE = 8 * 1024
 ZSET_CURSORS = Cursors(CURSOR_MAX_SIZE)
 HASH_CURSORS = Cursors(CURSOR_MAX_SIZE)
 
