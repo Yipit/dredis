@@ -49,8 +49,9 @@ class Cursors(object):
         return (db, key, cursor_id)
 
 
-CURSOR_MAX_SIZE = 1024
+CURSOR_MAX_SIZE = 8 * 1024
 ZSET_CURSORS = Cursors(CURSOR_MAX_SIZE)
+HASH_CURSORS = Cursors(CURSOR_MAX_SIZE)
 
 
 class Keyspace(object):
@@ -184,8 +185,8 @@ class Keyspace(object):
             for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_value(key)):
                 batch.delete(db_key)
 
-    def _get_db_iterator(self, key_prefix):
-        for db_key, db_value in self._db.iterator(prefix=key_prefix):
+    def _get_db_iterator(self, key_prefix=None, start=None):
+        for db_key, db_value in self._db.iterator(prefix=key_prefix, start=start):
             yield db_key, db_value
 
     def zadd(self, key, score, value):
@@ -244,27 +245,15 @@ class Keyspace(object):
         return self._db.get(KEY_CODEC.encode_zset_value(key, member))
 
     def zscan(self, key, cursor, match, count):
-        members = []
-        new_cursor = 0
-        if cursor == 0:
-            db_key_from_cursor = KEY_CODEC.get_min_zset_score(key)
-        else:
-            try:
-                db_key_from_cursor = ZSET_CURSORS.get(self._current_db, key, cursor)
-            except KeyError:
-                return [new_cursor, members]
+        def get_key_value_pair(db_key, db_value):
+            field = KEY_CODEC.decode_zset_value(db_key)
+            value = KEY_CODEC.decode_zset_score(db_key)
+            return field, value
 
-        for i, (db_key, _) in enumerate(self._get_db_iterator(db_key_from_cursor)):
-            db_score = KEY_CODEC.decode_zset_score(db_key)
-            db_value = KEY_CODEC.decode_zset_value(db_key)
-            # store the next element at the cursor
-            if i > count:
-                new_cursor = ZSET_CURSORS.add(self._current_db, key, db_key)
-                break
-            if match is None or fnmatch.fnmatch(db_value, match):
-                members.append(db_value)
-                members.append(db_score)
-        return [new_cursor, members]
+        get_min_field = KEY_CODEC.get_min_zset_score
+        cursors = ZSET_CURSORS
+
+        return self._scan(key, cursor, match, count, get_min_field, get_key_value_pair, cursors)
 
     def eval(self, script, keys, argv):
         return self._lua_runner.run(script, keys, argv)
@@ -494,6 +483,40 @@ class Keyspace(object):
                 result.append(field)
                 result.append(db_value)
         return result
+
+    def hscan(self, key, cursor, match, count):
+        def get_key_value_pair(db_key, db_value):
+            _, length, field_key = KEY_CODEC.decode_key(db_key)
+            field = field_key[length:]
+            return field, db_value
+
+        get_min_field = KEY_CODEC.get_min_hash_field
+        cursors = HASH_CURSORS
+
+        return self._scan(key, cursor, match, count, get_min_field, get_key_value_pair, cursors)
+
+    def _scan(self, key, cursor, match, count, get_min_field, get_key_value_pair, cursors):
+        elements = []
+        new_cursor = 0
+
+        if cursor == 0:
+            db_key_from_cursor = get_min_field(key)
+        else:
+            try:
+                db_key_from_cursor = cursors.get(self._current_db, key, cursor)
+            except KeyError:
+                return [new_cursor, elements]
+
+        for i, (db_key, db_value) in enumerate(self._get_db_iterator(start=db_key_from_cursor)):
+            field, value = get_key_value_pair(db_key, db_value)
+            # store the next element at the cursor
+            if i == count:
+                new_cursor = cursors.add(self._current_db, key, db_key)
+                break
+            if match is None or fnmatch.fnmatch(field, match):
+                elements.append(field)
+                elements.append(value)
+        return [new_cursor, elements]
 
     @property
     def _db(self):

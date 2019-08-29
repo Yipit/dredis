@@ -5,6 +5,9 @@ import redis
 
 from tests.helpers import fresh_redis
 
+ZSET_MAX_ZIPLIST_ENTRIES = 128  # redis uses a ziplist for zsets of 128 or fewer entries
+ZSET_MIN_HASHTABLE_ENTRIES = ZSET_MAX_ZIPLIST_ENTRIES + 100
+
 
 def test_zset_zadd_and_zcard():
     r = fresh_redis()
@@ -393,9 +396,9 @@ def test_zscan_with_all_elements_returned():
 def test_zscan_with_a_subset_of_elements_returned():
     r = fresh_redis()
 
-    # adding 200 elements to prevent real Redis from using a compact data structure
+    # adding lots of elements to prevent real Redis from using a compact data structure
     # and returning all elements regardless of `COUNT`
-    pairs = [('test{}'.format(i), i) for i in range(200)]
+    pairs = [('test{}'.format(i), i) for i in range(ZSET_MIN_HASHTABLE_ENTRIES)]
 
     random.shuffle(pairs)
     for member, score in pairs:
@@ -411,6 +414,15 @@ def test_zscan_with_a_subset_of_elements_returned():
     for e in elems2:
         assert e in pairs
 
+    found_elems = []
+    cursor3 = 0
+    while True:
+        cursor3, elems3 = r.zscan('myzset', cursor3, count=1)
+        found_elems.extend(elems3)
+        if cursor3 == 0:
+            break
+    assert sorted(pairs) == sorted(found_elems)
+
 
 def test_zscan_with_a_subset_of_matching_elements_returned():
     r = fresh_redis()
@@ -422,9 +434,9 @@ def test_zscan_with_a_subset_of_matching_elements_returned():
         ('a-test4', 4),
         ('b-test5', 5),
     ]
-    # adding 200 elements to prevent real Redis from using a compact data structure
+    # adding lots of elements to prevent real Redis from using a compact data structure
     # and returning all elements regardless of `COUNT`
-    pairs.extend([('c-test{}'.format(i), i) for i in range(6, 200)])
+    pairs.extend([('c-test{}'.format(i), i) for i in range(6, ZSET_MIN_HASHTABLE_ENTRIES)])
     random.shuffle(pairs)
     for member, score in pairs:
         r.zadd('myzset', score, member)

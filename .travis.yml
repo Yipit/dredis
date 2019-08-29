@@ -5,6 +5,8 @@ services:
   - redis-server
 install: make setup
 env:
-  - TEST_SUITE=fulltests
+  - TEST_SUITE=fulltests BACKEND="--backend memory"
+  - TEST_SUITE=fulltests BACKEND="--backend lmdb"
+  - TEST_SUITE=fulltests BACKEND="--backend leveldb"
   - TEST_SUITE=fulltests-real-redis
 script: make $TEST_SUITE

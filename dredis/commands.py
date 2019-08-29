@@ -348,29 +348,8 @@ def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
 
 @command('ZSCAN', arity=-3, flags=CMD_READONLY)
 def cmd_zscan(keyspace, key, cursor, *args):
-    match = None
-    count = 10
-    args = list(args)
-    try:
-        cursor = int(cursor)
-    except ValueError:
-        raise DredisError("invalid cursor")
-    while args:
-        arg = args.pop(0)
-        if len(args) < 1:
-            raise DredisSyntaxError()
-        else:
-            if arg.lower() == 'match':
-                match = args.pop(0)
-            elif arg.lower() == 'count':
-                try:
-                    count = int(args.pop(0))
-                except ValueError:
-                    raise DredisError("value is not an integer or out of range")
-            else:
-                raise DredisSyntaxError()
-    new_cursor, members = keyspace.zscan(key, cursor, match, count)
-    return [new_cursor, members]
+    cursor, count, match = _validate_scan_params(args, cursor)
+    return keyspace.zscan(key, cursor, match, count)
 
 
 def _validate_zset_score(score):
@@ -457,6 +436,37 @@ def cmd_hincrby(keyspace, key, field, increment):
 @command('HGETALL', arity=2, flags=CMD_READONLY)
 def cmd_hgetall(keyspace, key):
     return keyspace.hgetall(key)
+
+
+@command('HSCAN', arity=-3, flags=CMD_READONLY)
+def cmd_hscan(keyspace, key, cursor, *args):
+    cursor, count, match = _validate_scan_params(args, cursor)
+    return keyspace.hscan(key, cursor, match, count)
+
+
+def _validate_scan_params(args, cursor):
+    match = None
+    count = 10
+    args = list(args)
+    try:
+        cursor = int(cursor)
+    except ValueError:
+        raise DredisError("invalid cursor")
+    while args:
+        arg = args.pop(0)
+        if len(args) < 1:
+            raise DredisSyntaxError()
+        else:
+            if arg.lower() == 'match':
+                match = args.pop(0)
+            elif arg.lower() == 'count':
+                try:
+                    count = int(args.pop(0))
+                except ValueError:
+                    raise DredisError("value is not an integer or out of range")
+            else:
+                raise DredisSyntaxError()
+    return cursor, count, match
 
 
 def run_command(keyspace, cmd, args, readonly=False):

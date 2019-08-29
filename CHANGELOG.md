@@ -1,5 +1,7 @@
 ## Not released yet
 
+* Add support to HSCAN (https://github.com/Yipit/dredis/pull/47)
+
 ## 2.2.0
 
 * Add support to ZSCAN (https://github.com/Yipit/dredis/pull/43)
