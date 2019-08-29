@@ -4,6 +4,10 @@ import redis
 from tests.helpers import fresh_redis
 
 
+HASH_MAX_ZIPLIST_ENTRIES = 512  # redis uses a ziplist for hashes of 512 or fewer entries
+HASH_MIN_HASHTABLE_ENTRIES = HASH_MAX_ZIPLIST_ENTRIES + 100
+
+
 def test_hset_and_hget():
     r = fresh_redis()
 
@@ -131,9 +135,9 @@ def test_hscan_with_all_elements_returned():
 def test_hscan_with_a_subset_of_elements_returned():
     r = fresh_redis()
 
-    # adding 200 elements to prevent real Redis from using a compact data structure
+    # adding lots of elements to prevent real Redis from using a compact data structure
     # and returning all elements regardless of `COUNT`
-    pairs = {'key{}'.format(i): 'value{}'.format(i) for i in range(200)}
+    pairs = {'key{}'.format(i): 'value{}'.format(i) for i in range(HASH_MIN_HASHTABLE_ENTRIES)}
     for key, value in pairs.items():
         r.hset('myhash', key, value)
 
@@ -159,9 +163,9 @@ def test_hscan_with_a_subset_of_matching_elements_returned():
         'a-test4': 'd',
         'b-test5': 'e',
     }
-    # adding 200 elements to prevent real Redis from using a compact data structure
+    # adding lots of elements to prevent real Redis from using a compact data structure
     # and returning all elements regardless of `COUNT`
-    pairs.update({'c-test{}'.format(i): 'c-value-{}'.format(i) for i in range(6, 200)})
+    pairs.update({'c-test{}'.format(i): 'c-value-{}'.format(i) for i in range(6, HASH_MIN_HASHTABLE_ENTRIES)})
     for key, value in pairs.items():
         r.hset('myhash', key, value)
 
