@@ -348,7 +348,7 @@ def cmd_zrangebyscore(keyspace, key, min_score, max_score, *args):
 
 @command('ZSCAN', arity=-3, flags=CMD_READONLY)
 def cmd_zscan(keyspace, key, cursor, *args):
-    count, cursor, match = _validate_scan_params(args, cursor)
+    cursor, count, match = _validate_scan_params(args, cursor)
     return keyspace.zscan(key, cursor, match, count)
 
 
@@ -440,7 +440,7 @@ def cmd_hgetall(keyspace, key):
 
 @command('HSCAN', arity=-3, flags=CMD_READONLY)
 def cmd_hscan(keyspace, key, cursor, *args):
-    count, cursor, match = _validate_scan_params(args, cursor)
+    cursor, count, match = _validate_scan_params(args, cursor)
     return keyspace.hscan(key, cursor, match, count)
 
 
@@ -466,7 +466,7 @@ def _validate_scan_params(args, cursor):
                     raise DredisError("value is not an integer or out of range")
             else:
                 raise DredisSyntaxError()
-    return count, cursor, match
+    return cursor, count, match
 
 
 def run_command(keyspace, cmd, args, readonly=False):
