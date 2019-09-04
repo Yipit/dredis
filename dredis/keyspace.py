@@ -4,7 +4,7 @@ import fnmatch
 import time
 from io import BytesIO
 
-from dredis import rdb
+from dredis import rdb, config
 from dredis.db import DB_MANAGER, KEY_CODEC, DEFAULT_REDIS_DB
 from dredis.exceptions import DredisError, BusyKeyError, NoKeyError
 from dredis.lua import LuaRunner
@@ -56,12 +56,10 @@ HASH_CURSORS = Cursors(CURSOR_MAX_SIZE)
 
 class Keyspace(object):
 
-    def __init__(self, password=None):
+    def __init__(self):
         self._lua_runner = LuaRunner(self)
         self._current_db = DEFAULT_REDIS_DB
         self._set_db(self._current_db)
-        self._password = password
-        self.requirepass = password is not None
         self.authenticated = False
 
     def _set_db(self, db):
@@ -547,9 +545,9 @@ class Keyspace(object):
             raise NoKeyError()
 
     def auth(self, password):
-        if not self.requirepass:
+        if config.get('requirepass') == config.EMPTY:
             raise DredisError("client sent AUTH, but no password is set")
-        if self._password != password:
+        if password != config.get('requirepass'):
             self.authenticated = False
             raise DredisError("invalid password")
         else:

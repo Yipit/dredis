@@ -1,4 +1,6 @@
+import logging
 import struct
+import sys
 
 
 def to_float(s):
@@ -54,3 +56,12 @@ class FloatCodec(object):
 
 
 FLOAT_CODEC = FloatCodec()
+
+
+def setup_logging(level):
+    logger = logging.getLogger('dredis')
+    logger.setLevel(level)
+    formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)

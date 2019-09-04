@@ -20,7 +20,7 @@ fulltests:
 	bash -c "trap 'make stop-testserver' EXIT; make start-testserver DEBUG=''; make test"
 
 fulltests-real-redis:
-	bash -c "trap 'make stop-redistestserver' EXIT; make start-redistestserver; make test"
+	bash -c "trap 'make stop-redistestserver' EXIT; make start-redistestserver; make test REALREDIS=1"
 
 test: unit integration lint
 

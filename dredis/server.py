@@ -12,7 +12,7 @@ import traceback
 import sys
 
 from dredis import __version__
-from dredis import db, rdb
+from dredis import db, rdb, config
 from dredis.commands import run_command, SimpleString
 from dredis.exceptions import DredisError
 from dredis.keyspace import Keyspace, to_float_string
@@ -22,13 +22,11 @@ from dredis.path import Path
 logger = logging.getLogger('dredis')
 
 ROOT_DIR = None  # defined by `main()`
-READONLY_SERVER = False
-REQUIREPASS = None
 
 
 def execute_cmd(keyspace, send_fn, cmd, *args):
     try:
-        result = run_command(keyspace, cmd, args, readonly=READONLY_SERVER)
+        result = run_command(keyspace, cmd, args)
     except DredisError as exc:
         transmit(send_fn, exc)
     except Exception as exc:
@@ -79,7 +77,7 @@ class CommandHandler(asyncore.dispatcher):
     def __init__(self, *args, **kwargs):
         asyncore.dispatcher.__init__(self, *args, **kwargs)
         self._parser = Parser(self.recv)  # contains client message buffer
-        self.keyspace = Keyspace(password=REQUIREPASS)
+        self.keyspace = Keyspace()
 
     def handle_read(self):
         try:
@@ -124,14 +122,6 @@ class RedisServer(asyncore.dispatcher):
             CommandHandler(sock)
 
 
-def setup_logging(level):
-    logger.setLevel(level)
-    formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-
-
 def main():
     parser = argparse.ArgumentParser(version=__version__)
     parser.add_argument('--host', default='127.0.0.1', help='server host (defaults to %(default)s)')
@@ -147,7 +137,7 @@ def main():
     parser.add_argument('--debug', action='store_true', help='enable debug logs')
     parser.add_argument('--flushall', action='store_true', default=False, help='run FLUSHALL on startup')
     parser.add_argument('--readonly', action='store_true', help='accept read-only commands')
-    parser.add_argument('--requirepass', default=None,
+    parser.add_argument('--requirepass', default='',
                         help='require clients to issue AUTH <password> before processing any other commands')
     args = parser.parse_args()
 
@@ -160,17 +150,13 @@ def main():
         ROOT_DIR = tempfile.mkdtemp(prefix="redis-test-")
 
     if args.debug:
-        setup_logging(logging.DEBUG)
-    else:
-        setup_logging(logging.INFO)
+        config.set('debug', 'true')
 
     if args.readonly:
-        global READONLY_SERVER
-        READONLY_SERVER = True
+        config.set('readonly', 'true')
 
     if args.requirepass:
-        global REQUIREPASS
-        REQUIREPASS = args.requirepass
+        config.set('requirepass', args.requirepass)
 
     db_backend_options = {}
     if args.backend_option:
@@ -199,7 +185,7 @@ def main():
     logger.info("Port: {}".format(args.port))
     logger.info("Root directory: {}".format(ROOT_DIR))
     logger.info('PID: {}'.format(os.getpid()))
-    logger.info('Readonly: {}'.format(READONLY_SERVER))
+    logger.info('Readonly: {}'.format(config.get('readonly')))
     logger.info('Ready to accept connections')
 
     try:
