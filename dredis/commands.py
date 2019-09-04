@@ -1,6 +1,7 @@
 import logging
 from functools import wraps
 
+from dredis import config
 from dredis.exceptions import AuthenticationRequiredError, CommandNotFound, DredisSyntaxError, DredisError
 from dredis.utils import to_float
 
@@ -92,6 +93,25 @@ def cmd_dbsize(keyspace):
 def cmd_save(keyspace):
     keyspace.save()
     return SimpleString('OK')
+
+
+@command('CONFIG', arity=-2, flags=CMD_WRITE)
+def cmd_config(keyspace, action, *params):
+    if action.lower() == 'help':
+        # copied from
+        # https://github.com/antirez/redis/blob/cb51bb4320d2240001e8fc4a522d59fb28259703/src/config.c#L2244-L2245
+        help = [
+            "GET <pattern> -- Return parameters matching the glob-like <pattern> and their values.",
+            "SET <parameter> <value> -- Set parameter to value.",
+        ]
+        return help
+    elif action.lower() == 'get' and len(params) == 1:
+        return config.get_all(params[0])
+    elif action.lower() == 'set' and len(params) == 2:
+        config.set(params[0], params[1])
+        return SimpleString('OK')
+    else:
+        raise DredisError("Unknown subcommand or wrong number of arguments for '{}'. Try CONFIG HELP.".format(action))
 
 
 """

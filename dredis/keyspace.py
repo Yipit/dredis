@@ -61,7 +61,7 @@ class Keyspace(object):
         self._current_db = DEFAULT_REDIS_DB
         self._set_db(self._current_db)
         self._password = password
-        self.requirepass = password is not None
+        self.requirepass = password not in ('', None)
         self.authenticated = False
 
     def _set_db(self, db):

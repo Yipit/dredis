@@ -1,3 +1,4 @@
+from dredis import config
 from dredis.server import transmit, transform
 import mock
 
@@ -34,3 +35,17 @@ def test_transform_nested_array():
 
 def test_transform_error():
     assert transform(Exception('test')) == '-INTERNALERROR test\r\n'
+
+
+def test_config():
+    original_value = config.get('debug')
+    try:
+        # change config
+        config.set('debug', 'false')
+        assert config.get('debug') is 'false'
+
+        config.set('debug', 'true')
+        assert config.get('debug') is 'true'
+    finally:
+        # undo it to not affect other tests
+        config.set('debug', original_value)
