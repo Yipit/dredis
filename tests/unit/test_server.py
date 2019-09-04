@@ -42,10 +42,10 @@ def test_config():
     try:
         # change config
         config.set('debug', 'false')
-        assert config.get('debug') is 'false'
+        assert config.get('debug') == 'false'
 
         config.set('debug', 'true')
-        assert config.get('debug') is 'true'
+        assert config.get('debug') == 'true'
     finally:
         # undo it to not affect other tests
         config.set('debug', original_value)
