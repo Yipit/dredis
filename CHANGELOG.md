@@ -1,5 +1,7 @@
 ## Not released yet
 
+## 2.4.0
+
 * Add support to CONFIG GET and CONFIG SET (https://github.com/Yipit/dredis/pull/49)
 
 ## 2.3.0
