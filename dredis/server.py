@@ -122,14 +122,6 @@ class RedisServer(asyncore.dispatcher):
             CommandHandler(sock)
 
 
-def setup_logging(level):
-    logger.setLevel(level)
-    formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-
-
 def main():
     parser = argparse.ArgumentParser(version=__version__)
     parser.add_argument('--host', default='127.0.0.1', help='server host (defaults to %(default)s)')
@@ -159,9 +151,6 @@ def main():
 
     if args.debug:
         config.set('debug', 'true')
-        setup_logging(logging.DEBUG)
-    else:
-        setup_logging(logging.INFO)
 
     if args.readonly:
         config.set('readonly', 'true')
