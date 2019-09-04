@@ -2,11 +2,14 @@ import fnmatch
 
 from dredis.exceptions import DredisError
 
+TRUE = 'true'
+FALSE = 'false'
+EMPTY = ''
 
 _SERVER_CONFIG = {
-    'debug': 'false',
-    'readonly': 'false',
-    'requirepass': '',
+    'debug': FALSE,
+    'readonly': FALSE,
+    'requirepass': EMPTY,
 }
 
 

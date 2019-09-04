@@ -545,7 +545,7 @@ class Keyspace(object):
             raise NoKeyError()
 
     def auth(self, password):
-        if config.get('requirepass') == '':
+        if config.get('requirepass') == config.EMPTY:
             raise DredisError("client sent AUTH, but no password is set")
         if password != config.get('requirepass'):
             self.authenticated = False

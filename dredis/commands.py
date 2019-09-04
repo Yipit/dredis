@@ -497,9 +497,9 @@ def run_command(keyspace, cmd, args):
         raise CommandNotFound("unknown command '{}'".format(cmd))
     else:
         cmd_fn = REDIS_COMMANDS[cmd.upper()]
-        if config.get('requirepass') != '' and not keyspace.authenticated and cmd_fn != cmd_auth:
+        if config.get('requirepass') != config.EMPTY and not keyspace.authenticated and cmd_fn != cmd_auth:
             raise AuthenticationRequiredError()
-        if config.get('readonly') == 'true' and cmd_fn.flags & CMD_WRITE:
+        if config.get('readonly') == config.TRUE and cmd_fn.flags & CMD_WRITE:
             raise DredisError("Can't execute %r in readonly mode" % cmd)
         else:
             return cmd_fn(keyspace, *str_args)
