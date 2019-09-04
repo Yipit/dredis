@@ -77,7 +77,7 @@ class CommandHandler(asyncore.dispatcher):
     def __init__(self, *args, **kwargs):
         asyncore.dispatcher.__init__(self, *args, **kwargs)
         self._parser = Parser(self.recv)  # contains client message buffer
-        self.keyspace = Keyspace(password=config.get('requirepass'))
+        self.keyspace = Keyspace()
 
     def handle_read(self):
         try:
