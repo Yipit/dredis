@@ -489,7 +489,7 @@ def _validate_scan_params(args, cursor):
     return cursor, count, match
 
 
-def run_command(keyspace, cmd, args, readonly=False):
+def run_command(keyspace, cmd, args):
     logger.debug('[run_command] cmd={}, args={}'.format(repr(cmd), repr(args)))
 
     str_args = map(str, args)
@@ -499,7 +499,7 @@ def run_command(keyspace, cmd, args, readonly=False):
         cmd_fn = REDIS_COMMANDS[cmd.upper()]
         if keyspace.requirepass and not keyspace.authenticated and cmd_fn != cmd_auth:
             raise AuthenticationRequiredError()
-        if readonly and cmd_fn.flags & CMD_WRITE:
+        if config.get('readonly') == 'true' and cmd_fn.flags & CMD_WRITE:
             raise DredisError("Can't execute %r in readonly mode" % cmd)
         else:
             return cmd_fn(keyspace, *str_args)

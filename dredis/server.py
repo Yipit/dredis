@@ -26,7 +26,7 @@ ROOT_DIR = None  # defined by `main()`
 
 def execute_cmd(keyspace, send_fn, cmd, *args):
     try:
-        result = run_command(keyspace, cmd, args, readonly=config.get('readonly') == 'true')
+        result = run_command(keyspace, cmd, args)
     except DredisError as exc:
         transmit(send_fn, exc)
     except Exception as exc:
