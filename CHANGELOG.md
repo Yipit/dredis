@@ -1,5 +1,7 @@
 ## Not released yet
 
+* Add support to CONFIG GET and CONFIG SET (https://github.com/Yipit/dredis/pull/49)
+
 ## 2.3.0
 
 * Add support to HSCAN (https://github.com/Yipit/dredis/pull/47)

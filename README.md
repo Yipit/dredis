@@ -109,6 +109,9 @@ None.
 Command signature                            | Type
 ---------------------------------------------|-----
 COMMAND\*                                    | Server
+CONFIG GET parameter                         | Server
+CONFIG HELP                                  | Server
+CONFIG SET parameter value                   | Server
 DBSIZE                                       | Server
 FLUSHALL                                     | Server
 FLUSHDB                                      | Server
@@ -160,6 +163,7 @@ Footnotes:
 * \*`COMMAND`'s reply is incompatible at the moment, it returns a flat array with command names (their arity, flags, positions, or step count are not returned).
 * \**`EXPIRE` doesn't set key expiration yet, it's a no-op command
 * \***`RESTORE` doesn't work with Redis strings compressed with LZF or encoded as `OBJ_ENCODING_INT`; also doesn't work with sets encoded as `OBJ_ENCODING_INTSET`, nor hashes and sorted sets encoded as `OBJ_ENCODING_ZIPLIST`.
+* `CONFIG GET`, `CONFIG HELP`, and `CONFIG SET` are specific to dredis. The commands' signature and behavior are equivalent to the ones in Redis
 
 ## How is DRedis implemented
 
