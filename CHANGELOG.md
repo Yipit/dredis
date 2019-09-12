@@ -1,5 +1,7 @@
 ## Not released yet
 
+## 2.4.2
+
 * Fix duplicated logs due to multiple logger handlers
 
 ## 2.4.1
