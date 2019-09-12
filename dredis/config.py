@@ -2,7 +2,6 @@ import fnmatch
 import logging
 
 from dredis.exceptions import DredisError
-from dredis.utils import setup_logging
 
 TRUE = 'true'
 FALSE = 'false'
@@ -30,9 +29,9 @@ def set(option, value):
         if option == 'debug':
             value = _validate_bool(option, value)
             if value == TRUE:
-                setup_logging(logging.DEBUG)
+                logging.getLogger('dredis').setLevel(logging.DEBUG)
             else:
-                setup_logging(logging.INFO)
+                logging.getLogger('dredis').setLevel(logging.DEBUG)
         elif option == 'readonly':
             value = _validate_bool(option, value)
         _SERVER_CONFIG[option] = value

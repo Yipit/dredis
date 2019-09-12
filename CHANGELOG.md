@@ -1,5 +1,7 @@
 ## Not released yet
 
+* Fix duplicated logs due to multiple logger handlers
+
 ## 2.4.1
 
 * Fix bug where INFO messages weren't being displayed

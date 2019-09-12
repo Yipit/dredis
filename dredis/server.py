@@ -18,6 +18,7 @@ from dredis.exceptions import DredisError
 from dredis.keyspace import Keyspace, to_float_string
 from dredis.parser import Parser
 from dredis.path import Path
+from dredis.utils import setup_logging
 
 logger = logging.getLogger('dredis')
 
@@ -148,6 +149,8 @@ def main():
 
     else:
         ROOT_DIR = tempfile.mkdtemp(prefix="redis-test-")
+
+    setup_logging(logging.INFO)
 
     config.set('debug', config.TRUE if args.debug else config.FALSE)
     config.set('readonly', config.TRUE if args.readonly else config.FALSE)
