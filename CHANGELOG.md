@@ -1,5 +1,7 @@
 ## Not released yet
 
+## 2.4.1
+
 * Fix bug where INFO messages weren't being displayed
 
 ## 2.4.0
