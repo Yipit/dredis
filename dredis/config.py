@@ -31,7 +31,7 @@ def set(option, value):
             if value == TRUE:
                 logging.getLogger('dredis').setLevel(logging.DEBUG)
             else:
-                logging.getLogger('dredis').setLevel(logging.DEBUG)
+                logging.getLogger('dredis').setLevel(logging.INFO)
         elif option == 'readonly':
             value = _validate_bool(option, value)
         _SERVER_CONFIG[option] = value

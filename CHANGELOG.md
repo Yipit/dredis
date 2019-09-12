@@ -1,5 +1,7 @@
 ## Not released yet
 
+* Fix log levels when changing configuration
+ 
 ## 2.4.2
 
 * Fix duplicated logs due to multiple logger handlers
