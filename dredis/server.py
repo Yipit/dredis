@@ -149,14 +149,9 @@ def main():
     else:
         ROOT_DIR = tempfile.mkdtemp(prefix="redis-test-")
 
-    if args.debug:
-        config.set('debug', 'true')
-
-    if args.readonly:
-        config.set('readonly', 'true')
-
-    if args.requirepass:
-        config.set('requirepass', args.requirepass)
+    config.set('debug', config.TRUE if args.debug else config.FALSE)
+    config.set('readonly', config.TRUE if args.readonly else config.FALSE)
+    config.set('requirepass', args.requirepass if args.requirepass else config.EMPTY)
 
     db_backend_options = {}
     if args.backend_option:

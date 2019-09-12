@@ -1,5 +1,7 @@
 ## Not released yet
 
+* Fix bug where INFO messages weren't being displayed
+
 ## 2.4.0
 
 * Add support to CONFIG GET and CONFIG SET (https://github.com/Yipit/dredis/pull/49)
