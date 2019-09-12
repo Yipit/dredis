@@ -1,5 +1,7 @@
 ## Not released yet
 
+## 2.4.3
+
 * Fix log levels when changing configuration
  
 ## 2.4.2
