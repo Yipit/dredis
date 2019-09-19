@@ -477,3 +477,17 @@ def test_zscan_with_a_cursor_that_doesnt_exist():
     r = fresh_redis()
 
     assert r.zscan('myzset', 123) == (0, [])
+
+
+def test_zadd_nx_should_only_add_if_element_isnt_present():
+    r = fresh_redis()
+
+    r.zadd('myzset', 0, 'test1')
+
+    # the current version of redis-py doesn't support r.zadd(..., nx=True)
+    assert r.execute_command('ZADD', 'myzset', 'NX', 10, 'test1') == 0
+    assert r.execute_command('ZADD', 'myzset', 'NX', 10, 'test2') == 1
+    assert r.zrange('myzset', 0, -1, withscores=True) == [
+        ('test1', 0),
+        ('test2', 10),
+    ]

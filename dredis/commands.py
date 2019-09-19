@@ -294,15 +294,24 @@ def cmd_eval(keyspace, script, numkeys, *args):
 
 
 @command('ZADD', arity=-4, flags=CMD_WRITE)
-def cmd_zadd(keyspace, key, *flat_pairs):
-    if len(flat_pairs) % 2 != 0:
+def cmd_zadd(keyspace, key, *args):
+    nx = False
+
+    for i, arg in enumerate(args):
+        if arg.lower() == 'nx':
+            nx = True
+            args = args[i + 1:]
+        else:
+            break
+
+    if len(args) % 2 != 0:
         raise DredisSyntaxError()
 
     count = 0
-    pairs = zip(flat_pairs[0::2], flat_pairs[1::2])  # [1, 2, 3, 4] -> [(1,2), (3,4)]
+    pairs = zip(args[0::2], args[1::2])  # [1, 2, 3, 4] -> [(1,2), (3,4)]
     for score, value in pairs:
         _validate_zset_score(score)
-        count += keyspace.zadd(key, score, value)
+        count += keyspace.zadd(key, score, value, nx=nx)
     return count
 
 
