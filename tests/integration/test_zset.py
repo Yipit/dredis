@@ -491,3 +491,26 @@ def test_zadd_nx_should_only_add_if_element_isnt_present():
         ('test1', 0),
         ('test2', 10),
     ]
+
+
+def test_zadd_xx_should_never_add_new_elements():
+    r = fresh_redis()
+
+    r.zadd('myzset', 0, 'test1')
+
+    # the current version of redis-py doesn't support r.zadd(..., xx=True)
+    assert r.execute_command('ZADD', 'myzset', 'XX', 10, 'test1') == 0
+    assert r.execute_command('ZADD', 'myzset', 'XX', 10, 'test2') == 0
+    assert r.zrange('myzset', 0, -1, withscores=True) == [
+        ('test1', 10),
+    ]
+
+
+def test_zadd_should_not_accept_nx_and_xx_at_the_same_time():
+    r = fresh_redis()
+
+    with pytest.raises(redis.ResponseError) as exc:
+        # the current version of redis-py doesn't support r.zadd(..., nx=True, xx=True)
+        r.execute_command('ZADD', 'myzset', 'XX', 'NX', 0, 'test1')
+
+    assert str(exc.value) == "XX and NX options at the same time are not compatible"
