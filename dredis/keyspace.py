@@ -187,12 +187,14 @@ class Keyspace(object):
         for db_key, db_value in self._db.iterator(prefix=key_prefix, start=start):
             yield db_key, db_value
 
-    def zadd(self, key, score, value):
+    def zadd(self, key, score, value, nx=False, xx=False):
         zset_length = int(self._db.get(KEY_CODEC.encode_zset(key), '0'))
 
         batch = self._db.write_batch()
         db_score = self._db.get(KEY_CODEC.encode_zset_value(key, value))
         if db_score is not None:
+            if nx:
+                return 0
             result = 0
             previous_score = db_score
             if float(previous_score) == float(score):
@@ -200,6 +202,8 @@ class Keyspace(object):
             else:
                 batch.delete(KEY_CODEC.encode_zset_score(key, value, previous_score))
         else:
+            if xx:
+                return 0
             result = 1
             zset_length += 1
             batch.put(KEY_CODEC.encode_zset(key), bytes(zset_length))
