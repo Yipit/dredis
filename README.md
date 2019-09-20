@@ -138,7 +138,7 @@ SCARD key                                    | Sets
 SISMEMBER key value                          | Sets
 SMEMBERS key                                 | Sets
 EVAL script numkeys [key ...] [arg ...]      | Scripting
-ZADD key score member [score member ...]     | Sorted Sets
+ZADD key [NX\|XX] score member [score member ...] | Sorted Sets
 ZCARD key                                    | Sorted Sets
 ZCOUNT key min_score max_score               | Sorted Sets
 ZRANGE key start top [WITHSCORES]            | Sorted Sets
