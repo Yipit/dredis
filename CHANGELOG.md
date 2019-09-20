@@ -1,5 +1,7 @@
 ## Not released yet
 
+## 2.5.0
+
 * Add support to NX and XX parameters of ZADD (https://github.com/Yipit/dredis/pull/52)
 
 ## 2.4.3
