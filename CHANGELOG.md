@@ -1,5 +1,7 @@
 ## Not released yet
 
+* Add support to NX and XX parameters of ZADD (https://github.com/Yipit/dredis/pull/52)
+
 ## 2.4.3
 
 * Fix log levels when changing configuration
