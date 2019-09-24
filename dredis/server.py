@@ -54,7 +54,7 @@ def transform(obj):
         elif isinstance(elem, SimpleString):
             result.append('+%s\r\n' % elem)
         elif isinstance(elem, basestring):
-            result.append('$%d\r\n%s\r\n'% (len(elem), elem))
+            result.append('$%d\r\n%s\r\n' % (len(elem), elem))
         elif isinstance(elem, (set, list, tuple)):
             result.append('*%d\r\n' % len(elem))
             for element in elem:
