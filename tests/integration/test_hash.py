@@ -126,6 +126,7 @@ def test_hscan_with_all_elements_returned():
     ]
     for key, value in pairs:
         r.hset('myhash', key, value)
+    r.hset('myhash1', 'test', 'test')
 
     cursor, elements = r.hscan('myhash', 0)
     assert cursor == 0

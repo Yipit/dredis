@@ -403,6 +403,7 @@ def test_zscan_with_a_subset_of_elements_returned():
     random.shuffle(pairs)
     for member, score in pairs:
         r.zadd('myzset', score, member)
+    r.zadd('myzset-next', -1, 'test')
 
     cursor1, elems1 = r.zscan('myzset', 0, count=len(pairs) + 100)
     assert cursor1 == 0
