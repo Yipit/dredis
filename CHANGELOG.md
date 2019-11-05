@@ -1,5 +1,7 @@
 ## Not released yet
 
+## 2.5.1
+
 * Fix bug with stop clause of HSCAN and ZSCAN (https://github.com/Yipit/dredis/issues/53)
 
 ## 2.5.0
