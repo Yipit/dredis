@@ -500,9 +500,10 @@ class Keyspace(object):
     def _scan(self, key, cursor, match, count, get_min_field, get_key_value_pair, cursors):
         elements = []
         new_cursor = 0
+        min_db_key = get_min_field(key)
 
         if cursor == 0:
-            db_key_from_cursor = get_min_field(key)
+            db_key_from_cursor = min_db_key
         else:
             try:
                 db_key_from_cursor = cursors.get(self._current_db, key, cursor)
@@ -510,11 +511,13 @@ class Keyspace(object):
                 return [new_cursor, elements]
 
         for i, (db_key, db_value) in enumerate(self._get_db_iterator(start=db_key_from_cursor)):
-            field, value = get_key_value_pair(db_key, db_value)
+            if not db_key.startswith(min_db_key):
+                break
             # store the next element at the cursor
             if i == count:
                 new_cursor = cursors.add(self._current_db, key, db_key)
                 break
+            field, value = get_key_value_pair(db_key, db_value)
             if match is None or fnmatch.fnmatch(field, match):
                 elements.append(field)
                 elements.append(value)
