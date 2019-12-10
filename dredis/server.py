@@ -79,6 +79,7 @@ class CommandHandler(asyncore.dispatcher):
         asyncore.dispatcher.__init__(self, *args, **kwargs)
         self._parser = Parser(self.recv)  # contains client message buffer
         self.keyspace = Keyspace()
+        self.out_buffer = bytearray()  # asyncore.py uses `str` instead of `bytearray`
 
     def handle_read(self):
         try:
@@ -94,11 +95,26 @@ class CommandHandler(asyncore.dispatcher):
 
     def debug_send(self, *args):
         logger.debug("out={}".format(repr(args)))
-        return self.send(*args)
+        return self.buffered_send(*args)
 
     def handle_close(self):
         logger.debug("closing {}".format(self.addr))
         self.close()
+
+    # buffer logic based on `asyncore.dispatcher_with_send`
+    def handle_write(self):
+        self.initiate_send()
+
+    def initiate_send(self):
+        num_sent = self.send(self.out_buffer)
+        self.out_buffer = self.out_buffer[num_sent:]
+
+    def buffered_send(self, data):
+        self.out_buffer.extend(data)
+        self.initiate_send()
+
+    def writable(self):
+        return (not self.connected) or len(self.out_buffer)
 
 
 class RedisServer(asyncore.dispatcher):
