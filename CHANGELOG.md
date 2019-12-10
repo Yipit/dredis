@@ -1,5 +1,7 @@
 ## Not released yet
 
+## 2.5.2
+
 * Fix bug with big replies and `socket.send` (https://github.com/Yipit/dredis/pull/56)
 
 ## 2.5.1
