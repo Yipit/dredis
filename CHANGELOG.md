@@ -1,5 +1,7 @@
 ## Not released yet
 
+* Fix bug with big replies and `socket.send` (https://github.com/Yipit/dredis/pull/56)
+
 ## 2.5.1
 
 * Fix bug with stop clause of HSCAN and ZSCAN (https://github.com/Yipit/dredis/issues/53)
