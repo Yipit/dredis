@@ -83,3 +83,27 @@ def test_parser_should_work_with_chunks_sent_separately():
 
     responses.append("G\r\n")
     assert next(p.get_instructions()) == ['PING']
+
+
+def test_missing_crlf_after_string():
+    responses = ["*1\r\n$4\r\nPING"]
+
+    def read(bufsize):
+        return responses.pop(0)
+
+    p = Parser(read)
+
+    with pytest.raises(StopIteration):
+        next(p.get_instructions())
+
+    responses.append("\r\n")
+    assert next(p.get_instructions()) == ['PING']
+
+
+def test_mixing_simple_messages_with_bulk_messages():
+    def read(bufsize):
+        return "+SIMPLE\r\n*1\r\n$4\r\nBULK\r\n+SIMPLE\r\n*1\r\n$4\r\nBULK\r\n"
+
+    p = Parser(read)
+
+    assert list(p.get_instructions()) == [['SIMPLE'], ['BULK'], ['SIMPLE'], ['BULK']]

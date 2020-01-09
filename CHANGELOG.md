@@ -1,5 +1,7 @@
 ## Not released yet
 
+* Improve parser performance significantly for large commands (https://github.com/Yipit/dredis/pull/57)
+
 ## 2.5.2
 
 * Fix bug with big replies and `socket.send` (https://github.com/Yipit/dredis/pull/56)
