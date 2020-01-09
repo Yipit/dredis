@@ -1,5 +1,7 @@
 ## Not released yet
 
+## 2.5.3
+
 * Improve parser performance significantly for large commands (https://github.com/Yipit/dredis/pull/57)
 
 ## 2.5.2
