@@ -22,7 +22,7 @@ class Parser(object):
         self._buffer.extend(data)
 
     def _read(self, n_bytes):
-        if len(self._buffer[self._buffer_pos:]) < n_bytes:
+        if len(self._buffer[self._buffer_pos:]) < n_bytes + len(self.CRLF):
             raise StopIteration()
         result = self._buffer[self._buffer_pos:][:n_bytes]
         # FIXME: ensure self.CRLF is next
