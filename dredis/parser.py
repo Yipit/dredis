@@ -6,6 +6,10 @@ class Parser(object):
     def __init__(self, read_fn):
         self._buffer = bytearray()
         self._buffer_pos = 0
+        self._array_length = -1
+        self._instruction_set = []
+        self._request_type = ''
+        self._str_len = -1
         self._read_fn = read_fn
 
     def _readline(self):
@@ -32,26 +36,37 @@ class Parser(object):
     def get_instructions(self):
         self._read_into_buffer()
         while self._buffer:
-            self._buffer_pos = 0
-            instructions = self._readline()
-            # the Redis protocol says that all commands are arrays, however,
-            # Redis's own tests have commands like PING being sent as a Simple String
-            if instructions.startswith('+'):
-                self._buffer = self._buffer[self._buffer_pos:]
-                yield str(instructions[1:].strip()).split()
-            elif instructions.startswith('*'):
-                # array of instructions
-                array_length = int(instructions[1:])  # skip '*' char
-                instruction_set = []
-                for _ in range(array_length):
-                    line = self._readline()
-                    str_len = int(line[1:])  # skip '$' char
-                    instruction = str(self._read(str_len))
-                    instruction_set.append(instruction)
-                self._buffer = self._buffer[self._buffer_pos:]
-                yield instruction_set
+            if not self._request_type:
+                self._request_type = chr(self._buffer[0])
+
+            if self._request_type == '*':
+                # inspired by `processMultibulkBuffer()` from Redis: https://git.io/Jvv3N
+                if self._array_length == -1:
+                    instructions = self._readline()
+                    self._array_length = int(instructions[1:])  # skip '*' char
+                    self._trim_buffer()
+
+                while self._array_length > 0:
+                    if self._str_len == -1:
+                        line = self._readline()
+                        self._str_len = int(line[1:])  # skip '$' char
+                    instruction = str(self._read(self._str_len))
+                    self._instruction_set.append(instruction)
+                    self._trim_buffer()
+                    self._array_length -= 1
+                    self._str_len = -1
+                yield self._instruction_set
+                self.reset()
             else:
-                # inline instructions, saw them in the Redis tests
-                for line in instructions.split(self.CRLF):
-                    self._buffer = self._buffer[self._buffer_pos:]
-                    yield str(line.strip()).split()
+                instructions = self._readline()
+                self._trim_buffer()
+                yield str(instructions[1:].strip()).split()
+
+    def _trim_buffer(self):
+        self._buffer = self._buffer[self._buffer_pos:]
+        self._buffer_pos = 0
+
+    def reset(self):
+        self._instruction_set = []
+        self._request_type = ''
+        self._array_length = -1
