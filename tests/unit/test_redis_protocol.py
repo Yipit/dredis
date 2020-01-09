@@ -98,3 +98,12 @@ def test_missing_crlf_after_string():
 
     responses.append("\r\n")
     assert next(p.get_instructions()) == ['PING']
+
+
+def test_mixing_simple_messages_with_bulk_messages():
+    def read(bufsize):
+        return "+SIMPLE\r\n*1\r\n$4\r\nBULK\r\n+SIMPLE\r\n*1\r\n$4\r\nBULK\r\n"
+
+    p = Parser(read)
+
+    assert list(p.get_instructions()) == [['SIMPLE'], ['BULK'], ['SIMPLE'], ['BULK']]

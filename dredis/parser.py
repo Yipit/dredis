@@ -61,6 +61,7 @@ class Parser(object):
                 instructions = self._readline()
                 self._trim_buffer()
                 yield str(instructions[1:].strip()).split()
+                self.reset()
 
     def _trim_buffer(self):
         self._buffer = self._buffer[self._buffer_pos:]
