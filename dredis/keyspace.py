@@ -103,33 +103,36 @@ class Keyspace(object):
             return value[start:end]
 
     def sadd(self, key, value):
-        if self._db.get(KEY_CODEC.encode_set_member(key, value)) is None:
-            length = int(self._db.get(KEY_CODEC.encode_set(key)) or b'0')
+        key_id, length = self._get_set_key_id_and_length(key)
+        if self._db.get(KEY_CODEC.encode_set_member(key_id, value)) is None:
             with self._db.write_batch() as batch:
-                batch.put(KEY_CODEC.encode_set(key), bytes(length + 1))
-                batch.put(KEY_CODEC.encode_set_member(key, value), bytes(''))
+                batch.put(KEY_CODEC.encode_set(key), KEY_CODEC.encode_key_id_and_length(key, key_id, length + 1))
+                batch.put(KEY_CODEC.encode_set_member(key_id, value), bytes(''))
             return 1
         else:
             return 0
 
     def smembers(self, key):
         result = set()
-        if self._db.get(KEY_CODEC.encode_set(key)):
-            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_set_member(key)):
+        key_id, length = self._get_set_key_id_and_length(key)
+        if length > 0:
+            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_set_member(key_id)):
                 _, length, member_key = KEY_CODEC.decode_key(db_key)
                 member_value = member_key[length:]
                 result.add(member_value)
         return result
 
     def sismember(self, key, value):
-        return self._db.get(KEY_CODEC.encode_set_member(key, value)) is not None
+        key_id, _ = self._get_set_key_id_and_length(key)
+        return self._db.get(KEY_CODEC.encode_set_member(key_id, value)) is not None
 
     def scard(self, key):
-        length = self._db.get(KEY_CODEC.encode_set(key))
-        if length is None:
-            return 0
-        else:
-            return int(length)
+        _, length = self._get_set_key_id_and_length(key)
+        return length
+
+    def _get_set_key_id_and_length(self, key):
+        db_value = self._db.get(KEY_CODEC.encode_set(key))
+        return KEY_CODEC.decode_key_id_and_length(key, db_value)
 
     def delete(self, *keys):
         result = 0
@@ -157,17 +160,20 @@ class Keyspace(object):
         # there are two sets of db keys for sets:
         # * set
         # * set members
+        #
+        # currently the `set` key is immediately deleted and the other keys
+        # will be collected by gc.KeyGarbageCollector()
+        key_id, _ = self._get_set_key_id_and_length(key)
         with self._db.write_batch() as batch:
             batch.delete(KEY_CODEC.encode_set(key))
-            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_set_member(key)):
-                batch.delete(db_key)
+            batch.put(KEY_CODEC.encode_deleted_set(key_id), bytes(''))
 
     def _delete_db_hash(self, key):
         # there are two sets of db keys for hashes:
         # * hash
         # * hash fields
         #
-        # current the `hash` key is immediately deleted and the other keys
+        # currently the `hash` key is immediately deleted and the other keys
         # will be collected by gc.KeyGarbageCollector()
         key_id, _ = self._get_hash_key_id_and_length(key)
         with self._db.write_batch() as batch:
@@ -180,7 +186,7 @@ class Keyspace(object):
         # * zset scores
         # * zset values
         #
-        # current the `zset` key is immediately deleted and the other keys
+        # currently the `zset` key is immediately deleted and the other keys
         # will be collected by gc.KeyGarbageCollector()
         key_id, _ = self._get_zset_key_id_and_length(key)
         with self._db.write_batch() as batch:

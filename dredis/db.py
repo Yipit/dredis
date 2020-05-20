@@ -94,6 +94,9 @@ class KeyCodec(object):
     def encode_deleted_hash(self, key_id):
         return self.get_key(self.get_min_hash_field(key_id), self.DELETED_KEY_TYPE)
 
+    def encode_deleted_set(self, key_id):
+        return self.get_key(self.get_min_set_member(key_id), self.DELETED_KEY_TYPE)
+
     def decode_key(self, key):
         type_id, key_length = self.KEY_PREFIX_STRUCT.unpack(key[:self.KEY_PREFIX_LENGTH])
         key_value = key[self.KEY_PREFIX_LENGTH:]
