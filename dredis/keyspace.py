@@ -166,11 +166,13 @@ class Keyspace(object):
         # there are two sets of db keys for hashes:
         # * hash
         # * hash fields
+        #
+        # current the `hash` key is immediately deleted and the other keys
+        # will be collected by gc.KeyGarbageCollector()
         key_id, _ = self._get_hash_key_id_and_length(key)
         with self._db.write_batch() as batch:
             batch.delete(KEY_CODEC.encode_hash(key))
-            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key_id)):
-                batch.delete(db_key)
+            batch.put(KEY_CODEC.encode_deleted_hash(key_id), bytes(''))
 
     def _delete_db_zset(self, key):
         # there are three sets of db keys for zsets:
