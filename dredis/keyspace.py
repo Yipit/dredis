@@ -576,11 +576,31 @@ class Keyspace(object):
         if self.exists(old_name):
             if old_name == new_name:
                 return
-            dump = self.dump(old_name)
-            self.restore(new_name, ttl=0, payload=dump, replace=True)
-            self.delete(old_name)
+            # replace the key that holds the key ID and don't touch the rest
+            key_type = self.type(old_name)
+            if key_type == 'zset':
+                old_db_key = KEY_CODEC.encode_zset(old_name)
+                new_db_key = KEY_CODEC.encode_zset(new_name)
+            elif key_type == 'hash':
+                old_db_key = KEY_CODEC.encode_hash(old_name)
+                new_db_key = KEY_CODEC.encode_hash(new_name)
+            elif key_type == 'set':
+                old_db_key = KEY_CODEC.encode_set(old_name)
+                new_db_key = KEY_CODEC.encode_set(new_name)
+            elif key_type == 'string':
+                old_db_key = KEY_CODEC.encode_string(old_name)
+                new_db_key = KEY_CODEC.encode_string(new_name)
+            else:
+                raise DredisError("invalid key type")
+            self._replace_db_key(new_db_key, old_db_key)
         else:
             raise NoKeyError()
+
+    def _replace_db_key(self, new_db_key, old_db_key):
+        db_value = self._db.get(old_db_key)
+        with self._db.write_batch() as batch:
+            batch.delete(old_db_key)
+            batch.put(new_db_key, db_value)
 
     def auth(self, password):
         if config.get('requirepass') == config.EMPTY:
