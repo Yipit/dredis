@@ -1,4 +1,5 @@
 import struct
+import threading
 import uuid
 
 import lmdb
@@ -22,6 +23,7 @@ class KeyCodec(object):
     ZSET_TYPE = 6
     ZSET_VALUE_TYPE = 7
     ZSET_SCORE_TYPE = 8
+    DELETED_KEY_TYPE = 127
     KEY_TYPES = [STRING_TYPE, SET_TYPE, HASH_TYPE, ZSET_TYPE]
 
     # type_id | key_length
@@ -31,6 +33,8 @@ class KeyCodec(object):
 
     ZSET_SCORE_STRUCT = FLOAT_CODEC.STRUCT
     ZSET_SCORE_FORMAT_LENGTH = ZSET_SCORE_STRUCT.size
+
+    MIN_DELETED_VALUE = struct.pack('>B', DELETED_KEY_TYPE)
 
     # the key format using <key length + key> was inspired by the `blackwidow` project:
     # https://github.com/KernelMaker/blackwidow/blob/5abe9a3e3f035dd0d81f514e598f29c1db679a28/src/zsets_data_key_format.h#L44-L53
@@ -80,6 +84,12 @@ class KeyCodec(object):
     def encode_zset_score(self, key, value, score):
         score = float(score)
         return self.get_key(key, self.ZSET_SCORE_TYPE) + FLOAT_CODEC.encode(score) + bytes(value)
+
+    def encode_deleted_zset_score(self, key_id):
+        return self.get_key(self.get_min_zset_score(key_id), self.DELETED_KEY_TYPE)
+
+    def encode_deleted_zset_value(self, key_id):
+        return self.get_key(self.get_min_zset_value(key_id), self.DELETED_KEY_TYPE)
 
     def decode_key(self, key):
         type_id, key_length = self.KEY_PREFIX_STRUCT.unpack(key[:self.KEY_PREFIX_LENGTH])
@@ -313,6 +323,7 @@ class DBManager(object):
         self._dbs = {}
         self._db_backend = DEFAULT_DB_BACKEND
         self._db_backend_options = {}
+        self.thread_lock = threading.Lock()
 
     def setup_dbs(self, root_dir, backend, backend_options):
         self._db_backend = backend
@@ -336,9 +347,10 @@ class DBManager(object):
 
     def delete_db(self, db_id):
         db_id = str(db_id)
-        self._dbs[db_id]['db'].close()
-        self._dbs[db_id]['directory'].reset()
-        self._assign_db(db_id, self._dbs[db_id]['directory'])
+        with self.thread_lock:
+            self._dbs[db_id]['db'].close()
+            self._dbs[db_id]['directory'].reset()
+            self._assign_db(db_id, self._dbs[db_id]['directory'])
 
     def _assign_db(self, db_id, directory):
         self._dbs[db_id] = {

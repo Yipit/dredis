@@ -1,5 +1,6 @@
 import tempfile
 
+from dredis.gc import KeyGarbageCollector
 from dredis.keyspace import Keyspace
 from dredis.db import DB_MANAGER
 
@@ -16,5 +17,7 @@ def test_delete():
     keyspace.hset('myhash', 'testkey', 'testvalue')
 
     keyspace.delete('mystr', 'myset', 'myzset', 'myhash', 'notfound')
+
+    KeyGarbageCollector().collect()
 
     assert list(DB_MANAGER.get_db('0').iterator()) == []

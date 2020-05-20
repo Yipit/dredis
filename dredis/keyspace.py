@@ -176,13 +176,14 @@ class Keyspace(object):
         # * zset
         # * zset scores
         # * zset values
+        #
+        # current the `zset` key is immediately deleted and the other keys
+        # will be collected by gc.KeyGarbageCollector()
         key_id, _ = self._get_zset_key_id_and_length(key)
         with self._db.write_batch() as batch:
             batch.delete(KEY_CODEC.encode_zset(key))
-            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_score(key_id)):
-                batch.delete(db_key)
-            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_value(key_id)):
-                batch.delete(db_key)
+            batch.put(KEY_CODEC.encode_deleted_zset_score(key_id), bytes(''))
+            batch.put(KEY_CODEC.encode_deleted_zset_value(key_id), bytes(''))
 
     def _get_db_iterator(self, key_prefix=None, start=None):
         for db_key, db_value in self._db.iterator(prefix=key_prefix, start=start):
