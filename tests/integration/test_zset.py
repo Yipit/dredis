@@ -30,21 +30,27 @@ def test_zadd_with_multiple_parameters():
 
 def test_zset_zrange_with_positive_indexes():
     r = fresh_redis()
-    r.zadd('myzset', 0, 'myvalue1')
-    r.zadd('myzset', 1, 'myvalue2')
-    assert r.zrange('myzset', 0, 1) == ['myvalue1', 'myvalue2']
-    assert r.zrange('myzset', 0, 100) == ['myvalue1', 'myvalue2']
+    r.zadd('z1', 0, 'z1-v1')
+    r.zadd('z1', 1, 'z1-v2')
+    r.zadd('z2', 0, 'z2-v1')
+    r.zadd('z2', 1, 'z2-v2')
+    assert r.zrange('z1', 0, 1) == ['z1-v1', 'z1-v2']
+    assert r.zrange('z1', 0, 100) == ['z1-v1', 'z1-v2']
+    assert r.zrange('z2', 0, 1) == ['z2-v1', 'z2-v2']
+    assert r.zrange('z2', 0, 100) == ['z2-v1', 'z2-v2']
 
 
 def test_zset_zrange_with_negative_indexes():
     r = fresh_redis()
-    r.zadd('myzset', 0, 'myvalue1')
-    r.zadd('myzset', 1, 'myvalue2')
-    assert r.zrange('myzset', 0, -1) == ['myvalue1', 'myvalue2']
-    assert r.zrange('myzset', 0, -2) == ['myvalue1']
-    assert r.zrange('myzset', 0, -3) == []
+    r.zadd('z1', 0, 'z1-v1')
+    r.zadd('z1', 1, 'z1-v2')
+    r.zadd('z2', 0, 'z2-v1')
+    r.zadd('z2', 1, 'z2-v2')
+    assert r.zrange('z1', 0, -1) == ['z1-v1', 'z1-v2']
+    assert r.zrange('z1', 0, -2) == ['z1-v1']
+    assert r.zrange('z1', 0, -3) == []
 
-    assert r.zrange('myzset', -2, 1) == ['myvalue1', 'myvalue2']
+    assert r.zrange('z1', -2, 1) == ['z1-v1', 'z1-v2']
 
 
 def test_redis_official_zset_tests_for_zrange():
