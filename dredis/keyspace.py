@@ -176,11 +176,12 @@ class Keyspace(object):
         # * zset
         # * zset scores
         # * zset values
+        key_id, _ = self._get_zset_key_id_and_length(key)
         with self._db.write_batch() as batch:
             batch.delete(KEY_CODEC.encode_zset(key))
-            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_score(key)):
+            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_score(key_id)):
                 batch.delete(db_key)
-            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_value(key)):
+            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_value(key_id)):
                 batch.delete(db_key)
 
     def _get_db_iterator(self, key_prefix=None, start=None):
@@ -188,10 +189,10 @@ class Keyspace(object):
             yield db_key, db_value
 
     def zadd(self, key, score, value, nx=False, xx=False):
-        zset_length = int(self._db.get(KEY_CODEC.encode_zset(key), '0'))
+        key_id, zset_length = self._get_zset_key_id_and_length(key)
 
         batch = self._db.write_batch()
-        db_score = self._db.get(KEY_CODEC.encode_zset_value(key, value))
+        db_score = self._db.get(KEY_CODEC.encode_zset_value(key_id, value))
         if db_score is not None:
             if nx:
                 return 0
@@ -200,16 +201,16 @@ class Keyspace(object):
             if float(previous_score) == float(score):
                 return result
             else:
-                batch.delete(KEY_CODEC.encode_zset_score(key, value, previous_score))
+                batch.delete(KEY_CODEC.encode_zset_score(key_id, value, previous_score))
         else:
             if xx:
                 return 0
             result = 1
             zset_length += 1
-            batch.put(KEY_CODEC.encode_zset(key), bytes(zset_length))
+            batch.put(KEY_CODEC.encode_zset(key), KEY_CODEC.encode_key_id_and_length(key_id, zset_length))
 
-        batch.put(KEY_CODEC.encode_zset_value(key, value), to_float_string(score))
-        batch.put(KEY_CODEC.encode_zset_score(key, value, score), bytes(''))
+        batch.put(KEY_CODEC.encode_zset_value(key_id, value), to_float_string(score))
+        batch.put(KEY_CODEC.encode_zset_score(key_id, value, score), bytes(''))
         batch.write()
 
         return result
@@ -217,7 +218,7 @@ class Keyspace(object):
     def zrange(self, key, start, stop, with_scores):
         result = []
 
-        zset_length = int(self._db.get(KEY_CODEC.encode_zset(key), '0'))
+        key_id, zset_length = self._get_zset_key_id_and_length(key)
         if stop < 0:
             end = zset_length + stop
         else:
@@ -227,7 +228,7 @@ class Keyspace(object):
             begin = max(0, zset_length + start)
         else:
             begin = start
-        for i, (db_key, _) in enumerate(self._get_db_iterator(KEY_CODEC.get_min_zset_score(key))):
+        for i, (db_key, _) in enumerate(self._get_db_iterator(KEY_CODEC.get_min_zset_score(key_id))):
             if i < begin:
                 continue
             if i > end:
@@ -241,10 +242,15 @@ class Keyspace(object):
         return result
 
     def zcard(self, key):
-        return int(self._db.get(KEY_CODEC.encode_zset(key), '0'))
+        _, zset_length = self._get_zset_key_id_and_length(key)
+        return zset_length
 
     def zscore(self, key, member):
-        return self._db.get(KEY_CODEC.encode_zset_value(key, member))
+        key_id, length = self._get_zset_key_id_and_length(key)
+        if length == 0:
+            return None
+        else:
+            return self._db.get(KEY_CODEC.encode_zset_value(key_id, member))
 
     def zscan(self, key, cursor, match, count):
         def get_key_value_pair(db_key, db_value):
@@ -252,10 +258,11 @@ class Keyspace(object):
             value = KEY_CODEC.decode_zset_score(db_key)
             return field, value
 
+        key_id, _ = self._get_zset_key_id_and_length(key)
         get_min_field = KEY_CODEC.get_min_zset_score
         cursors = ZSET_CURSORS
 
-        return self._scan(key, cursor, match, count, get_min_field, get_key_value_pair, cursors)
+        return self._scan(key_id, cursor, match, count, get_min_field, get_key_value_pair, cursors)
 
     def eval(self, script, keys, argv):
         return self._lua_runner.run(script, keys, argv)
@@ -265,7 +272,7 @@ class Keyspace(object):
         see zadd() for information about score and value structures
         """
         result = 0
-        zset_length = int(self._db.get(KEY_CODEC.encode_zset(key), '0'))
+        key_id, zset_length = self._get_zset_key_id_and_length(key)
 
         # safe guard
         if zset_length == 0:
@@ -273,21 +280,25 @@ class Keyspace(object):
 
         batch = self._db.write_batch()
         for member in members:
-            score = self._db.get(KEY_CODEC.encode_zset_value(key, member))
+            score = self._db.get(KEY_CODEC.encode_zset_value(key_id, member))
             if score is None:
                 continue
             result += 1
             zset_length -= 1
-            batch.delete(KEY_CODEC.encode_zset_value(key, member))
-            batch.delete(KEY_CODEC.encode_zset_score(key, member, score))
+            batch.delete(KEY_CODEC.encode_zset_value(key_id, member))
+            batch.delete(KEY_CODEC.encode_zset_score(key_id, member, score))
 
         # empty zset should be removed from keyspace
         if zset_length == 0:
             self.delete(key)
         else:
-            batch.put(KEY_CODEC.encode_zset(key), bytes(zset_length))
+            batch.put(KEY_CODEC.encode_zset(key), KEY_CODEC.encode_key_id_and_length(key_id, zset_length))
             batch.write()
         return result
+
+    def _get_zset_key_id_and_length(self, key):
+        db_value = self._db.get(KEY_CODEC.encode_zset(key))
+        return KEY_CODEC.decode_key_id_and_length(key, db_value)
 
     def zrangebyscore(self, key, min_score, max_score, withscores=False, offset=0, count=float('+inf')):
         result = []
@@ -297,8 +308,10 @@ class Keyspace(object):
         else:
             num_elems_per_entry = 1
 
+        key_id, _ = self._get_zset_key_id_and_length(key)
+
         score_range = ScoreRange(min_score, max_score)
-        for db_key in self._db.iterator(prefix=KEY_CODEC.get_min_zset_score(key), include_value=False):
+        for db_key in self._db.iterator(prefix=KEY_CODEC.get_min_zset_score(key_id), include_value=False):
             if len(result) / num_elems_per_entry >= count:
                 return result
             db_score = KEY_CODEC.decode_zset_score(db_key)
@@ -325,10 +338,10 @@ class Keyspace(object):
         #
         #     ZADD myzset 10 b
         #     <prefix>_myzset_10 = 2  ; two elements with score 10
-
+        key_id, _ = self._get_zset_key_id_and_length(key)
         score_range = ScoreRange(min_score, max_score)
         count = 0
-        for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_score(key)):
+        for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_score(key_id)):
             db_score = KEY_CODEC.decode_zset_score(db_key)
             if score_range.check(db_score):
                 count += 1
@@ -337,12 +350,14 @@ class Keyspace(object):
         return count
 
     def zrank(self, key, member):
-        score = self._db.get(KEY_CODEC.encode_zset_value(key, member))
+        key_id, _ = self._get_zset_key_id_and_length(key)
+
+        score = self._db.get(KEY_CODEC.encode_zset_value(key_id, member))
         if score is None:
             return None
 
         rank = 0
-        for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_score(key)):
+        for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_score(key_id)):
             db_score = KEY_CODEC.decode_zset_score(db_key)
             db_value = KEY_CODEC.decode_zset_value(db_key)
             if db_score < float(score):

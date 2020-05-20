@@ -1,4 +1,5 @@
 import struct
+import uuid
 
 import lmdb
 import plyvel
@@ -40,6 +41,9 @@ class KeyCodec(object):
         prefix = self.KEY_PREFIX_STRUCT.pack(type_id, len(key))
         return prefix + bytes(key)
 
+    def encode_key_id_and_length(self, key_id, length):
+        return bytes(key_id) + bytes(length)
+
     def encode_string(self, key):
         return self.get_key(key, self.STRING_TYPE)
 
@@ -75,6 +79,52 @@ class KeyCodec(object):
         type_id, key_length = self.KEY_PREFIX_STRUCT.unpack(key[:self.KEY_PREFIX_LENGTH])
         key_value = key[self.KEY_PREFIX_LENGTH:]
         return type_id, key_length, key_value
+
+    def decode_key_id_and_length(self, key, db_value):
+        """
+        In previous versions of dredis, all stored keys for zsets were prefixed with the key name.
+        In retrospect, that was a bad idea because delete operations had to be synchronous to ensure consistency.
+
+        The new approach is to store a unique ID as part of the zset key along with its size,
+        then every zset related stored key will have that prefix instead of the key name.
+        The new approach should allow asynchronous deletions and still guarantee strong consistency.
+
+        Example (values meant to exemplify the idea, not the real bytes):
+            zadd z 100 alice 200 bob
+
+            Previously the following keys would be created
+                6_z = 2
+                7_z_alice = 100
+                7_z_100_alice = ''
+
+            New approach:
+                6_z = uniqueID_2
+                7_uniqueID_alice = 100
+                7_uniqueID_100_alice = ''
+
+            Then on deletions the "pointer" key is removed and the related keys can
+            be removed asynchronously. The next time a `zadd z` is executed, it will
+            get a new unique ID that won't collide with the previous.
+
+        To make migrations seamless and not break existing dredis installations,
+        for previously created objects, we assume the unique ID is the key name.
+        """
+        uuid_length_in_bytes = 16  # len(uuid.uuid4().bytes) == 16
+        if db_value is None:
+            # newer schema with uuid
+            key_id = uuid.uuid4().bytes
+            length = '0'
+        else:
+            if db_value < uuid_length_in_bytes:
+                # older schema before uuid
+                key_id = key
+                length = db_value
+            else:
+                # new schema with uuid
+                key_id = db_value[:uuid_length_in_bytes]
+                length = db_value[uuid_length_in_bytes:]
+        length = int(length)
+        return key_id, length
 
     def decode_zset_score(self, ldb_key):
         _, length, key_name = self.decode_key(ldb_key)
