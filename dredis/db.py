@@ -115,7 +115,7 @@ class KeyCodec(object):
             key_id = uuid.uuid4().bytes
             length = '0'
         else:
-            if db_value < uuid_length_in_bytes:
+            if len(db_value) < uuid_length_in_bytes:
                 # older schema before uuid
                 key_id = key
                 length = db_value
