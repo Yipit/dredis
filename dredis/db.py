@@ -9,6 +9,7 @@ from dredis.utils import FLOAT_CODEC
 
 NUMBER_OF_REDIS_DATABASES = 16
 DEFAULT_REDIS_DB = '0'
+UUID_LENGTH_IN_BYTES = 16  # len(uuid.uuid4().bytes) == 16
 
 
 class KeyCodec(object):
@@ -41,8 +42,13 @@ class KeyCodec(object):
         prefix = self.KEY_PREFIX_STRUCT.pack(type_id, len(key))
         return prefix + bytes(key)
 
-    def encode_key_id_and_length(self, key_id, length):
-        return bytes(key_id) + bytes(length)
+    def encode_key_id_and_length(self, key, key_id, length):
+        if key == key_id:
+            # older schema before uuid
+            return bytes(length)
+        else:
+            # newer schema with uuid
+            return bytes(key_id) + bytes(length)
 
     def encode_string(self, key):
         return self.get_key(key, self.STRING_TYPE)
@@ -109,20 +115,19 @@ class KeyCodec(object):
         To make migrations seamless and not break existing dredis installations,
         for previously created objects, we assume the unique ID is the key name.
         """
-        uuid_length_in_bytes = 16  # len(uuid.uuid4().bytes) == 16
         if db_value is None:
             # newer schema with uuid
             key_id = uuid.uuid4().bytes
             length = '0'
         else:
-            if len(db_value) < uuid_length_in_bytes:
+            if len(db_value) < UUID_LENGTH_IN_BYTES:
                 # older schema before uuid
                 key_id = key
                 length = db_value
             else:
                 # new schema with uuid
-                key_id = db_value[:uuid_length_in_bytes]
-                length = db_value[uuid_length_in_bytes:]
+                key_id = db_value[:UUID_LENGTH_IN_BYTES]
+                length = db_value[UUID_LENGTH_IN_BYTES:]
         length = int(length)
         return key_id, length
 

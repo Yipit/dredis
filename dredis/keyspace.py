@@ -207,7 +207,7 @@ class Keyspace(object):
                 return 0
             result = 1
             zset_length += 1
-            batch.put(KEY_CODEC.encode_zset(key), KEY_CODEC.encode_key_id_and_length(key_id, zset_length))
+            batch.put(KEY_CODEC.encode_zset(key), KEY_CODEC.encode_key_id_and_length(key, key_id, zset_length))
 
         batch.put(KEY_CODEC.encode_zset_value(key_id, value), to_float_string(score))
         batch.put(KEY_CODEC.encode_zset_score(key_id, value, score), bytes(''))
@@ -292,7 +292,7 @@ class Keyspace(object):
         if zset_length == 0:
             self.delete(key)
         else:
-            batch.put(KEY_CODEC.encode_zset(key), KEY_CODEC.encode_key_id_and_length(key_id, zset_length))
+            batch.put(KEY_CODEC.encode_zset(key), KEY_CODEC.encode_key_id_and_length(key, key_id, zset_length))
             batch.write()
         return result
 
