@@ -166,9 +166,10 @@ class Keyspace(object):
         # there are two sets of db keys for hashes:
         # * hash
         # * hash fields
+        key_id, _ = self._get_hash_key_id_and_length(key)
         with self._db.write_batch() as batch:
             batch.delete(KEY_CODEC.encode_hash(key))
-            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key)):
+            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key_id)):
                 batch.delete(db_key)
 
     def _delete_db_zset(self, key):
@@ -417,28 +418,32 @@ class Keyspace(object):
 
     def hset(self, key, field, value):
         result = 0
-        if self._db.get(KEY_CODEC.encode_hash_field(key, field)) is None:
+        key_id, hash_length = self._get_hash_key_id_and_length(key)
+        if self._db.get(KEY_CODEC.encode_hash_field(key_id, field)) is None:
             result = 1
-        hash_length = int(self._db.get(KEY_CODEC.encode_hash(key), '0'))
         with self._db.write_batch() as batch:
-            batch.put(KEY_CODEC.encode_hash(key), bytes(hash_length + 1))
-            batch.put(KEY_CODEC.encode_hash_field(key, field), value)
+            batch.put(KEY_CODEC.encode_hash(key), KEY_CODEC.encode_key_id_and_length(key, key_id, hash_length + 1))
+            batch.put(KEY_CODEC.encode_hash_field(key_id, field), value)
         return result
 
+    def _get_hash_key_id_and_length(self, key):
+        db_value = self._db.get(KEY_CODEC.encode_hash(key))
+        return KEY_CODEC.decode_key_id_and_length(key, db_value)
+
     def hsetnx(self, key, field, value):
+        key_id, hash_length = self._get_hash_key_id_and_length(key)
         # only set if not set before
-        if self._db.get(KEY_CODEC.encode_hash_field(key, field)) is None:
-            hash_length = int(self._db.get(KEY_CODEC.encode_hash(key), '0'))
+        if self._db.get(KEY_CODEC.encode_hash_field(key_id, field)) is None:
             with self._db.write_batch() as batch:
-                batch.put(KEY_CODEC.encode_hash(key), bytes(hash_length + 1))
-                batch.put(KEY_CODEC.encode_hash_field(key, field), value)
+                batch.put(KEY_CODEC.encode_hash(key), KEY_CODEC.encode_key_id_and_length(key, key_id, hash_length + 1))
+                batch.put(KEY_CODEC.encode_hash_field(key_id, field), value)
             return 1
         else:
             return 0
 
     def hdel(self, key, *fields):
         result = 0
-        hash_length = int(self._db.get(KEY_CODEC.encode_hash(key), '0'))
+        key_id, hash_length = self._get_hash_key_id_and_length(key)
 
         # safe guard
         if hash_length == 0:
@@ -446,26 +451,28 @@ class Keyspace(object):
 
         batch = self._db.write_batch()
         for field in fields:
-            if self._db.get(KEY_CODEC.encode_hash_field(key, field)) is not None:
+            if self._db.get(KEY_CODEC.encode_hash_field(key_id, field)) is not None:
                 result += 1
                 hash_length -= 1
-                batch.delete(KEY_CODEC.encode_hash_field(key, field))
+                batch.delete(KEY_CODEC.encode_hash_field(key_id, field))
 
         if hash_length == 0:
             # remove empty hashes from keyspace
             self.delete(key)
         else:
-            batch.put(KEY_CODEC.encode_hash(key), bytes(hash_length))
+            batch.put(KEY_CODEC.encode_hash(key), KEY_CODEC.encode_key_id_and_length(key, key_id, hash_length))
             batch.write()
         return result
 
     def hget(self, key, field):
-        return self._db.get(KEY_CODEC.encode_hash_field(key, field))
+        key_id, _ = self._get_hash_key_id_and_length(key)
+        return self._db.get(KEY_CODEC.encode_hash_field(key_id, field))
 
     def hkeys(self, key):
         result = []
-        if self._db.get(KEY_CODEC.encode_hash(key)) is not None:
-            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key)):
+        key_id, hash_length = self._get_hash_key_id_and_length(key)
+        if hash_length > 0:
+            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key_id)):
                 _, length, field_key = KEY_CODEC.decode_key(db_key)
                 field = field_key[length:]
                 result.append(field)
@@ -474,17 +481,15 @@ class Keyspace(object):
 
     def hvals(self, key):
         result = []
-        if self._db.get(KEY_CODEC.encode_hash(key)) is not None:
-            for _, db_value in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key)):
+        key_id, hash_length = self._get_hash_key_id_and_length(key)
+        if hash_length > 0:
+            for _, db_value in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key_id)):
                 result.append(db_value)
         return result
 
     def hlen(self, key):
-        result = self._db.get(KEY_CODEC.encode_hash(key))
-        if result is None:
-            return 0
-        else:
-            return int(result)
+        key_id, hash_length = self._get_hash_key_id_and_length(key)
+        return hash_length
 
     def hincrby(self, key, field, increment):
         before = self.hget(key, field) or '0'
@@ -494,8 +499,9 @@ class Keyspace(object):
 
     def hgetall(self, key):
         result = []
-        if self._db.get(KEY_CODEC.encode_hash(key)) is not None:
-            for db_key, db_value in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key)):
+        key_id, hash_length = self._get_hash_key_id_and_length(key)
+        if hash_length > 0:
+            for db_key, db_value in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key_id)):
                 _, length, field_key = KEY_CODEC.decode_key(db_key)
                 field = field_key[length:]
                 result.append(field)
@@ -508,10 +514,11 @@ class Keyspace(object):
             field = field_key[length:]
             return field, db_value
 
+        key_id, _ = self._get_hash_key_id_and_length(key)
         get_min_field = KEY_CODEC.get_min_hash_field
         cursors = HASH_CURSORS
 
-        return self._scan(key, cursor, match, count, get_min_field, get_key_value_pair, cursors)
+        return self._scan(key_id, cursor, match, count, get_min_field, get_key_value_pair, cursors)
 
     def _scan(self, key, cursor, match, count, get_min_field, get_key_value_pair, cursors):
         elements = []
