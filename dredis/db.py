@@ -117,12 +117,16 @@ class KeyCodec(object):
             Previously the following keys would be created
                 6_z = 2
                 7_z_alice = 100
-                7_z_100_alice = ''
+                7_z_bob = 200
+                8_z_100_alice = ''
+                8_z_100_alice = ''
 
             New approach:
                 6_z = uniqueID_2
                 7_uniqueID_alice = 100
-                7_uniqueID_100_alice = ''
+                7_uniqueID_bob = 200
+                8_uniqueID_100_alice = ''
+                8_uniqueID_100_bob = ''
 
             Then on deletions, the "pointer" key should be removed immediately and the related keys marked
             to be removed asynchronously. The next time a `zadd z` is executed, it will get a new unique ID
