@@ -1,5 +1,8 @@
 ## Not released yet
 
+* Change zset, set, and hash implementation to use pointers to allow asynchronous deletion
+* Add a key garbage collector as a background thread to delete keys marked for deletion
+
 ## 2.5.3
 
 * Improve parser performance significantly for large commands (https://github.com/Yipit/dredis/pull/57)

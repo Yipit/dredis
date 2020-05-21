@@ -67,7 +67,15 @@ Running dredis with Docker locally (port 6377 on the host):
 $ docker-compose up
 ```
 
+## Asynchronous Deletions (Key Garbage Collection)
 
+This is a new and experimental feature that was necessary at Yipit to offload dredis on `RENAME` and `DEL` operations.
+When a sorted set, hash, or set is stored using any of the backends, dredis creates a few keys in the backend for each element of those collections.
+With this new feature, on `RENAME` and `DELETE`, only the key holding the key ID/pointer is replaced/deleted.
+There's a background thread that periodically deletes those related keys from the storage backend (you can tweak the GC options via `--gc-interval` and `--gc-batch-size`).
+Despite the asynchronous deletions, the deletion operation still ensures strong consistency because of the use of key IDs/pointers.
+
+If you don't want this experimental feature, you need to go back to DRedis 2.5.3.
 
 ## Backends
 
