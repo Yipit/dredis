@@ -104,11 +104,11 @@ class KeyCodec(object):
 
     def decode_key_id_and_length(self, key, db_value):
         """
-        In previous versions of dredis, all stored keys for zsets were prefixed with the key name.
+        In previous versions of dredis, all stored keys for zset, set, and hash were prefixed with the key name.
         In retrospect, that was a bad idea because delete operations had to be synchronous to ensure consistency.
 
-        The new approach is to store a unique ID as part of the zset key along with its size,
-        then every zset related stored key will have that prefix instead of the key name.
+        The new approach is to store a unique ID along with the key length, then every related stored key
+        (zset score/value, set member, and hash field) will have the key ID as prefix instead of the key name.
         The new approach should allow asynchronous deletions and still guarantee strong consistency.
 
         Example (values meant to exemplify the idea, not the real bytes):
@@ -124,12 +124,12 @@ class KeyCodec(object):
                 7_uniqueID_alice = 100
                 7_uniqueID_100_alice = ''
 
-            Then on deletions the "pointer" key is removed and the related keys can
-            be removed asynchronously. The next time a `zadd z` is executed, it will
-            get a new unique ID that won't collide with the previous.
+            Then on deletions, the "pointer" key should be removed immediately and the related keys marked
+            to be removed asynchronously. The next time a `zadd z` is executed, it will get a new unique ID
+            that won't collide with the previous.
 
-        To make migrations seamless and not break existing dredis installations,
-        for previously created objects, we assume the unique ID is the key name.
+        To make migrations seamless and not break existing dredis installations, for previously created objects,
+        we assume the unique ID is the key name.
         """
         if db_value is None:
             # newer schema with uuid
