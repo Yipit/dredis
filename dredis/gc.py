@@ -4,8 +4,8 @@ import time
 from dredis.db import NUMBER_OF_REDIS_DATABASES, DB_MANAGER, KEY_CODEC
 
 
-DEFAULT_GC_INTERVAL = 10  # milliseconds
-DEFAULT_GC_BATCH_SIZE = 1000  # number of storage keys to delete in a batch
+DEFAULT_GC_INTERVAL = 500  # milliseconds
+DEFAULT_GC_BATCH_SIZE = 10000  # number of storage keys to delete in a batch
 
 
 class KeyGarbageCollector(threading.Thread):

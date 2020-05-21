@@ -33,6 +33,7 @@ usage: dredis [-h] [-v] [--host HOST] [--port PORT] [--dir DIR]
               [--backend {lmdb,leveldb,memory}]
               [--backend-option BACKEND_OPTION] [--rdb RDB] [--debug]
               [--flushall] [--readonly]
+              [--gc-interval GC_INTERVAL] [--gc-batch-size GC_BATCH_SIZE]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -50,6 +51,10 @@ optional arguments:
   --debug               enable debug logs
   --flushall            run FLUSHALL on startup
   --readonly            accept read-only commands
+  --gc-interval GC_INTERVAL
+                        key gc interval in milliseconds (defaults to 500)
+  --gc-batch-size GC_BATCH_SIZE
+                        key gc batch size (defaults to 10000)
 ```
 
 
