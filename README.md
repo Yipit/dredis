@@ -32,7 +32,7 @@ $ dredis --help
 usage: dredis [-h] [-v] [--host HOST] [--port PORT] [--dir DIR]
               [--backend {lmdb,leveldb,memory}]
               [--backend-option BACKEND_OPTION] [--rdb RDB] [--debug]
-              [--flushall] [--readonly]
+              [--flushall] [--readonly] [--requirepass REQUIREPASS]
               [--gc-interval GC_INTERVAL] [--gc-batch-size GC_BATCH_SIZE]
 
 optional arguments:
@@ -51,6 +51,9 @@ optional arguments:
   --debug               enable debug logs
   --flushall            run FLUSHALL on startup
   --readonly            accept read-only commands
+  --requirepass REQUIREPASS
+                        require clients to issue AUTH <password> before
+                        processing any other commands
   --gc-interval GC_INTERVAL
                         key gc interval in milliseconds (defaults to 500)
   --gc-batch-size GC_BATCH_SIZE
