@@ -199,7 +199,7 @@ def main():
 
     RedisServer(args.host, args.port)
     gc_thread = gc.KeyGarbageCollector(args.gc_interval, args.gc_batch_size)
-    gc_thread.setDaemon(True)
+    gc_thread.daemon = True
     gc_thread.start()
 
     logger.info("Backend: {}".format(args.backend))
