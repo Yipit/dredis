@@ -19,6 +19,8 @@ def test_hset_and_hget():
     assert r.hget('myhash', 'key2') == 'value2'
     assert r.hget('myhash', 'notfound') is None
 
+    assert r.hlen('myhash') == 2
+
 
 def test_hkeys():
     r = fresh_redis()

@@ -430,7 +430,7 @@ class Keyspace(object):
         if self._db.get(KEY_CODEC.encode_hash_field(key_id, field)) is None:
             result = 1
         with self._db.write_batch() as batch:
-            batch.put(KEY_CODEC.encode_hash(key), KEY_CODEC.encode_key_id_and_length(key, key_id, hash_length + 1))
+            batch.put(KEY_CODEC.encode_hash(key), KEY_CODEC.encode_key_id_and_length(key, key_id, hash_length + result))
             batch.put(KEY_CODEC.encode_hash_field(key_id, field), value)
         return result
 
