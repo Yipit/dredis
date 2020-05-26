@@ -103,33 +103,36 @@ class Keyspace(object):
             return value[start:end]
 
     def sadd(self, key, value):
-        if self._db.get(KEY_CODEC.encode_set_member(key, value)) is None:
-            length = int(self._db.get(KEY_CODEC.encode_set(key)) or b'0')
+        key_id, length = self._get_set_key_id_and_length(key)
+        if self._db.get(KEY_CODEC.encode_set_member(key_id, value)) is None:
             with self._db.write_batch() as batch:
-                batch.put(KEY_CODEC.encode_set(key), bytes(length + 1))
-                batch.put(KEY_CODEC.encode_set_member(key, value), bytes(''))
+                batch.put(KEY_CODEC.encode_set(key), KEY_CODEC.encode_key_id_and_length(key, key_id, length + 1))
+                batch.put(KEY_CODEC.encode_set_member(key_id, value), bytes(''))
             return 1
         else:
             return 0
 
     def smembers(self, key):
         result = set()
-        if self._db.get(KEY_CODEC.encode_set(key)):
-            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_set_member(key)):
+        key_id, length = self._get_set_key_id_and_length(key)
+        if length > 0:
+            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_set_member(key_id)):
                 _, length, member_key = KEY_CODEC.decode_key(db_key)
                 member_value = member_key[length:]
                 result.add(member_value)
         return result
 
     def sismember(self, key, value):
-        return self._db.get(KEY_CODEC.encode_set_member(key, value)) is not None
+        key_id, _ = self._get_set_key_id_and_length(key)
+        return self._db.get(KEY_CODEC.encode_set_member(key_id, value)) is not None
 
     def scard(self, key):
-        length = self._db.get(KEY_CODEC.encode_set(key))
-        if length is None:
-            return 0
-        else:
-            return int(length)
+        _, length = self._get_set_key_id_and_length(key)
+        return length
+
+    def _get_set_key_id_and_length(self, key):
+        db_value = self._db.get(KEY_CODEC.encode_set(key))
+        return KEY_CODEC.decode_key_id_and_length(key, db_value)
 
     def delete(self, *keys):
         result = 0
@@ -157,41 +160,49 @@ class Keyspace(object):
         # there are two sets of db keys for sets:
         # * set
         # * set members
+        #
+        # currently the `set` key is immediately deleted and the other keys
+        # will be collected by gc.KeyGarbageCollector()
+        key_id, _ = self._get_set_key_id_and_length(key)
         with self._db.write_batch() as batch:
             batch.delete(KEY_CODEC.encode_set(key))
-            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_set_member(key)):
-                batch.delete(db_key)
+            batch.put(KEY_CODEC.encode_deleted_set(key_id), bytes(''))
 
     def _delete_db_hash(self, key):
         # there are two sets of db keys for hashes:
         # * hash
         # * hash fields
+        #
+        # currently the `hash` key is immediately deleted and the other keys
+        # will be collected by gc.KeyGarbageCollector()
+        key_id, _ = self._get_hash_key_id_and_length(key)
         with self._db.write_batch() as batch:
             batch.delete(KEY_CODEC.encode_hash(key))
-            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key)):
-                batch.delete(db_key)
+            batch.put(KEY_CODEC.encode_deleted_hash(key_id), bytes(''))
 
     def _delete_db_zset(self, key):
         # there are three sets of db keys for zsets:
         # * zset
         # * zset scores
         # * zset values
+        #
+        # currently the `zset` key is immediately deleted and the other keys
+        # will be collected by gc.KeyGarbageCollector()
+        key_id, _ = self._get_zset_key_id_and_length(key)
         with self._db.write_batch() as batch:
             batch.delete(KEY_CODEC.encode_zset(key))
-            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_score(key)):
-                batch.delete(db_key)
-            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_value(key)):
-                batch.delete(db_key)
+            batch.put(KEY_CODEC.encode_deleted_zset_score(key_id), bytes(''))
+            batch.put(KEY_CODEC.encode_deleted_zset_value(key_id), bytes(''))
 
     def _get_db_iterator(self, key_prefix=None, start=None):
         for db_key, db_value in self._db.iterator(prefix=key_prefix, start=start):
             yield db_key, db_value
 
     def zadd(self, key, score, value, nx=False, xx=False):
-        zset_length = int(self._db.get(KEY_CODEC.encode_zset(key), '0'))
+        key_id, zset_length = self._get_zset_key_id_and_length(key)
 
         batch = self._db.write_batch()
-        db_score = self._db.get(KEY_CODEC.encode_zset_value(key, value))
+        db_score = self._db.get(KEY_CODEC.encode_zset_value(key_id, value))
         if db_score is not None:
             if nx:
                 return 0
@@ -200,16 +211,16 @@ class Keyspace(object):
             if float(previous_score) == float(score):
                 return result
             else:
-                batch.delete(KEY_CODEC.encode_zset_score(key, value, previous_score))
+                batch.delete(KEY_CODEC.encode_zset_score(key_id, value, previous_score))
         else:
             if xx:
                 return 0
             result = 1
             zset_length += 1
-            batch.put(KEY_CODEC.encode_zset(key), bytes(zset_length))
+            batch.put(KEY_CODEC.encode_zset(key), KEY_CODEC.encode_key_id_and_length(key, key_id, zset_length))
 
-        batch.put(KEY_CODEC.encode_zset_value(key, value), to_float_string(score))
-        batch.put(KEY_CODEC.encode_zset_score(key, value, score), bytes(''))
+        batch.put(KEY_CODEC.encode_zset_value(key_id, value), to_float_string(score))
+        batch.put(KEY_CODEC.encode_zset_score(key_id, value, score), bytes(''))
         batch.write()
 
         return result
@@ -217,7 +228,7 @@ class Keyspace(object):
     def zrange(self, key, start, stop, with_scores):
         result = []
 
-        zset_length = int(self._db.get(KEY_CODEC.encode_zset(key), '0'))
+        key_id, zset_length = self._get_zset_key_id_and_length(key)
         if stop < 0:
             end = zset_length + stop
         else:
@@ -227,7 +238,7 @@ class Keyspace(object):
             begin = max(0, zset_length + start)
         else:
             begin = start
-        for i, (db_key, _) in enumerate(self._get_db_iterator(KEY_CODEC.get_min_zset_score(key))):
+        for i, (db_key, _) in enumerate(self._get_db_iterator(KEY_CODEC.get_min_zset_score(key_id))):
             if i < begin:
                 continue
             if i > end:
@@ -241,10 +252,15 @@ class Keyspace(object):
         return result
 
     def zcard(self, key):
-        return int(self._db.get(KEY_CODEC.encode_zset(key), '0'))
+        _, zset_length = self._get_zset_key_id_and_length(key)
+        return zset_length
 
     def zscore(self, key, member):
-        return self._db.get(KEY_CODEC.encode_zset_value(key, member))
+        key_id, length = self._get_zset_key_id_and_length(key)
+        if length == 0:
+            return None
+        else:
+            return self._db.get(KEY_CODEC.encode_zset_value(key_id, member))
 
     def zscan(self, key, cursor, match, count):
         def get_key_value_pair(db_key, db_value):
@@ -252,10 +268,11 @@ class Keyspace(object):
             value = KEY_CODEC.decode_zset_score(db_key)
             return field, value
 
+        key_id, _ = self._get_zset_key_id_and_length(key)
         get_min_field = KEY_CODEC.get_min_zset_score
         cursors = ZSET_CURSORS
 
-        return self._scan(key, cursor, match, count, get_min_field, get_key_value_pair, cursors)
+        return self._scan(key_id, cursor, match, count, get_min_field, get_key_value_pair, cursors)
 
     def eval(self, script, keys, argv):
         return self._lua_runner.run(script, keys, argv)
@@ -265,7 +282,7 @@ class Keyspace(object):
         see zadd() for information about score and value structures
         """
         result = 0
-        zset_length = int(self._db.get(KEY_CODEC.encode_zset(key), '0'))
+        key_id, zset_length = self._get_zset_key_id_and_length(key)
 
         # safe guard
         if zset_length == 0:
@@ -273,21 +290,25 @@ class Keyspace(object):
 
         batch = self._db.write_batch()
         for member in members:
-            score = self._db.get(KEY_CODEC.encode_zset_value(key, member))
+            score = self._db.get(KEY_CODEC.encode_zset_value(key_id, member))
             if score is None:
                 continue
             result += 1
             zset_length -= 1
-            batch.delete(KEY_CODEC.encode_zset_value(key, member))
-            batch.delete(KEY_CODEC.encode_zset_score(key, member, score))
+            batch.delete(KEY_CODEC.encode_zset_value(key_id, member))
+            batch.delete(KEY_CODEC.encode_zset_score(key_id, member, score))
 
         # empty zset should be removed from keyspace
         if zset_length == 0:
             self.delete(key)
         else:
-            batch.put(KEY_CODEC.encode_zset(key), bytes(zset_length))
+            batch.put(KEY_CODEC.encode_zset(key), KEY_CODEC.encode_key_id_and_length(key, key_id, zset_length))
             batch.write()
         return result
+
+    def _get_zset_key_id_and_length(self, key):
+        db_value = self._db.get(KEY_CODEC.encode_zset(key))
+        return KEY_CODEC.decode_key_id_and_length(key, db_value)
 
     def zrangebyscore(self, key, min_score, max_score, withscores=False, offset=0, count=float('+inf')):
         result = []
@@ -297,8 +318,10 @@ class Keyspace(object):
         else:
             num_elems_per_entry = 1
 
+        key_id, _ = self._get_zset_key_id_and_length(key)
+
         score_range = ScoreRange(min_score, max_score)
-        for db_key in self._db.iterator(prefix=KEY_CODEC.get_min_zset_score(key), include_value=False):
+        for db_key in self._db.iterator(prefix=KEY_CODEC.get_min_zset_score(key_id), include_value=False):
             if len(result) / num_elems_per_entry >= count:
                 return result
             db_score = KEY_CODEC.decode_zset_score(db_key)
@@ -325,10 +348,10 @@ class Keyspace(object):
         #
         #     ZADD myzset 10 b
         #     <prefix>_myzset_10 = 2  ; two elements with score 10
-
+        key_id, _ = self._get_zset_key_id_and_length(key)
         score_range = ScoreRange(min_score, max_score)
         count = 0
-        for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_score(key)):
+        for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_score(key_id)):
             db_score = KEY_CODEC.decode_zset_score(db_key)
             if score_range.check(db_score):
                 count += 1
@@ -337,12 +360,14 @@ class Keyspace(object):
         return count
 
     def zrank(self, key, member):
-        score = self._db.get(KEY_CODEC.encode_zset_value(key, member))
+        key_id, _ = self._get_zset_key_id_and_length(key)
+
+        score = self._db.get(KEY_CODEC.encode_zset_value(key_id, member))
         if score is None:
             return None
 
         rank = 0
-        for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_score(key)):
+        for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_zset_score(key_id)):
             db_score = KEY_CODEC.decode_zset_score(db_key)
             db_value = KEY_CODEC.decode_zset_value(db_key)
             if db_score < float(score):
@@ -401,28 +426,32 @@ class Keyspace(object):
 
     def hset(self, key, field, value):
         result = 0
-        if self._db.get(KEY_CODEC.encode_hash_field(key, field)) is None:
+        key_id, hash_length = self._get_hash_key_id_and_length(key)
+        if self._db.get(KEY_CODEC.encode_hash_field(key_id, field)) is None:
             result = 1
-        hash_length = int(self._db.get(KEY_CODEC.encode_hash(key), '0'))
         with self._db.write_batch() as batch:
-            batch.put(KEY_CODEC.encode_hash(key), bytes(hash_length + 1))
-            batch.put(KEY_CODEC.encode_hash_field(key, field), value)
+            batch.put(KEY_CODEC.encode_hash(key), KEY_CODEC.encode_key_id_and_length(key, key_id, hash_length + result))
+            batch.put(KEY_CODEC.encode_hash_field(key_id, field), value)
         return result
 
+    def _get_hash_key_id_and_length(self, key):
+        db_value = self._db.get(KEY_CODEC.encode_hash(key))
+        return KEY_CODEC.decode_key_id_and_length(key, db_value)
+
     def hsetnx(self, key, field, value):
+        key_id, hash_length = self._get_hash_key_id_and_length(key)
         # only set if not set before
-        if self._db.get(KEY_CODEC.encode_hash_field(key, field)) is None:
-            hash_length = int(self._db.get(KEY_CODEC.encode_hash(key), '0'))
+        if self._db.get(KEY_CODEC.encode_hash_field(key_id, field)) is None:
             with self._db.write_batch() as batch:
-                batch.put(KEY_CODEC.encode_hash(key), bytes(hash_length + 1))
-                batch.put(KEY_CODEC.encode_hash_field(key, field), value)
+                batch.put(KEY_CODEC.encode_hash(key), KEY_CODEC.encode_key_id_and_length(key, key_id, hash_length + 1))
+                batch.put(KEY_CODEC.encode_hash_field(key_id, field), value)
             return 1
         else:
             return 0
 
     def hdel(self, key, *fields):
         result = 0
-        hash_length = int(self._db.get(KEY_CODEC.encode_hash(key), '0'))
+        key_id, hash_length = self._get_hash_key_id_and_length(key)
 
         # safe guard
         if hash_length == 0:
@@ -430,26 +459,28 @@ class Keyspace(object):
 
         batch = self._db.write_batch()
         for field in fields:
-            if self._db.get(KEY_CODEC.encode_hash_field(key, field)) is not None:
+            if self._db.get(KEY_CODEC.encode_hash_field(key_id, field)) is not None:
                 result += 1
                 hash_length -= 1
-                batch.delete(KEY_CODEC.encode_hash_field(key, field))
+                batch.delete(KEY_CODEC.encode_hash_field(key_id, field))
 
         if hash_length == 0:
             # remove empty hashes from keyspace
             self.delete(key)
         else:
-            batch.put(KEY_CODEC.encode_hash(key), bytes(hash_length))
+            batch.put(KEY_CODEC.encode_hash(key), KEY_CODEC.encode_key_id_and_length(key, key_id, hash_length))
             batch.write()
         return result
 
     def hget(self, key, field):
-        return self._db.get(KEY_CODEC.encode_hash_field(key, field))
+        key_id, _ = self._get_hash_key_id_and_length(key)
+        return self._db.get(KEY_CODEC.encode_hash_field(key_id, field))
 
     def hkeys(self, key):
         result = []
-        if self._db.get(KEY_CODEC.encode_hash(key)) is not None:
-            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key)):
+        key_id, hash_length = self._get_hash_key_id_and_length(key)
+        if hash_length > 0:
+            for db_key, _ in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key_id)):
                 _, length, field_key = KEY_CODEC.decode_key(db_key)
                 field = field_key[length:]
                 result.append(field)
@@ -458,17 +489,15 @@ class Keyspace(object):
 
     def hvals(self, key):
         result = []
-        if self._db.get(KEY_CODEC.encode_hash(key)) is not None:
-            for _, db_value in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key)):
+        key_id, hash_length = self._get_hash_key_id_and_length(key)
+        if hash_length > 0:
+            for _, db_value in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key_id)):
                 result.append(db_value)
         return result
 
     def hlen(self, key):
-        result = self._db.get(KEY_CODEC.encode_hash(key))
-        if result is None:
-            return 0
-        else:
-            return int(result)
+        key_id, hash_length = self._get_hash_key_id_and_length(key)
+        return hash_length
 
     def hincrby(self, key, field, increment):
         before = self.hget(key, field) or '0'
@@ -478,8 +507,9 @@ class Keyspace(object):
 
     def hgetall(self, key):
         result = []
-        if self._db.get(KEY_CODEC.encode_hash(key)) is not None:
-            for db_key, db_value in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key)):
+        key_id, hash_length = self._get_hash_key_id_and_length(key)
+        if hash_length > 0:
+            for db_key, db_value in self._get_db_iterator(KEY_CODEC.get_min_hash_field(key_id)):
                 _, length, field_key = KEY_CODEC.decode_key(db_key)
                 field = field_key[length:]
                 result.append(field)
@@ -492,10 +522,11 @@ class Keyspace(object):
             field = field_key[length:]
             return field, db_value
 
+        key_id, _ = self._get_hash_key_id_and_length(key)
         get_min_field = KEY_CODEC.get_min_hash_field
         cursors = HASH_CURSORS
 
-        return self._scan(key, cursor, match, count, get_min_field, get_key_value_pair, cursors)
+        return self._scan(key_id, cursor, match, count, get_min_field, get_key_value_pair, cursors)
 
     def _scan(self, key, cursor, match, count, get_min_field, get_key_value_pair, cursors):
         elements = []
@@ -545,11 +576,31 @@ class Keyspace(object):
         if self.exists(old_name):
             if old_name == new_name:
                 return
-            dump = self.dump(old_name)
-            self.restore(new_name, ttl=0, payload=dump, replace=True)
-            self.delete(old_name)
+            # replace the key that holds the key ID and don't touch the rest
+            key_type = self.type(old_name)
+            if key_type == 'zset':
+                old_db_key = KEY_CODEC.encode_zset(old_name)
+                new_db_key = KEY_CODEC.encode_zset(new_name)
+            elif key_type == 'hash':
+                old_db_key = KEY_CODEC.encode_hash(old_name)
+                new_db_key = KEY_CODEC.encode_hash(new_name)
+            elif key_type == 'set':
+                old_db_key = KEY_CODEC.encode_set(old_name)
+                new_db_key = KEY_CODEC.encode_set(new_name)
+            elif key_type == 'string':
+                old_db_key = KEY_CODEC.encode_string(old_name)
+                new_db_key = KEY_CODEC.encode_string(new_name)
+            else:
+                raise DredisError("invalid key type")
+            self._replace_db_key(new_db_key, old_db_key)
         else:
             raise NoKeyError()
+
+    def _replace_db_key(self, new_db_key, old_db_key):
+        db_value = self._db.get(old_db_key)
+        with self._db.write_batch() as batch:
+            batch.delete(old_db_key)
+            batch.put(new_db_key, db_value)
 
     def auth(self, password):
         if config.get('requirepass') == config.EMPTY:

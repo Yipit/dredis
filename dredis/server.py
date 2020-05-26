@@ -12,7 +12,7 @@ import traceback
 import sys
 
 from dredis import __version__
-from dredis import db, rdb, config
+from dredis import db, rdb, config, gc
 from dredis.commands import run_command, SimpleString
 from dredis.exceptions import DredisError
 from dredis.keyspace import Keyspace, to_float_string
@@ -156,6 +156,10 @@ def main():
     parser.add_argument('--readonly', action='store_true', help='accept read-only commands')
     parser.add_argument('--requirepass', default='',
                         help='require clients to issue AUTH <password> before processing any other commands')
+    parser.add_argument('--gc-interval', default=gc.DEFAULT_GC_INTERVAL,
+                        type=float, help='key gc interval in milliseconds (defaults to %(default)s)')
+    parser.add_argument('--gc-batch-size', default=gc.DEFAULT_GC_BATCH_SIZE,
+                        type=float, help='key gc batch size (defaults to %(default)s)')
     args = parser.parse_args()
 
     global ROOT_DIR
@@ -194,6 +198,9 @@ def main():
         logger.info("Finished loading (%.2f seconds)." % (time.time() - start_time))
 
     RedisServer(args.host, args.port)
+    gc_thread = gc.KeyGarbageCollector(args.gc_interval, args.gc_batch_size)
+    gc_thread.daemon = True
+    gc_thread.start()
 
     logger.info("Backend: {}".format(args.backend))
     logger.info("Port: {}".format(args.port))

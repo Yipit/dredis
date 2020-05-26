@@ -19,6 +19,6 @@ def test_lua_evaluation():
     r = fresh_redis(port=PROFILE_PORT)
     before_eval = time.time()
     for score in range(LARGE_NUMBER):
-        assert r.eval("return 1".format(score), 0) == 1
+        assert r.eval("return 1", 0) == 1
     after_eval = time.time()
     print '\nLua EVAL time = {:.5f}s'.format(after_eval - before_eval)
