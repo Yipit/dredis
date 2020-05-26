@@ -2,6 +2,7 @@
 
 * Change zset, set, and hash implementation to use pointers to allow asynchronous deletion
 * Add a key garbage collector as a background thread to delete keys marked for deletion
+* Fix hash length bug introduced in commit 53db515d6271784399a38256e08eb290eab153ef
 
 ## 2.5.3
 
