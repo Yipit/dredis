@@ -3,6 +3,6 @@ services:
   dredis:
     build: .
     ports:
-    - "6377:6377"
+    - "${DREDIS_PORT:-6377}:6377"
     volumes:
     - .:/app
