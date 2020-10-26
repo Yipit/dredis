@@ -3,6 +3,9 @@ python:
   - "2.7"
 services:
   - redis-server
+before_install:
+  - sudo apt-get update -q
+  - sudo apt-get install -y libleveldb-dev
 install: make setup
 env:
   - TEST_SUITE=fulltests BACKEND="--backend memory"
